@@ -1530,6 +1530,149 @@ export const useSetBookingCrew = <TError = ErrorType<void>,
       return useMutation(getSetBookingCrewMutationOptions(options));
     }
 
+export const getStartBookingTimerUrl = (id: number,) => {
+
+
+
+
+  return `/api/bookings/${id}/timer/start`
+}
+
+/**
+ * Starts the on-site clock. Idempotent: if the clock is already running, the same stretch is returned rather than a second one being opened — a crew member tapping twice on a weak signal must not double-bill.
+ * @summary Clock on to a job
+ */
+export const startBookingTimer = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Booking> => {
+
+  return customFetch<Booking>(getStartBookingTimerUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartBookingTimerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startBookingTimer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startBookingTimer>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['startBookingTimer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startBookingTimer>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  startBookingTimer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartBookingTimerMutationResult = NonNullable<Awaited<ReturnType<typeof startBookingTimer>>>
+
+    export type StartBookingTimerMutationError = ErrorType<void>
+
+    /**
+ * @summary Clock on to a job
+ */
+export const useStartBookingTimer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startBookingTimer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startBookingTimer>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getStartBookingTimerMutationOptions(options));
+    }
+
+export const getStopBookingTimerUrl = (id: number,) => {
+
+
+
+
+  return `/api/bookings/${id}/timer/stop`
+}
+
+/**
+ * @summary Clock off a job
+ */
+export const stopBookingTimer = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Booking> => {
+
+  return customFetch<Booking>(getStopBookingTimerUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStopBookingTimerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopBookingTimer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stopBookingTimer>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['stopBookingTimer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopBookingTimer>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  stopBookingTimer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopBookingTimerMutationResult = NonNullable<Awaited<ReturnType<typeof stopBookingTimer>>>
+
+    export type StopBookingTimerMutationError = ErrorType<void>
+
+    /**
+ * @summary Clock off a job
+ */
+export const useStopBookingTimer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopBookingTimer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof stopBookingTimer>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getStopBookingTimerMutationOptions(options));
+    }
+
 export const getListTeamMembersUrl = () => {
 
 

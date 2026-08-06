@@ -330,6 +330,52 @@ paths:
                 $ref: "#/components/schemas/Booking"
         "404":
           description: Booking not found
+  /bookings/{id}/timer/start:
+    post:
+      operationId: startBookingTimer
+      tags: [bookings]
+      summary: Clock on to a job
+      description: >
+        Starts the on-site clock. Idempotent: if the clock is already running,
+        the same stretch is returned rather than a second one being opened —
+        a crew member tapping twice on a weak signal must not double-bill.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking with the clock running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Booking not found
+  /bookings/{id}/timer/stop:
+    post:
+      operationId: stopBookingTimer
+      tags: [bookings]
+      summary: Clock off a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking with the finished time recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Booking not found
+        "409":
+          description: The clock was not running
   /team:
     get:
       operationId: listTeamMembers
@@ -1519,7 +1565,31 @@ components:
         crew:
           type: array
           items: { $ref: "#/components/schemas/CrewMember" }
+        # On-site time, clocked by whoever is at the house. `timerRunningSince`
+        # is the moment the current stretch started, null when the clock is
+        # stopped; `workedMinutes` counts only finished stretches, so the two
+        # together describe the job without the server having to guess "now".
+        timerRunningSince: { type: ["string", "null"] }
+        workedMinutes: { type: integer }
+        timeEntries:
+          type: array
+          items: { $ref: "#/components/schemas/BookingTimeEntry" }
         createdAt: { type: string }
+    BookingTimeEntry:
+      type: object
+      required: [id, startedAt, endedAt, minutes]
+      properties:
+        id: { type: integer }
+        startedAt: { type: string }
+        # Null while this stretch is still running.
+        endedAt: { type: ["string", "null"] }
+        # Whole minutes worked in this stretch; 0 while it is still running.
+        minutes: { type: integer }
+        # Who clocked in, if we know. Kept as a name rather than an id so a
+        # cleaner who has since left the team still shows on the history.
+        startedByName: { type: ["string", "null"] }
+        # True when the office corrected these times by hand.
+        edited: { type: boolean }
     BookingUpdate:
       type: object
       properties:
@@ -1752,6 +1822,8 @@ components:
                 team_invited,
                 crew_assigned,
                 reschedule_texted,
+                job_started,
+                job_finished,
               ],
           }
         message: { type: string }

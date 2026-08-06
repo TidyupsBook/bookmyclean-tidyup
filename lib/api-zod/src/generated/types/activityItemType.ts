@@ -21,4 +21,6 @@ export const ActivityItemType = {
   team_invited: 'team_invited',
   crew_assigned: 'crew_assigned',
   reschedule_texted: 'reschedule_texted',
+  job_started: 'job_started',
+  job_finished: 'job_finished',
 } as const;

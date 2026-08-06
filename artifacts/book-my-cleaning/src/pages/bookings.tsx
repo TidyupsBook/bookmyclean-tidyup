@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PanelErrorBoundary } from "@/components/PanelErrorBoundary";
+import { JobTimerPanel } from "@/components/JobTimerPanel";
 import { PageHeader, LoadingSpinner } from "@/components/ui/shared";
 import {
   useListBookings,
@@ -526,6 +527,10 @@ export function BookingsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* The on-site clock. Shown to crew and office alike: crew tap
+                  it at the house, the office bills from what it records. */}
+                <JobTimerPanel booking={booking} canDispatch={canDispatch} />
 
                 {/* Quoting, money and Jobber are dispatch work. Hidden for
                   cleaners to match what the API will actually allow. */}

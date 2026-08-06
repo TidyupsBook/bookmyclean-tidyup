@@ -131,6 +131,10 @@ const MATRIX: Record<string, Role[]> = {
   "POST /bookings": ["owner", "dispatcher"],
   "PATCH /bookings/:id": ["owner", "dispatcher", "cleaner"],
   "PUT /bookings/:id/crew": ["owner", "dispatcher"],
+  // The on-site clock. Open to crew on purpose — they are the ones at the
+  // house — and scoped in the handler to jobs they were actually sent to.
+  "POST /bookings/:id/timer/start": ["owner", "dispatcher", "cleaner"],
+  "POST /bookings/:id/timer/stop": ["owner", "dispatcher", "cleaner"],
   "GET /bookings/:id/quote-preview": ["owner", "dispatcher"],
   "POST /bookings/:id/send-quote": ["owner", "dispatcher"],
   "POST /bookings/:id/confirm-time": ["owner", "dispatcher"],

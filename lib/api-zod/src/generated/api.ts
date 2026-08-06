@@ -844,6 +844,235 @@ export const SetBookingCrewResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * Starts the on-site clock. Idempotent: if the clock is already running, the same stretch is returned rather than a second one being opened — a crew member tapping twice on a weak signal must not double-bill.
+ * @summary Clock on to a job
+ */
+export const StartBookingTimerParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+
+
+
+export const StartBookingTimerResponse = zod.object({
+  "id": zod.int(),
+  "callId": zod.int().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string(),
+  "customerEmail": zod.string().nullish(),
+  "customerAddress": zod.string().nullish(),
+  "addressCity": zod.string().nullish(),
+  "addressProvince": zod.string().nullish(),
+  "addressPostal": zod.string().nullish(),
+  "service": zod.string(),
+  "bedrooms": zod.int().nullish(),
+  "bathrooms": zod.int().nullish(),
+  "extras": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "frequency": zod.string().nullish(),
+  "internalNotes": zod.string().nullish(),
+  "scheduledFor": zod.string(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
+  "quoteHours": zod.number().nullish(),
+  "quoteCrewLabel": zod.string().nullish(),
+  "quoteHourlyRate": zod.number().nullish(),
+  "quoteFuelSurcharge": zod.number().nullish(),
+  "quoteDiscountAmount": zod.number().nullish(),
+  "quoteReferralSource": zod.string().nullish(),
+  "quotedAmount": zod.number().nullish(),
+  "quoteDeposit": zod.number().nullish(),
+  "quoteNotes": zod.string().nullish(),
+  "quoteMessage": zod.string().nullish(),
+  "quoteSentAt": zod.string().nullish(),
+  "quoteUrl": zod.string().nullish(),
+  "quoteApprovedAt": zod.string().nullish(),
+  "depositPaidAt": zod.string().nullish(),
+  "depositPaidAmount": zod.number().nullish(),
+  "quoteTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]),
+  "quoteSentTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]).optional(),
+  "needsTimeReview": zod.boolean(),
+  "timeReviewPreviousTimezone": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberJobId": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberSyncError": zod.string().nullish(),
+  "jobberSyncErrorAt": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodedAt": zod.string().nullish(),
+  "durationMinutes": zod.int().nullish(),
+  "crew": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Clock off a job
+ */
+export const StopBookingTimerParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+
+
+
+export const StopBookingTimerResponse = zod.object({
+  "id": zod.int(),
+  "callId": zod.int().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string(),
+  "customerEmail": zod.string().nullish(),
+  "customerAddress": zod.string().nullish(),
+  "addressCity": zod.string().nullish(),
+  "addressProvince": zod.string().nullish(),
+  "addressPostal": zod.string().nullish(),
+  "service": zod.string(),
+  "bedrooms": zod.int().nullish(),
+  "bathrooms": zod.int().nullish(),
+  "extras": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "frequency": zod.string().nullish(),
+  "internalNotes": zod.string().nullish(),
+  "scheduledFor": zod.string(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
+  "quoteHours": zod.number().nullish(),
+  "quoteCrewLabel": zod.string().nullish(),
+  "quoteHourlyRate": zod.number().nullish(),
+  "quoteFuelSurcharge": zod.number().nullish(),
+  "quoteDiscountAmount": zod.number().nullish(),
+  "quoteReferralSource": zod.string().nullish(),
+  "quotedAmount": zod.number().nullish(),
+  "quoteDeposit": zod.number().nullish(),
+  "quoteNotes": zod.string().nullish(),
+  "quoteMessage": zod.string().nullish(),
+  "quoteSentAt": zod.string().nullish(),
+  "quoteUrl": zod.string().nullish(),
+  "quoteApprovedAt": zod.string().nullish(),
+  "depositPaidAt": zod.string().nullish(),
+  "depositPaidAmount": zod.number().nullish(),
+  "quoteTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]),
+  "quoteSentTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]).optional(),
+  "needsTimeReview": zod.boolean(),
+  "timeReviewPreviousTimezone": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberJobId": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberSyncError": zod.string().nullish(),
+  "jobberSyncErrorAt": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodedAt": zod.string().nullish(),
+  "durationMinutes": zod.int().nullish(),
+  "crew": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -1244,6 +1473,16 @@ export const ListBookingsResponseItem = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 export const ListBookingsResponse = zod.array(ListBookingsResponseItem)
@@ -1414,6 +1653,16 @@ export const CreateBookingResponse = zod.object({
   "id": zod.int(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -1705,6 +1954,16 @@ export const SendQuoteResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -1873,6 +2132,16 @@ export const UpdateBookingResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -1971,6 +2240,16 @@ export const ConfirmBookingTimeResponse = zod.object({
   "id": zod.int(),
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -2071,6 +2350,16 @@ export const SendRescheduleTextResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -2170,6 +2459,16 @@ export const SyncBookingToJobberResponse = zod.object({
   "name": zod.string(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
 })).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional()
+})).optional(),
   "createdAt": zod.string()
 })
 
@@ -2193,7 +2492,7 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.int(),
-  "type": zod.enum(['call_answered', 'booking_created', 'jobber_synced', 'jobber_sync_failed', 'quote_sent', 'quote_approved', 'deposit_paid', 'test_call', 'team_invited', 'crew_assigned', 'reschedule_texted']),
+  "type": zod.enum(['call_answered', 'booking_created', 'jobber_synced', 'jobber_sync_failed', 'quote_sent', 'quote_approved', 'deposit_paid', 'test_call', 'team_invited', 'crew_assigned', 'reschedule_texted', 'job_started', 'job_finished']),
   "message": zod.string(),
   "occurredAt": zod.string()
 })

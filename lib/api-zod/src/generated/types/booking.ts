@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BookingStatus } from './bookingStatus';
+import type { BookingTimeEntry } from './bookingTimeEntry';
 import type { CrewMember } from './crewMember';
 import type { QuoteTotals } from './quoteTotals';
 
@@ -92,5 +93,9 @@ export interface Booking {
   /** @nullable */
   durationMinutes?: number | null;
   crew?: CrewMember[];
+  /** @nullable */
+  timerRunningSince?: string | null;
+  workedMinutes?: number;
+  timeEntries?: BookingTimeEntry[];
   createdAt: string;
 }

@@ -1,14 +1,16 @@
-import { Router, type IRouter } from "express";
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { and, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import {
   db,
   bookingsTable,
   bookingAssignmentsTable,
+  bookingTimeEntriesTable,
   teamMembersTable,
   servicesTable,
   callsTable,
   activityTable,
   type Booking,
+  type BookingTimeEntry,
 } from "@workspace/db";
 import {
   ListBookingsResponse,
@@ -33,6 +35,10 @@ import {
   SetBookingCrewParams,
   SetBookingCrewBody,
   SetBookingCrewResponse,
+  StartBookingTimerParams,
+  StartBookingTimerResponse,
+  StopBookingTimerParams,
+  StopBookingTimerResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole } from "../middlewares/requireRole";
@@ -56,10 +62,16 @@ import {
   getValidAccessToken,
   createJobberClient,
   createJobberRequest,
+  createJobberJobNote,
   tryAttachRequestNote,
 } from "../lib/jobber";
 import { logger } from "../lib/logger";
 import { redactBookingForCleaner } from "../lib/bookingVisibility";
+import {
+  summarizeTimeEntries,
+  entryMinutes,
+  formatWorkedTime,
+} from "../lib/jobTimer";
 
 const router: IRouter = Router();
 
@@ -109,6 +121,45 @@ async function loadCrews(
     crews.set(row.bookingId, list);
   }
   return crews;
+}
+
+/**
+ * Clocked time for a set of bookings, keyed by booking id. One query for the
+ * whole list, same as the crews above — a busy schedule must not turn into a
+ * lookup per job.
+ */
+async function loadTimeEntries(
+  companyId: number,
+  bookingIds: number[],
+): Promise<Map<number, BookingTimeEntry[]>> {
+  const byBooking = new Map<number, BookingTimeEntry[]>();
+  if (bookingIds.length === 0) return byBooking;
+
+  const rows = await db
+    .select()
+    .from(bookingTimeEntriesTable)
+    .where(
+      and(
+        eq(bookingTimeEntriesTable.companyId, companyId),
+        inArray(bookingTimeEntriesTable.bookingId, bookingIds),
+      ),
+    )
+    .orderBy(bookingTimeEntriesTable.startedAt);
+
+  for (const row of rows) {
+    const list = byBooking.get(row.bookingId) ?? [];
+    list.push(row);
+    byBooking.set(row.bookingId, list);
+  }
+  return byBooking;
+}
+
+/** The clocked time for one booking, for the routes that answer with a single job. */
+async function timeEntriesFor(
+  companyId: number,
+  bookingId: number,
+): Promise<BookingTimeEntry[]> {
+  return (await loadTimeEntries(companyId, [bookingId])).get(bookingId) ?? [];
 }
 
 /** When a booking carries no duration, fall back to the service, else two hours. */
@@ -203,9 +254,15 @@ function serializeBooking(
   company: Company,
   b: Booking,
   crew: CrewMember[] = [],
+  timeEntries: BookingTimeEntry[] = [],
 ) {
   return {
     ...b,
+    // On-site time. Defaulted to "nothing clocked" rather than omitted, so a
+    // route that answers with a single booking still satisfies the contract —
+    // but every route a dashboard reads from loads the real rows, or the card
+    // would blink back to zero after an unrelated edit.
+    ...summarizeTimeEntries(timeEntries),
     // Who is working the job. Defaulted rather than required so the many
     // existing call sites that respond with a single booking keep compiling.
     crew,
@@ -406,11 +463,20 @@ router.get("/bookings", async (req, res): Promise<void> => {
     .orderBy(desc(bookingsTable.createdAt));
 
   const crews = await loadCrews(bookings.map((b) => b.id));
+  const times = await loadTimeEntries(
+    company.id,
+    bookings.map((b) => b.id),
+  );
 
   // Pricing and Jobber state never leave the server for a crew login —
   // hidden UI on the phone is not a boundary; this is.
   const serialized = bookings.map((b) => {
-    const s = serializeBooking(company, b, crews.get(b.id) ?? []);
+    const s = serializeBooking(
+      company,
+      b,
+      crews.get(b.id) ?? [],
+      times.get(b.id) ?? [],
+    );
     return caller.role === "cleaner" ? redactBookingForCleaner(s) : s;
   });
 
@@ -488,7 +554,12 @@ router.put(
     const crews = await loadCrews([booking.id]);
     res.json(
       SetBookingCrewResponse.parse(
-        serializeBooking(company, booking, crews.get(booking.id) ?? []),
+        serializeBooking(
+          company,
+          booking,
+          crews.get(booking.id) ?? [],
+          await timeEntriesFor(company.id, booking.id),
+        ),
       ),
     );
   },
@@ -602,7 +673,12 @@ router.patch("/bookings/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Booking not found" });
     return;
   }
-  const serialized = serializeBooking(company, booking);
+  const serialized = serializeBooking(
+    company,
+    booking,
+    [],
+    await timeEntriesFor(company.id, booking.id),
+  );
   res.json(
     UpdateBookingResponse.parse(
       caller.role === "cleaner"
@@ -975,7 +1051,16 @@ router.post(
       return;
     }
 
-    res.json(SendQuoteResponse.parse(serializeBooking(company, updated!)));
+    res.json(
+      SendQuoteResponse.parse(
+        serializeBooking(
+          company,
+          updated!,
+          [],
+          await timeEntriesFor(company.id, updated!.id),
+        ),
+      ),
+    );
   },
 );
 
@@ -1010,7 +1095,14 @@ router.post(
       return;
     }
     res.json(
-      ConfirmBookingTimeResponse.parse(serializeBooking(company, booking)),
+      ConfirmBookingTimeResponse.parse(
+        serializeBooking(
+          company,
+          booking,
+          [],
+          await timeEntriesFor(company.id, booking.id),
+        ),
+      ),
     );
   },
 );
@@ -1095,7 +1187,14 @@ router.post(
     }
 
     res.json(
-      SendRescheduleTextResponse.parse(serializeBooking(company, booking)),
+      SendRescheduleTextResponse.parse(
+        serializeBooking(
+          company,
+          booking,
+          [],
+          await timeEntriesFor(company.id, booking.id),
+        ),
+      ),
     );
   },
 );
@@ -1141,7 +1240,14 @@ router.post(
     }
     if (existing.jobberSynced) {
       res.json(
-        SyncBookingToJobberResponse.parse(serializeBooking(company, existing)),
+        SyncBookingToJobberResponse.parse(
+          serializeBooking(
+            company,
+            existing,
+            [],
+            await timeEntriesFor(company.id, existing.id),
+          ),
+        ),
       );
       return;
     }
@@ -1235,7 +1341,14 @@ router.post(
       });
 
       res.json(
-        SyncBookingToJobberResponse.parse(serializeBooking(company, booking!)),
+        SyncBookingToJobberResponse.parse(
+          serializeBooking(
+            company,
+            booking!,
+            [],
+            await timeEntriesFor(company.id, booking!.id),
+          ),
+        ),
       );
     } catch (err) {
       logger.error({ err }, "Jobber sync failed");
@@ -1265,5 +1378,323 @@ router.post(
     }
   },
 );
+
+/**
+ * The on-site clock.
+ *
+ * Crew tap Start when they walk in and Stop when they leave, and the office
+ * bills from the total. Deliberately open to cleaners — they are the ones at
+ * the house — but a cleaner may only clock a job they were actually sent to,
+ * the same rule the rest of their access follows.
+ */
+type TimerTarget =
+  | { ok: true; company: Company; booking: Booking; actor: CrewClockIdentity }
+  | { ok: false; status: number; error: string };
+
+type CrewClockIdentity = { teamMemberId: number | null; name: string | null };
+
+async function resolveTimerTarget(
+  req: Parameters<typeof getCaller>[0],
+  bookingId: number,
+): Promise<TimerTarget> {
+  const caller = await getCaller(req);
+  if (!caller.company) {
+    return { ok: false, status: 404, error: "Booking not found" };
+  }
+  const company = caller.company;
+
+  const [booking] = await db
+    .select()
+    .from(bookingsTable)
+    .where(
+      and(
+        eq(bookingsTable.id, bookingId),
+        eq(bookingsTable.companyId, company.id),
+      ),
+    );
+  if (!booking) {
+    return { ok: false, status: 404, error: "Booking not found" };
+  }
+
+  // A cleaner clocks their own jobs only. Answering 404 rather than 403 keeps
+  // the existence of other companies' — and other crews' — jobs private.
+  if (caller.role === "cleaner") {
+    const [assignment] = await db
+      .select({ id: bookingAssignmentsTable.id })
+      .from(bookingAssignmentsTable)
+      .where(
+        and(
+          eq(bookingAssignmentsTable.bookingId, booking.id),
+          eq(bookingAssignmentsTable.teamMemberId, caller.teamMemberId!),
+        ),
+      )
+      .limit(1);
+    if (!assignment) {
+      return { ok: false, status: 404, error: "Booking not found" };
+    }
+  }
+
+  return {
+    ok: true,
+    company,
+    booking,
+    actor: {
+      teamMemberId: caller.teamMemberId,
+      // The office starting a clock on the crew's behalf is recorded under
+      // their own name, so the history reads as what actually happened.
+      name: caller.name || null,
+    },
+  };
+}
+
+/** The clock time in the company's own zone — never the server's, never the phone's. */
+function clockTime(when: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone,
+    }).format(when);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "UTC",
+    }).format(when);
+  }
+}
+
+async function respondWithTimer(
+  res: Response,
+  schema: typeof StartBookingTimerResponse | typeof StopBookingTimerResponse,
+  company: Company,
+  booking: Booking,
+  isCleaner: boolean,
+): Promise<void> {
+  const crews = await loadCrews([booking.id]);
+  const serialized = serializeBooking(
+    company,
+    booking,
+    crews.get(booking.id) ?? [],
+    await timeEntriesFor(company.id, booking.id),
+  );
+  res.json(
+    schema.parse(isCleaner ? redactBookingForCleaner(serialized) : serialized),
+  );
+}
+
+router.post("/bookings/:id/timer/start", async (req, res): Promise<void> => {
+  const params = StartBookingTimerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const target = await resolveTimerTarget(req, params.data.id);
+  if (!target.ok) {
+    res.status(target.status).json({ error: target.error });
+    return;
+  }
+  const { company, booking, actor } = target;
+  const caller = await getCaller(req);
+
+  const [running] = await db
+    .select()
+    .from(bookingTimeEntriesTable)
+    .where(
+      and(
+        eq(bookingTimeEntriesTable.companyId, company.id),
+        eq(bookingTimeEntriesTable.bookingId, booking.id),
+        isNull(bookingTimeEntriesTable.endedAt),
+      ),
+    )
+    .limit(1);
+
+  // Already running: hand back the same job rather than opening a second
+  // clock. A cleaner who taps twice because the first tap looked slow must
+  // not end up billing the customer for two overlapping stretches.
+  if (!running) {
+    const startedAt = new Date();
+    let opened = false;
+    try {
+      await db.insert(bookingTimeEntriesTable).values({
+        companyId: company.id,
+        bookingId: booking.id,
+        teamMemberId: actor.teamMemberId,
+        startedByName: actor.name,
+        startedAt,
+      });
+      opened = true;
+    } catch (err) {
+      // The partial unique index caught a genuine double tap racing itself.
+      // That is the outcome we wanted, so report the running clock, not a 500.
+      const [now] = await db
+        .select()
+        .from(bookingTimeEntriesTable)
+        .where(
+          and(
+            eq(bookingTimeEntriesTable.companyId, company.id),
+            eq(bookingTimeEntriesTable.bookingId, booking.id),
+            isNull(bookingTimeEntriesTable.endedAt),
+          ),
+        )
+        .limit(1);
+      if (!now) throw err;
+    }
+
+    // Only the tap that actually opened the clock goes in the feed — the one
+    // that lost the race started nothing, and the office should not read two
+    // starts for one arrival.
+    if (opened) {
+      await db.insert(activityTable).values({
+        companyId: company.id,
+        type: "job_started",
+        message: `${actor.name || "Crew"} started ${booking.customerName}'s job at ${clockTime(startedAt, company.timezone)}.`,
+      });
+    }
+  }
+
+  await respondWithTimer(
+    res,
+    StartBookingTimerResponse,
+    company,
+    booking,
+    caller.role === "cleaner",
+  );
+});
+
+router.post("/bookings/:id/timer/stop", async (req, res): Promise<void> => {
+  const params = StopBookingTimerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const target = await resolveTimerTarget(req, params.data.id);
+  if (!target.ok) {
+    res.status(target.status).json({ error: target.error });
+    return;
+  }
+  const { company, booking, actor } = target;
+  const caller = await getCaller(req);
+
+  const endedAt = new Date();
+  // Conditional on the clock still being open, so two devices stopping the
+  // same job at once close it once and only the winner records the time.
+  const [stopped] = await db
+    .update(bookingTimeEntriesTable)
+    .set({ endedAt })
+    .where(
+      and(
+        eq(bookingTimeEntriesTable.companyId, company.id),
+        eq(bookingTimeEntriesTable.bookingId, booking.id),
+        isNull(bookingTimeEntriesTable.endedAt),
+      ),
+    )
+    .returning();
+
+  if (!stopped) {
+    res.status(409).json({ error: "The clock isn't running on this job" });
+    return;
+  }
+
+  const minutes = entryMinutes(stopped);
+  const total = summarizeTimeEntries(
+    await timeEntriesFor(company.id, booking.id),
+  );
+  await db.insert(activityTable).values({
+    companyId: company.id,
+    type: "job_finished",
+    message: `${actor.name || "Crew"} finished ${booking.customerName}'s job at ${clockTime(endedAt, company.timezone)} — ${formatWorkedTime(minutes)} on site (${formatWorkedTime(total.workedMinutes)} total).`,
+  });
+
+  await pushTimeToJobber(company, booking, stopped, {
+    startedAt: stopped.startedAt,
+    endedAt,
+    minutes,
+    who: stopped.startedByName,
+  });
+
+  await respondWithTimer(
+    res,
+    StopBookingTimerResponse,
+    company,
+    booking,
+    caller.role === "cleaner",
+  );
+});
+
+/**
+ * Write the finished stretch onto the Jobber job.
+ *
+ * Jobber's API exposes time sheet entries for reading only, so the hours go on
+ * as a note — the office sees them where they build the invoice. Best effort
+ * by design: the clock belongs to this app, and a Jobber outage must never
+ * stop a cleaner from clocking off. The note id is stored so a later retry
+ * cannot post the same stretch twice.
+ */
+async function pushTimeToJobber(
+  company: Company,
+  booking: Booking,
+  entry: BookingTimeEntry,
+  worked: {
+    startedAt: Date;
+    endedAt: Date;
+    minutes: number;
+    who: string | null;
+  },
+): Promise<void> {
+  if (!company.jobberConnected || company.jobberNeedsReauth) return;
+  // Already posted once. Nothing here is worth telling the customer's file twice.
+  if (entry.jobberNoteId) return;
+  // Jobs we imported from their calendar take a job note; bookings we pushed
+  // out exist in Jobber as a work request, which takes a request note.
+  const jobId = booking.jobberSyncedJobId;
+  const requestId = jobId ? null : booking.jobberJobId;
+  if (!jobId && !requestId) return;
+
+  const window = `${clockTime(worked.startedAt, company.timezone)} – ${clockTime(worked.endedAt, company.timezone)}`;
+  const message = [
+    `Time on site: ${formatWorkedTime(worked.minutes)} (${window})`,
+    worked.who ? `Clocked by ${worked.who}` : null,
+    "Recorded by Book My Cleaning.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const accessToken = await getValidAccessToken(company);
+    // The request-note path is a boolean helper, so mark it with the request
+    // it landed on — enough to know the note exists and never repost it.
+    const noteId = jobId
+      ? (await createJobberJobNote(accessToken, jobId, message)).id
+      : (await tryAttachRequestNote(accessToken, requestId!, message))
+        ? `request:${requestId}`
+        : "";
+    if (!noteId) throw new Error("Jobber would not accept the note");
+    await db
+      .update(bookingTimeEntriesTable)
+      .set({ jobberNoteId: noteId, jobberSyncError: null })
+      .where(
+        and(
+          eq(bookingTimeEntriesTable.id, entry.id),
+          eq(bookingTimeEntriesTable.companyId, company.id),
+        ),
+      );
+  } catch (err) {
+    const failure = err instanceof Error ? err.message : "Unknown error";
+    logger.warn(
+      { err, bookingId: booking.id, companyId: company.id },
+      "Could not write clocked time to Jobber",
+    );
+    await db
+      .update(bookingTimeEntriesTable)
+      .set({ jobberSyncError: failure })
+      .where(
+        and(
+          eq(bookingTimeEntriesTable.id, entry.id),
+          eq(bookingTimeEntriesTable.companyId, company.id),
+        ),
+      );
+  }
+}
 
 export default router;

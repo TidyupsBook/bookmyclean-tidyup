@@ -23,6 +23,8 @@ import {
   PhoneIncoming,
   CalendarCheck,
   Clock,
+  Play,
+  Timer,
   TrendingUp,
   PhoneMissed,
   CheckCircle2,
@@ -749,6 +751,18 @@ function ActivityIcon({ type }: { type: ActivityItem["type"] }) {
       return (
         <div className="w-8 h-8 rounded-full bg-brand-purple/10 flex items-center justify-center shrink-0">
           <Users className="w-4 h-4 text-brand-purple" />
+        </div>
+      );
+    case "job_started":
+      return (
+        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+          <Play className="w-4 h-4 text-green-400" />
+        </div>
+      );
+    case "job_finished":
+      return (
+        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+          <Timer className="w-4 h-4 text-green-400" />
         </div>
       );
     case "test_call":

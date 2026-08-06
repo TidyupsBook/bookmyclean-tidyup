@@ -489,6 +489,17 @@ export interface QuoteTotals {
   depositEmail?: string | null;
 }
 
+export interface BookingTimeEntry {
+  id: number;
+  startedAt: string;
+  /** @nullable */
+  endedAt: string | null;
+  minutes: number;
+  /** @nullable */
+  startedByName?: string | null;
+  edited?: boolean;
+}
+
 export interface Booking {
   id: number;
   /** @nullable */
@@ -572,6 +583,10 @@ export interface Booking {
   /** @nullable */
   durationMinutes?: number | null;
   crew?: CrewMember[];
+  /** @nullable */
+  timerRunningSince?: string | null;
+  workedMinutes?: number;
+  timeEntries?: BookingTimeEntry[];
   createdAt: string;
 }
 
@@ -884,6 +899,8 @@ export const ActivityItemType = {
   team_invited: 'team_invited',
   crew_assigned: 'crew_assigned',
   reschedule_texted: 'reschedule_texted',
+  job_started: 'job_started',
+  job_finished: 'job_finished',
 } as const;
 
 export interface ActivityItem {

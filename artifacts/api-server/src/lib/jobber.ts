@@ -328,6 +328,42 @@ export async function createJobberRequest(
 }
 
 /**
+ * Attach a note to a Jobber *job* (not a request).
+ *
+ * This is how clocked time reaches Jobber. Their API exposes time sheet
+ * entries for reading only — there is no create mutation for them — so the
+ * hours land as a note on the job, where they are visible when the office
+ * builds the invoice. Returns the note id so the same stretch of work is never
+ * posted twice.
+ */
+export async function createJobberJobNote(
+  accessToken: string,
+  jobId: string,
+  message: string,
+): Promise<{ id: string }> {
+  const data = await jobberGraphql<{
+    jobCreateNote: {
+      note: { id: string } | null;
+      userErrors: UserError[];
+    };
+  }>(
+    accessToken,
+    `mutation AttachJobNote($jobId: EncodedId!, $message: String!) {
+      jobCreateNote(jobId: $jobId, input: { message: $message }) {
+        note { id }
+        userErrors { message path }
+      }
+    }`,
+    { jobId, message },
+  );
+  assertNoUserErrors("jobCreateNote", data.jobCreateNote.userErrors);
+  if (!data.jobCreateNote.note) {
+    throw new Error("Jobber jobCreateNote returned no note");
+  }
+  return data.jobCreateNote.note;
+}
+
+/**
  * Best-effort: attach the wizard answers to the request as a note. Note
  * mutations vary by API version, so a failure here must not fail the sync.
  */

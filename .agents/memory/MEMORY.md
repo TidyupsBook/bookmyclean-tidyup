@@ -14,6 +14,7 @@
 - [Customer quote link](public-quote-link.md) — the quote page is a bearer link with no auth in Express *or* the SPA; approval is claimed via a conditional update.
 - [Cancellation sweeps need a complete pull](sync-cancellation-sweeps.md) — reconcile-by-absence must be gated on proven completeness; widening a sync window scales the blast radius of every early `break`.
 - [Geocode by address, not by row](geocode-address-cache.md) — shared address-keyed cache, misses cached too; repeat visits cost one lookup and test fixtures need run-unique addresses.
+- [Jobber time tracking is read-only](jobber-time-tracking.md) — no time sheet mutation exists; clocked hours go over as a job/request note, best effort, no extra scope.
 - [Jobber sync runs two directions](jobber-sync-direction.md) — pushed requests and pulled jobs need separate id columns, or the pull cancels bookings it never imported.
 - [Jobber OAuth PKCE flow](jobber-oauth.md) — real OAuth with PKCE; connect returns authorizeUrl, callback at /api/company/jobber/callback stores tokens; token refresh on every sync.
 - [video-js scaffold gaps](video-artifact-scaffold.md) — new video artifacts ship without DOM libs in tsconfig and unformatted, so repo typecheck + format go red until fixed.
