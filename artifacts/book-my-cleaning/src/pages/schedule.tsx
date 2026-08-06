@@ -396,24 +396,28 @@ function NeedsCrewRail({
 
 /** Which colour belongs to whom, so the blocks above can be read at a glance. */
 function CrewLegend({ bookings }: { bookings: BookingRangeItem[] }) {
-  const crew = new Map<number, string>();
+  const crew = new Map<number, { name: string; color: string | null }>();
   let anyUnassigned = false;
   for (const booking of bookings) {
     const first = booking.assignees[0];
-    if (first) crew.set(first.teamMemberId, first.name);
+    if (first)
+      crew.set(first.teamMemberId, {
+        name: first.name,
+        color: first.color ?? null,
+      });
     else anyUnassigned = true;
   }
   if (crew.size === 0 && !anyUnassigned) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs text-muted-foreground">
-      {[...crew.entries()].map(([id, name]) => (
+      {[...crew.entries()].map(([id, member]) => (
         <span key={id} className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-sm"
-            style={{ background: colorForTeamMember(id) }}
+            style={{ background: colorForTeamMember(id, member.color) }}
           />
-          {name}
+          {member.name}
         </span>
       ))}
       {anyUnassigned && (
@@ -445,7 +449,15 @@ function CleanerLane({
     <div className="bg-card border border-border rounded-xl shadow-sm flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-border bg-secondary/40 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-black/80 shrink-0"
+            style={{
+              background: colorForTeamMember(
+                cleaner.teamMemberId,
+                cleaner.color,
+              ),
+            }}
+          >
             {cleaner.name.charAt(0).toUpperCase()}
           </div>
           <span className="font-semibold text-foreground truncate">

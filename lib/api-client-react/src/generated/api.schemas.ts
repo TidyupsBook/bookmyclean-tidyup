@@ -211,6 +211,8 @@ export interface TeamMemberInput {
   isLead?: boolean;
   active?: boolean;
   /** @nullable */
+  color?: string | null;
+  /** @nullable */
   homeAddress?: string | null;
 }
 
@@ -231,6 +233,8 @@ export interface TeamMemberUpdate {
   role?: TeamMemberUpdateRole;
   isLead?: boolean;
   active?: boolean;
+  /** @nullable */
+  color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
 }
@@ -273,6 +277,8 @@ export interface TeamMember {
   role: TeamMemberRole;
   isLead: boolean;
   active: boolean;
+  /** @nullable */
+  color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
   /** @nullable */
@@ -895,6 +901,8 @@ export interface MapConfig {
 export interface MapCleaner {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   lat: number;
   lng: number;
   /** @nullable */
@@ -905,6 +913,8 @@ export interface MapCleaner {
 export interface MapJobAssignee {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
 }
 
 export type MapJobStatus = typeof MapJobStatus[keyof typeof MapJobStatus];
@@ -942,6 +952,8 @@ export interface MapPin {
 export interface StaffHome {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   roleLabel: string;
   /** @nullable */
   address?: string | null;
@@ -1045,6 +1057,8 @@ export interface ScheduleJob {
 export interface ScheduleCleaner {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   jobs: ScheduleJob[];
 }
 

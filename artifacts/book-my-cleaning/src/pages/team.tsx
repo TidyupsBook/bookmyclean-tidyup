@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { colorForTeamMember, STAFF_COLORS } from "@/lib/mapMarkers";
 import {
   Select,
   SelectContent,
@@ -280,7 +281,13 @@ function StaffCard({
       data-testid={`card-staff-${member.id}`}
     >
       <div className="flex items-start gap-4">
-        <div className="w-11 h-11 shrink-0 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+        {/* The avatar carries their schedule colour, so the staff list reads
+            as the same key as the calendar and the map. */}
+        <div
+          className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center font-bold text-black/80"
+          style={{ background: colorForTeamMember(member.id, member.color) }}
+          data-testid={`avatar-staff-${member.id}`}
+        >
           {initials(member.name)}
         </div>
         <div className="min-w-0 flex-1">
@@ -413,6 +420,7 @@ function StaffForm({
   const [phone, setPhone] = useState(member?.phone ?? "");
   const [address, setAddress] = useState(member?.homeAddress ?? "");
   const [active, setActive] = useState(member?.active ?? true);
+  const [color, setColor] = useState<string | null>(member?.color ?? null);
   const [choice, setChoice] = useState<RoleChoice>(
     member ? roleChoiceOf(member) : "cleaner",
   );
@@ -455,6 +463,7 @@ function StaffForm({
             phone: phone.trim() || null,
             homeAddress: address.trim() || null,
             active,
+            color,
             // The owner's own seat has no role to change, so leave that alone
             // rather than having the server say no. The address is still
             // theirs to set — it is the contact on their own card.
@@ -487,6 +496,7 @@ function StaffForm({
           phone: phone.trim() || null,
           homeAddress: address.trim() || null,
           active,
+          color,
           ...fields,
         },
       },
@@ -607,6 +617,57 @@ function StaffForm({
               {active ? "Active" : "Off roster"}
             </span>
           </div>
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label>
+            Schedule Colour{" "}
+            <span className="text-muted-foreground font-normal">
+              (their blocks on the schedule and pins on the map)
+            </span>
+          </Label>
+          <div className="flex flex-wrap items-center gap-2">
+            {STAFF_COLORS.map((swatch) => (
+              <button
+                key={swatch}
+                type="button"
+                onClick={() => setColor(swatch)}
+                aria-label={`Use this colour`}
+                aria-pressed={color === swatch}
+                className={`w-8 h-8 rounded-full border-2 transition ${
+                  color === swatch
+                    ? "border-foreground scale-110"
+                    : "border-transparent hover:scale-105"
+                }`}
+                style={{ background: swatch }}
+                data-testid={`button-staff-color-${swatch.slice(1)}`}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => setColor(null)}
+              aria-pressed={color === null}
+              className={`h-8 px-3 rounded-full border text-xs ${
+                color === null
+                  ? "border-foreground text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="button-staff-color-auto"
+            >
+              Automatic
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground flex items-center gap-2">
+            <span
+              className="w-3 h-3 rounded-sm shrink-0"
+              style={{
+                background: colorForTeamMember(member?.id ?? 0, color),
+              }}
+            />
+            {color
+              ? "Their work shows in this colour everywhere."
+              : "We pick a colour for them — everyone still gets a different one."}
+          </p>
         </div>
 
         <div className="space-y-2">

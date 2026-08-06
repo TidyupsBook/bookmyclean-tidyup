@@ -183,6 +183,13 @@
       "when": 1785988800000,
       "tag": "0025_booking_intake_details",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786060000000,
+      "tag": "0026_staff_colours",
+      "breakpoints": true
     }
   ]
 }

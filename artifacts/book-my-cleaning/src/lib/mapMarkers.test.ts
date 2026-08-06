@@ -40,6 +40,20 @@ describe("colorForTeamMember", () => {
   it("returns a valid hsl string", () => {
     expect(colorForTeamMember(42)).toMatch(/^hsl\(\d{1,3}, 70%, 55%\)$/);
   });
+
+  it("uses the colour the owner picked when there is one", () => {
+    expect(colorForTeamMember(7, "#34D399")).toBe("#34d399");
+    expect(colorForTeamMember(7, null)).toBe(colorForTeamMember(7));
+  });
+
+  it("ignores anything that isn't a plain hex colour", () => {
+    // These land in an inline style, so a bad value falls back rather than
+    // being painted into the page.
+    expect(colorForTeamMember(7, "red; background:url(x)")).toBe(
+      colorForTeamMember(7),
+    );
+    expect(colorForTeamMember(7, "")).toBe(colorForTeamMember(7));
+  });
 });
 
 describe("initials", () => {

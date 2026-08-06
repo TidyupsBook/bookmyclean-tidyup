@@ -46,6 +46,14 @@ export const teamMembersTable = pgTable(
      */
     active: boolean("active").notNull().default(true),
     /**
+     * The colour this person's work is drawn in on the schedule and the map,
+     * as `#rrggbb`. Null means "whatever the app picks", which is a stable
+     * hue derived from the row id — so every member always has a colour and
+     * this column only ever records a deliberate choice made in the office
+     * (owner or dispatcher, the same people who keep the rest of the card).
+     */
+    color: text("color"),
+    /**
      * Where this person starts and ends their day. Pinned on the live map so
      * dispatch can see who is nearest a job, and geocoded once on save.
      */

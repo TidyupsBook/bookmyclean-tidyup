@@ -9,6 +9,8 @@
 export interface StaffHome {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   roleLabel: string;
   /** @nullable */
   address?: string | null;

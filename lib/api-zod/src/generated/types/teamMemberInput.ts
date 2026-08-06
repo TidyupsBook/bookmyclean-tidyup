@@ -17,5 +17,7 @@ export interface TeamMemberInput {
   isLead?: boolean;
   active?: boolean;
   /** @nullable */
+  color?: string | null;
+  /** @nullable */
   homeAddress?: string | null;
 }

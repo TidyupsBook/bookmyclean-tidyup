@@ -859,6 +859,7 @@ export const ListTeamMembersResponseItem = zod.object({
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
   "active": zod.boolean(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
@@ -883,6 +884,7 @@ export const InviteTeamMemberBody = zod.object({
   "role": zod.enum(['dispatcher', 'cleaner']),
   "isLead": zod.boolean().optional(),
   "active": zod.boolean().optional(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish()
 })
 
@@ -894,6 +896,7 @@ export const InviteTeamMemberResponse = zod.object({
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
   "active": zod.boolean(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
@@ -918,6 +921,7 @@ export const ImportTeamMembersBody = zod.object({
   "role": zod.enum(['dispatcher', 'cleaner']),
   "isLead": zod.boolean().optional(),
   "active": zod.boolean().optional(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish()
 }))
 })
@@ -945,6 +949,7 @@ export const UpdateTeamMemberBody = zod.object({
   "role": zod.enum(['dispatcher', 'cleaner']).optional(),
   "isLead": zod.boolean().optional(),
   "active": zod.boolean().optional(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish()
 })
 
@@ -956,6 +961,7 @@ export const UpdateTeamMemberResponse = zod.object({
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
   "active": zod.boolean(),
+  "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
@@ -1140,7 +1146,8 @@ export const ListBookingsInRangeResponse = zod.object({
   "located": zod.boolean(),
   "assignees": zod.array(zod.object({
   "teamMemberId": zod.int(),
-  "name": zod.string()
+  "name": zod.string(),
+  "color": zod.string().nullish()
 }))
 }))
 })
@@ -2215,6 +2222,7 @@ export const GetMapDataResponse = zod.object({
   "cleaners": zod.array(zod.object({
   "teamMemberId": zod.int(),
   "name": zod.string(),
+  "color": zod.string().nullish(),
   "lat": zod.number(),
   "lng": zod.number(),
   "accuracy": zod.number().nullish(),
@@ -2223,6 +2231,7 @@ export const GetMapDataResponse = zod.object({
   "staffHomes": zod.array(zod.object({
   "teamMemberId": zod.int(),
   "name": zod.string(),
+  "color": zod.string().nullish(),
   "roleLabel": zod.string(),
   "address": zod.string().nullish(),
   "lat": zod.number(),
@@ -2239,7 +2248,8 @@ export const GetMapDataResponse = zod.object({
   "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
   "assignees": zod.array(zod.object({
   "teamMemberId": zod.int(),
-  "name": zod.string()
+  "name": zod.string(),
+  "color": zod.string().nullish()
 })),
   "visits": zod.int().optional()
 })),
@@ -2331,6 +2341,7 @@ export const GetScheduleResponse = zod.object({
   "cleaners": zod.array(zod.object({
   "teamMemberId": zod.int(),
   "name": zod.string(),
+  "color": zod.string().nullish(),
   "jobs": zod.array(zod.object({
   "bookingId": zod.int(),
   "customerName": zod.string(),

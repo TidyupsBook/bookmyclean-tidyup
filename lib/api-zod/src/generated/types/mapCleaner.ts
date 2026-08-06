@@ -9,6 +9,8 @@
 export interface MapCleaner {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   lat: number;
   lng: number;
   /** @nullable */

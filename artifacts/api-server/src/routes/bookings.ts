@@ -65,7 +65,12 @@ const router: IRouter = Router();
 
 router.use(requireAuth);
 
-type CrewMember = { id: number; name: string; role: string };
+type CrewMember = {
+  id: number;
+  name: string;
+  role: string;
+  color: string | null;
+};
 
 /**
  * Crews for a set of bookings, keyed by booking id. Loaded in one query so a
@@ -83,6 +88,7 @@ async function loadCrews(
       id: teamMembersTable.id,
       name: teamMembersTable.name,
       role: teamMembersTable.role,
+      color: teamMembersTable.color,
     })
     .from(bookingAssignmentsTable)
     .innerJoin(
@@ -94,7 +100,12 @@ async function loadCrews(
 
   for (const row of rows) {
     const list = crews.get(row.bookingId) ?? [];
-    list.push({ id: row.id, name: row.name, role: row.role });
+    list.push({
+      id: row.id,
+      name: row.name,
+      role: row.role,
+      color: row.color,
+    });
     crews.set(row.bookingId, list);
   }
   return crews;
@@ -143,6 +154,7 @@ async function eligibleCrew(
       id: teamMembersTable.id,
       name: teamMembersTable.name,
       role: teamMembersTable.role,
+      color: teamMembersTable.color,
     })
     .from(teamMembersTable)
     .where(
@@ -347,9 +359,13 @@ router.get("/bookings/range", async (req, res): Promise<void> => {
           DEFAULT_DURATION_MINUTES,
         status: r.status,
         located: r.lat !== null && r.lng !== null,
+        // The calendar colours a block by its first crew member, so their
+        // colour rides along here — the crew view isn't allowed to read the
+        // roster, and this is the only place it could learn it.
         assignees: (crews.get(r.id) ?? []).map((c) => ({
           teamMemberId: c.id,
           name: c.name,
+          color: c.color,
         })),
       })),
     }),

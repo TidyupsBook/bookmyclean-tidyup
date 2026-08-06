@@ -130,6 +130,7 @@ router.get(
       .select({
         teamMemberId: cleanerLocationsTable.teamMemberId,
         name: teamMembersTable.name,
+        color: teamMembersTable.color,
         lat: cleanerLocationsTable.lat,
         lng: cleanerLocationsTable.lng,
         accuracy: cleanerLocationsTable.accuracy,
@@ -145,6 +146,7 @@ router.get(
     const cleaners = locationRows.map((r) => ({
       teamMemberId: r.teamMemberId,
       name: r.name,
+      color: r.color,
       lat: r.lat,
       lng: r.lng,
       accuracy: r.accuracy ?? null,
@@ -173,6 +175,7 @@ router.get(
     ).map((m) => ({
       teamMemberId: m.id,
       name: m.name,
+      color: m.color,
       roleLabel: roleLabel(m),
       address: m.homeAddress,
       lat: m.homeLat!,
@@ -380,7 +383,7 @@ router.delete(
   },
 );
 
-type Assignee = { teamMemberId: number; name: string };
+type Assignee = { teamMemberId: number; name: string; color: string | null };
 
 /** Assignees for a set of bookings, keyed by booking id, in one query. */
 async function loadAssignees(
@@ -393,6 +396,7 @@ async function loadAssignees(
       bookingId: bookingAssignmentsTable.bookingId,
       teamMemberId: teamMembersTable.id,
       name: teamMembersTable.name,
+      color: teamMembersTable.color,
     })
     .from(bookingAssignmentsTable)
     .innerJoin(
@@ -403,7 +407,11 @@ async function loadAssignees(
     .orderBy(teamMembersTable.name);
   for (const row of rows) {
     const list = out.get(row.bookingId) ?? [];
-    list.push({ teamMemberId: row.teamMemberId, name: row.name });
+    list.push({
+      teamMemberId: row.teamMemberId,
+      name: row.name,
+      color: row.color,
+    });
     out.set(row.bookingId, list);
   }
   return out;

@@ -31,7 +31,9 @@ function blockColor(booking: BookingRangeItem): string {
   const first = booking.assignees[0];
   // Unassigned work is the thing a dispatcher is hunting for, so it gets the
   // brand pink rather than blending into the crew colours.
-  return first ? colorForTeamMember(first.teamMemberId) : "hsl(330, 81%, 60%)";
+  return first
+    ? colorForTeamMember(first.teamMemberId, first.color)
+    : "hsl(330, 81%, 60%)";
 }
 
 /* ─────────────────────────── Month ─────────────────────────── */

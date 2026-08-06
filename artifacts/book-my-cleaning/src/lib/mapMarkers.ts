@@ -9,16 +9,47 @@ import type { MapCleaner, MapJob } from "@workspace/api-client-react";
 export const STALE_AFTER_MS = 5 * 60 * 1000;
 
 /**
- * A stable, readable colour per team member. Derived only from the id so the
- * same cleaner is always the same colour across refreshes and reloads — a hash
- * into a fixed hue wheel, kept at a saturation/lightness that stays legible on
+ * The colour drawn for a team member on the schedule and the map.
+ *
+ * A colour the owner picked on their staff card wins. Otherwise it falls back
+ * to a stable hue derived from the id, so everybody has a distinct colour from
+ * the moment they are added and nobody has to go and choose one — a hash into
+ * a fixed hue wheel, kept at a saturation and lightness that stay legible on
  * the dark dashboard.
+ *
+ * Only a plain `#rrggbb` is honoured: the value lands in an inline style, and
+ * the server stores nothing else, so anything odd falls back rather than being
+ * painted into the page.
  */
-export function colorForTeamMember(teamMemberId: number): string {
+export function colorForTeamMember(
+  teamMemberId: number,
+  chosen?: string | null,
+): string {
+  if (chosen && /^#[0-9a-fA-F]{6}$/.test(chosen.trim())) {
+    return chosen.trim().toLowerCase();
+  }
   // Golden-angle stepping spreads sequential ids far apart on the wheel.
   const hue = Math.abs(Math.round(teamMemberId * 137.508)) % 360;
   return `hsl(${hue}, 70%, 55%)`;
 }
+
+/**
+ * The colours offered on a staff card. Ten hues that stay apart from each
+ * other and readable on the dark dashboard, so a full crew can be told apart
+ * at a glance on a month grid.
+ */
+export const STAFF_COLORS = [
+  "#f472b6",
+  "#e879f9",
+  "#a78bfa",
+  "#60a5fa",
+  "#22d3ee",
+  "#34d399",
+  "#a3e635",
+  "#fbbf24",
+  "#fb923c",
+  "#f87171",
+] as const;
 
 /** Up to two initials from a name, e.g. "Jane Doe" -> "JD", "Cher" -> "C". */
 export function initials(name: string): string {

@@ -605,6 +605,7 @@ function LiveMap({
       const el = document.createElement("div");
       el.style.cssText = `width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font:700 12px/1 "Plus Jakarta Sans",sans-serif;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);background:${colorForTeamMember(
         c.teamMemberId,
+        c.color,
       )};opacity:${stale ? "0.45" : "1"};`;
       el.textContent = initials(c.name);
       const marker = new maps.AdvancedMarkerElement({
@@ -712,7 +713,7 @@ function LiveMap({
     // asked while planning tomorrow, when nobody is transmitting at all.
     for (const s of mapData?.staffHomes ?? []) {
       if (!hasCoords(s)) continue;
-      const color = colorForTeamMember(s.teamMemberId);
+      const color = colorForTeamMember(s.teamMemberId, s.color);
       const el = document.createElement("div");
       el.style.cssText = `width:26px;height:26px;border-radius:9999px;display:flex;align-items:center;justify-content:center;color:${color};background:#fff;border:2px solid ${color};box-shadow:0 1px 4px rgba(0,0,0,.4);opacity:${
         s.active ? "1" : "0.5"

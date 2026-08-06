@@ -10,5 +10,7 @@ import type { ScheduleJob } from './scheduleJob';
 export interface ScheduleCleaner {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
   jobs: ScheduleJob[];
 }

@@ -207,6 +207,58 @@ describe("staff without an email", () => {
   });
 });
 
+describe("schedule colours", () => {
+  it("are saved, changed and cleared back to automatic", async () => {
+    const created = await (
+      await call("POST", "/team", {
+        as: "owner",
+        body: { name: "Colour Cara", role: "cleaner", color: "#34D399" },
+      })
+    ).json();
+    // Stored the way the schedule reads it, whatever case it arrived in.
+    expect(created.color).toBe("#34d399");
+
+    const changed = await (
+      await call("PATCH", `/team/${created.id}`, {
+        as: "owner",
+        body: { color: "#60a5fa" },
+      })
+    ).json();
+    expect(changed.color).toBe("#60a5fa");
+
+    // Null is a real value here: the card goes back to the automatic hue.
+    const cleared = await (
+      await call("PATCH", `/team/${created.id}`, {
+        as: "owner",
+        body: { color: null },
+      })
+    ).json();
+    expect(cleared.color).toBeNull();
+  });
+
+  it("never store anything that isn't a plain hex colour", async () => {
+    const created = await (
+      await call("POST", "/team", {
+        as: "owner",
+        body: {
+          name: "Sneaky Sam",
+          role: "cleaner",
+          color: "javascript:alert(1)",
+        },
+      })
+    ).json();
+    expect(created.color).toBeNull();
+
+    const patched = await (
+      await call("PATCH", `/team/${created.id}`, {
+        as: "owner",
+        body: { color: "red; background:url(x)" },
+      })
+    ).json();
+    expect(patched.color).toBeNull();
+  });
+});
+
 describe("home addresses", () => {
   it("are geocoded on save so they can be pinned", async () => {
     const created = await (

@@ -39,7 +39,9 @@ export type BookingsByDay = Record<string, BookingRangeItem[]>;
  */
 function crewColor(booking: BookingRangeItem): string {
   const first = booking.assignees[0];
-  return first ? colorForTeamMember(first.teamMemberId) : "hsl(330, 81%, 60%)";
+  return first
+    ? colorForTeamMember(first.teamMemberId, first.color)
+    : "hsl(330, 81%, 60%)";
 }
 
 function bookingHref(booking: BookingRangeItem): string {

@@ -102,6 +102,7 @@ router.get(
         id: teamMembersTable.id,
         name: teamMembersTable.name,
         role: teamMembersTable.role,
+        color: teamMembersTable.color,
       })
       .from(teamMembersTable)
       .where(eq(teamMembersTable.companyId, company.id))
@@ -138,6 +139,7 @@ router.get(
                 {
                   teamMemberId: seat.id,
                   name: seat.name,
+                  color: seat.color,
                   jobs: myJobs.map(toJob),
                 },
               ]
@@ -153,6 +155,7 @@ router.get(
     const cleaners = cleanerSeats.map((seat) => ({
       teamMemberId: seat.id,
       name: seat.name,
+      color: seat.color,
       jobs: dayBookings
         .filter((b) => (assigneesByBooking.get(b.id) ?? []).includes(seat.id))
         .map(toJob),

@@ -9,4 +9,6 @@
 export interface MapJobAssignee {
   teamMemberId: number;
   name: string;
+  /** @nullable */
+  color?: string | null;
 }

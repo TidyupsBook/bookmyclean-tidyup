@@ -1189,6 +1189,8 @@ components:
         # A label on their card, never a permission level — see TeamMember.
         isLead: { type: boolean }
         active: { type: boolean }
+        # `#rrggbb`, or null to let the app pick one from their id.
+        color: { type: ["string", "null"] }
         homeAddress: { type: ["string", "null"] }
     TeamMemberUpdate:
       type: object
@@ -1201,6 +1203,8 @@ components:
         role: { type: string, enum: [dispatcher, cleaner] }
         isLead: { type: boolean }
         active: { type: boolean }
+        # `#rrggbb`, or null to go back to the automatic hue.
+        color: { type: ["string", "null"] }
         homeAddress: { type: ["string", "null"] }
     ImportTeamMembersInput:
       type: object
@@ -1253,6 +1257,10 @@ components:
         # On the roster. Inactive staff keep their history and their login,
         # they just stop appearing where work gets assigned.
         active: { type: boolean }
+        # The colour this person's work is drawn in, as `#rrggbb`. Null means
+        # the app picks one from their id, so a card always has a colour even
+        # when nobody chose it.
+        color: { type: ["string", "null"] }
         homeAddress: { type: ["string", "null"] }
         homeLat: { type: ["number", "null"] }
         homeLng: { type: ["number", "null"] }
@@ -1762,6 +1770,8 @@ components:
       properties:
         teamMemberId: { type: integer }
         name: { type: string }
+        # Their chosen colour, or null when the app should pick from their id.
+        color: { type: ["string", "null"] }
         lat: { type: number }
         lng: { type: number }
         accuracy: { type: ["number", "null"] }
@@ -1772,6 +1782,10 @@ components:
       properties:
         teamMemberId: { type: integer }
         name: { type: string }
+        # Their chosen colour, or null when the app should pick from their id.
+        # Carried on the assignee so the calendar and the map can colour work
+        # without a second call the crew view isn't allowed to make.
+        color: { type: ["string", "null"] }
     MapJob:
       type: object
       required:
@@ -1809,6 +1823,8 @@ components:
       properties:
         teamMemberId: { type: integer }
         name: { type: string }
+        # Their chosen colour, or null when the app should pick from their id.
+        color: { type: ["string", "null"] }
         # "Lead Cleaner", "Cleaner", "Dispatcher" — what shows on their card.
         roleLabel: { type: string }
         address: { type: ["string", "null"] }
@@ -1928,6 +1944,8 @@ components:
       properties:
         teamMemberId: { type: integer }
         name: { type: string }
+        # Their chosen colour, or null when the app should pick from their id.
+        color: { type: ["string", "null"] }
         jobs:
           type: array
           items:

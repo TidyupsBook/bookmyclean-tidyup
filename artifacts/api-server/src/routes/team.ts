@@ -53,6 +53,7 @@ function serializeMember(
     role: m.role,
     isLead: m.isLead,
     active: m.active,
+    color: m.color,
     homeAddress: m.homeAddress,
     homeLat: m.homeLat,
     homeLng: m.homeLng,
@@ -73,6 +74,17 @@ function serializeMember(
 function cleanText(value: string | null | undefined): string | null {
   const trimmed = (value ?? "").trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * A staff colour is a plain `#rrggbb` and nothing else. Anything the picker
+ * would never send — a name, a gradient, a stray `javascript:` — becomes null
+ * rather than an error, because this value is written straight into inline
+ * styles on the schedule and the map.
+ */
+function cleanColor(value: string | null | undefined): string | null {
+  const trimmed = (value ?? "").trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(trimmed) ? trimmed : null;
 }
 
 function cleanEmail(value: string | null | undefined): string | null {
@@ -280,6 +292,7 @@ router.post(
         role: parsed.data.role,
         isLead: parsed.data.isLead ?? false,
         active: parsed.data.active ?? true,
+        color: cleanColor(parsed.data.color),
         companyId: caller.company.id,
         // No address means no invitation is outstanding, so there is nothing
         // to wait for — the seat is simply live.
@@ -376,6 +389,9 @@ router.patch(
     if (body.phone !== undefined) updates.phone = cleanText(body.phone);
     if (body.isLead !== undefined) updates.isLead = body.isLead;
     if (body.active !== undefined) updates.active = body.active;
+    // Null clears a deliberate choice and hands the card back to the
+    // automatic hue, so "no colour" is a real value here rather than a skip.
+    if (body.color !== undefined) updates.color = cleanColor(body.color);
     if (changesRole) updates.role = body.role;
 
     let invite: { sent: boolean; invitationId: string | null } | null = null;
