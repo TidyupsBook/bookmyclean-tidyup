@@ -58,11 +58,16 @@ Replit-managed Clerk. Clerk Organizations are NOT available — companies/roles 
 
 - **Commit and push after every completed piece of work.** Don't leave finished
   work sitting uncommitted in the workspace. Push to GitHub
-  (`tidyups-booking/book-my-cleaning-official`) as part of wrapping up, not as a
-  separate thing the owner has to ask for.
+  (`tidyups-booking/BuildDay1`) as part of wrapping up, not as a separate thing
+  the owner has to ask for. Each day's work goes on its own branch —
+  `BuildDay2`, `BuildDay3` and so on — opened as a pull request into `main`.
 - **Say whether a republish is needed.** Pushing to GitHub does not update the
   live site at bookmycleaning.net. Whenever work is finished, state plainly
   whether the change is already live, or whether it needs publishing to take
   effect.
+- **End every finished piece of work with the buttons, not just the words.**
+  If there is anything to push or sync, offer the Git pane button; if the work
+  needs republishing to reach bookmycleaning.net, offer the Publish button. The
+  owner should be one click from the next step rather than hunting for it.
 - Write plainly. The owner runs a cleaning business, not an engineering team —
   lead with what they can now do, not what was changed in the code.
