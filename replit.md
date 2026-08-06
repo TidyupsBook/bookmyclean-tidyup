@@ -69,5 +69,9 @@ Replit-managed Clerk. Clerk Organizations are NOT available — companies/roles 
   If there is anything to push or sync, offer the Git pane button; if the work
   needs republishing to reach bookmycleaning.net, offer the Publish button. The
   owner should be one click from the next step rather than hunting for it.
+- **Always recommend which button to press.** Don't just offer both and leave
+  the choice hanging — say plainly what to do now and why (for example: "push
+  this now, but hold the publish until the Jobber colours are set"), including
+  when the answer is "neither yet".
 - Write plainly. The owner runs a cleaning business, not an engineering team —
   lead with what they can now do, not what was changed in the code.

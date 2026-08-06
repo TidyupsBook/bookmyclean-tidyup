@@ -656,6 +656,25 @@ function StaffForm({
             >
               Automatic
             </button>
+            <label
+              className="h-8 px-3 rounded-full border border-border text-xs text-muted-foreground hover:text-foreground flex items-center gap-2 cursor-pointer"
+              title="Match a colour you already use somewhere else"
+            >
+              <span
+                className="w-4 h-4 rounded-full border border-border shrink-0"
+                style={{
+                  background: colorForTeamMember(member?.id ?? 0, color),
+                }}
+              />
+              Custom
+              <input
+                type="color"
+                className="sr-only"
+                value={colorForTeamMember(member?.id ?? 0, color)}
+                onChange={(e) => setColor(e.target.value.toLowerCase())}
+                data-testid="input-staff-color-custom"
+              />
+            </label>
           </div>
           <p className="text-xs text-muted-foreground flex items-center gap-2">
             <span

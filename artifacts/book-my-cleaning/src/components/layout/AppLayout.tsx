@@ -3,6 +3,7 @@ import { Redirect, useLocation } from "wouter";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./sidebar";
+import { LiveCallAlert } from "@/components/LiveCallAlert";
 
 /**
  * A 404 from `/company` is the real "you have no workspace yet" signal. Any
@@ -73,6 +74,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
+      {/* Watches for a ringing phone from every page, not just the Calls tab. */}
+      <LiveCallAlert />
       <Sidebar company={company} />
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 p-6 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">

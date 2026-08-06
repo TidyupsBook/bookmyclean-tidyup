@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
+import { parseCallIdParam } from "@/lib/callAlerts";
 import { useMutation } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/shared";
@@ -176,6 +177,7 @@ function Chip({
 export function NewBookingPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const requestedCallId = parseCallIdParam(useSearch());
 
   const { data: company } = useGetCompany();
   const { data: mapConfig } = useGetMapConfig();
@@ -397,7 +399,13 @@ export function NewBookingPage() {
   });
   const liveCall = (calls ?? []).find((c) => c.status === "in_progress");
   const latestCall = (calls ?? [])[0];
-  const callToUse = liveCall ?? latestCall;
+  // Arriving from the "Take booking" popup names the call to work on, and that
+  // name is final. By the time the dispatcher clicks, a newer call may have
+  // started ringing — falling back to it would quietly load the wrong
+  // customer's details into a form they're about to send a quote from.
+  const callToUse = requestedCallId
+    ? (calls ?? []).find((c) => c.id === requestedCallId)
+    : (liveCall ?? latestCall);
 
   // The fill mostly happens on its own while the caller talks, which should be
   // quiet. Only a button press the dispatcher made themselves gets a popup.

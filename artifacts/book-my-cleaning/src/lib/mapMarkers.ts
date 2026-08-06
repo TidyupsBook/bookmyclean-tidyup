@@ -38,6 +38,12 @@ export function colorForTeamMember(
  * other and readable on the dark dashboard, so a full crew can be told apart
  * at a glance on a month grid.
  */
+/**
+ * Two rows of swatches: a strong tone and a lighter version of the same hue.
+ * Offices usually already have colours for their cleaners somewhere else
+ * (Jobber, a whiteboard), and "the light pink one" has to be pickable here or
+ * the two calendars never look like the same crew.
+ */
 export const STAFF_COLORS = [
   "#f472b6",
   "#e879f9",
@@ -49,6 +55,16 @@ export const STAFF_COLORS = [
   "#fbbf24",
   "#fb923c",
   "#f87171",
+  "#f9a8d4",
+  "#f0abfc",
+  "#c4b5fd",
+  "#93c5fd",
+  "#a5f3fc",
+  "#6ee7b7",
+  "#d9f99d",
+  "#fde68a",
+  "#fdba74",
+  "#fca5a5",
 ] as const;
 
 /** Up to two initials from a name, e.g. "Jane Doe" -> "JD", "Cher" -> "C". */
