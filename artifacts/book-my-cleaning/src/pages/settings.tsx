@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { openAuthTab, isPreviewUrl } from "@/lib/externalAuth";
 import {
   Dialog,
   DialogContent,
@@ -137,16 +138,37 @@ function GeneralSettings({ company }: { company: any }) {
         },
       });
     } else {
+      // Claim the tab now, while the click still counts as a user action.
+      const tab = openAuthTab();
+      if (tab.blocked) {
+        toast({
+          title: "Your browser blocked the Jobber tab",
+          description:
+            "Allow pop-ups for this page, or open your published site and connect there.",
+          variant: "destructive",
+        });
+        return;
+      }
       connectJobber.mutate(undefined, {
         onSuccess: (data) => {
           // Send the user to Jobber to authorize — they'll be redirected back
           // to /setup?jobber=connected (same flow as the setup wizard step).
-          window.location.href = data.authorizeUrl;
+          tab.navigate(data.authorizeUrl);
+          if (tab.framed) {
+            toast({
+              title: "Finish in the new tab",
+              description:
+                "Jobber opened in a new tab because it can't load inside this preview.",
+            });
+          }
         },
         onError: (error: any) => {
           toast({
             title: "Couldn't start Jobber connection",
             description:
+              // The server's own words first — "only the owner can do that"
+              // is far more use than a status code.
+              error?.data?.error ||
               error?.message ||
               "Jobber API credentials may not be configured yet.",
             variant: "destructive",
@@ -228,6 +250,19 @@ function GeneralSettings({ company }: { company: any }) {
                 : "Connect Account"}
           </Button>
         </div>
+
+        {!company.jobberConnected &&
+          isPreviewUrl(company.jobberRedirectUri) && (
+            <p className="text-xs text-amber-600 mt-2 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" />
+              <span>
+                Right now this page would send you back to the temporary preview
+                address below. Jobber only returns people to the exact address
+                registered in your Jobber app — if that's your published site,
+                connect from there instead.
+              </span>
+            </p>
+          )}
 
         <JobberCallbackUrl url={company.jobberRedirectUri} />
       </div>

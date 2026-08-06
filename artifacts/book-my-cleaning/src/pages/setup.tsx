@@ -33,6 +33,7 @@ import {
   PhoneForwarded,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { openAuthTab } from "@/lib/externalAuth";
 import { Link, useLocation } from "wouter";
 
 /**
@@ -254,15 +255,37 @@ function JobberStep({ company }: { company: any }) {
   };
 
   const handleConnect = () => {
+    // Claim the tab now, while the click still counts as a user action —
+    // browsers block pop-ups opened after an async round trip.
+    const tab = openAuthTab();
+    if (tab.blocked) {
+      toast({
+        title: "Your browser blocked the Jobber tab",
+        description:
+          "Allow pop-ups for this page, or open your published site and connect there.",
+        variant: "destructive",
+      });
+      return;
+    }
     connect.mutate(undefined, {
       onSuccess: (data) => {
         // Send the user to Jobber to authorize; they'll be redirected back.
-        window.location.href = data.authorizeUrl;
+        // Inside the workspace preview that has to be a real tab — Jobber
+        // refuses to load in a frame and the owner just sees white.
+        tab.navigate(data.authorizeUrl);
+        if (tab.framed) {
+          toast({
+            title: "Finish in the new tab",
+            description:
+              "Jobber opened in a new tab because it can't load inside this preview.",
+          });
+        }
       },
       onError: (error: any) => {
         toast({
           title: "Couldn't start Jobber connection",
           description:
+            error?.data?.error ||
             error?.message ||
             "Jobber API credentials may not be configured yet.",
           variant: "destructive",
