@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7B54" />
+      <stop offset="50%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+  <!-- Dark card background -->
+  <rect width="200" height="200" rx="40" fill="#0d0a0f"/>
+  
+  <!-- Sparkle motif -->
+  <path d="M100 40C100 73.1371 73.1371 100 40 100C73.1371 100 100 126.863 100 160C100 126.863 126.863 100 160 100C126.863 100 100 73.1371 100 40Z" fill="url(#brandGrad)"/>
+  
+  <circle cx="140" cy="60" r="12" fill="#ec4899" opacity="0.8"/>
+  <circle cx="60" cy="140" r="8" fill="#a855f7" opacity="0.6"/>
+</svg>

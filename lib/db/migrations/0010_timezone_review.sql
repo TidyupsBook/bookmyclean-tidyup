@@ -1,0 +1,2 @@
+ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "needs_time_review" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "bookings" ADD COLUMN IF NOT EXISTS "time_review_previous_timezone" text;

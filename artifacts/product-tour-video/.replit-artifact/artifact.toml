@@ -1,0 +1,28 @@
+kind = "video"
+previewPath = "/product-tour-video/"
+title = "Product Walkthrough Video"
+description = "An animated feature walkthrough of Book My Cleaning by Tidyups, showing how the product works step by step: the AI receptionist answering a call, the booking being created, the quote text going out, the customer approving it and paying a deposit, the optional Jobber sync, and the dispatcher dashboard."
+version = "1.0.0"
+id = "artifacts/product-tour-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/product-tour-video/" ]
+localPort = 20141
+
+[services.development]
+run = "pnpm --filter @workspace/product-tour-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/product-tour-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/product-tour-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20141"
+BASE_PATH = "/product-tour-video/"

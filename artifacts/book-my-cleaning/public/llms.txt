@@ -1,0 +1,7 @@
+# Tidyups — AI Receptionist for Cleaning Companies
+
+> Tidyups is an AI phone receptionist for cleaning businesses. It answers missed calls, collects booking details, and integrates with Jobber. Based in Edmonton, Alberta, Canada.
+
+## Pages
+
+- [Home](https://bookmycleaning.ca/): Landing page describing the AI receptionist product and cleaning service

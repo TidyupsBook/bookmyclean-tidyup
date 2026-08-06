@@ -1,0 +1,31 @@
+- [Orval zod v4 mismatch](orval-zod-v4.md) — orval v8 emits zod v4 API (`zod.int()`); codegen script must rewrite the generated import to `zod/v4`.
+- [Clerk web auth is cookie-based](clerk-web-auth.md) — never add bearer-token wiring to browser API calls; a 401 on web is a cookie/middleware issue, not missing tokens.
+- [Quo API constraints](quo-api.md) — raw key (no `Bearer`), `/v1/calls` needs a participant so enumerate via conversations, transcripts are post-call only.
+- [Scope express.raw to the webhook path](express-raw-body-scope.md) — a raw parser on `/api` leaves every other route's body a Buffer; body-parser skips once `req._body` is set.
+- [Quo plans & provisioning](quo-plans-and-provisioning.md) — transcripts need Business (not Starter), Sona calls burn credits, and there is no API to create accounts, numbers, or keys.
+- [Webhook idempotency via claim rows](webhook-idempotency-claim.md) — claim the delivery id before processing and release it on failure; ack-then-process silently drops events.
+- [Quo owner-notify pending marker](notify-claim-release.md) — the health flag never reverts on send failure; a separate pending marker (with a flag-matching restore guard) retries the text.
+- [Migrations are required here](db-migrations-required.md) — API applies Drizzle migrations at startup, so `drizzle-kit push` alone ships nothing; always add a migration file + journal entry.
+- [API date serialization](api-date-serialization.md) — a new nullable timestamp column 500s the whole list endpoint once one row sets it; update the route serializer in the same change.
+- [Booking times use company timezone](company-timezone-display.md) — never render or parse booking times in browser-local time; dispatcher and customer must see the same hour.
+- [Activity type enum lives in OpenAPI](db-migrations-practice.md) — new activity `type` values must be added to the ActivityItem enum + codegen and given a dashboard icon, or the feed fails zod validation at runtime.
+- [Booking draft extraction](booking-draft-extraction.md) — filling the form from a call is deterministic pattern matching on purpose; never guess city/province, never parse the date.
+- [Quote pricing rules](quote-pricing.md) — totals derive from stored inputs, but a texted quote is frozen at send; money rounding can't use bare toFixed or Math.round.
+- [Customer quote link](public-quote-link.md) — the quote page is a bearer link with no auth in Express *or* the SPA; approval is claimed via a conditional update.
+- [Cancellation sweeps need a complete pull](sync-cancellation-sweeps.md) — reconcile-by-absence must be gated on proven completeness; widening a sync window scales the blast radius of every early `break`.
+- [Geocode by address, not by row](geocode-address-cache.md) — shared address-keyed cache, misses cached too; repeat visits cost one lookup and test fixtures need run-unique addresses.
+- [Jobber sync runs two directions](jobber-sync-direction.md) — pushed requests and pulled jobs need separate id columns, or the pull cancels bookings it never imported.
+- [Jobber OAuth PKCE flow](jobber-oauth.md) — real OAuth with PKCE; connect returns authorizeUrl, callback at /api/company/jobber/callback stores tokens; token refresh on every sync.
+- [video-js scaffold gaps](video-artifact-scaffold.md) — new video artifacts ship without DOM libs in tsconfig and unformatted, so repo typecheck + format go red until fixed.
+- [Owner-notify claim release](notify-claim-release.md) — notification sends return sent/skipped/failed; retry state must live apart from health flags or dashboards lie during outages.
+- [Team roles & authorization](team-roles-authorization.md) — resolving a company is scope, not permission; a seat needs no email, and "lead cleaner" is a label, never a role.
+- [Clerk instance mismatch](clerk-instance-mismatch.md) — a cloned prod DB carries dev Clerk ids that 404, stranding every account in an onboarding loop; email recovery must be cohort-scoped and expiring.
+- [Clerk Expo mobile wiring](clerk-expo-mobile.md) — mobile uses bearer tokens via setAuthTokenGetter + custom auth screens; Clerk key must be injected in both dev script and build.js Metro env.
+- [Stripe live-mode switch](stripe-live-mode.md) — live keys come from the Publish pane, not code; mode-scoped keys stop webhook reconciliation from touching the live webhook; private visibility blocks webhooks.
+- [waitForJob timeout is capped](waitforjob-timeout-cap.md) — the `timeout` arg is silently clamped to ~20s; long waits need real sleeps, not a bigger number.
+- [Router-level guards leak across routers](express-router-use-guard-leak.md) — routers mount at `/`, so `router.use(requireRole)` guards other routers' routes; guards must be per-route, pinned by the authorization test matrix.
+- [Google Maps setup & loading](google-maps-key-setup.md) — `loading=async` leaves the namespace empty (importLibrary only); key needs two APIs, and each half fails invisibly in its own way.
+- [Public base URL must be pinned](public-base-url-pin.md) — a host inferred from REPLIT_DOMAINS is wrong for any URL a third party approves in advance; pin it and show it copyable.
+- [Repairing production rows](destructive-data-migrations.md) — enumerate every scoped child table, pin ids plus an attribute, and test with fixtures seeded at the real ids.
+- [Pushing to GitHub](git-push-replit.md) — gitPush only sees `origin` (real remote is `subrepl-*`), and the GitHub connector grants API access, not push credentials.
+- [Unlayered CSS beats Tailwind utilities](tailwind-layer-precedence.md) — a bare reset in index.html silently kills every padding/width utility app-wide; scope everything you add there.

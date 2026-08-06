@@ -1,0 +1,1955 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Book My Cleaning — AI receptionist for Jobber cleaning companies
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: company
+  - name: phone
+  - name: services
+  - name: team
+  - name: calls
+  - name: bookings
+  - name: dashboard
+  - name: map
+  - name: schedule
+  - name: staff
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /company:
+    get:
+      operationId: getCompany
+      tags: [company]
+      summary: Get the current user's company (404 if none yet)
+      responses:
+        "200":
+          description: Company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "404":
+          description: No company yet
+    post:
+      operationId: createCompany
+      tags: [company]
+      summary: Create the company workspace for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+    patch:
+      operationId: updateCompany
+      tags: [company]
+      summary: Update company settings / receptionist configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /company/jobber/connect:
+    post:
+      operationId: connectJobber
+      tags: [company]
+      summary: Start Jobber OAuth — returns an authorizeUrl to redirect the user to Jobber
+      responses:
+        "200":
+          description: OAuth start — redirect the browser to authorizeUrl
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobberConnectStart"
+        "503":
+          description: Jobber API credentials not configured
+  /company/jobber/disconnect:
+    post:
+      operationId: disconnectJobber
+      tags: [company]
+      summary: Disconnect Jobber and revoke app access
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /company/jobber/sync-calendar:
+    post:
+      operationId: syncJobberCalendar
+      tags: [company]
+      summary: Pull scheduled Jobber jobs onto our calendar and map right now
+      description: >-
+        Runs the same import as the background sync, on demand, over a rolling
+        window around today. Only ever creates or updates bookings this import
+        owns — a booking taken by the receptionist is never touched.
+      responses:
+        "200":
+          description: Sync finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobberCalendarSync"
+        "400":
+          description: Jobber isn't connected, or the sync failed
+  /company/go-live:
+    post:
+      operationId: goLive
+      tags: [company]
+      summary: Mark setup complete and take the receptionist live
+      responses:
+        "200":
+          description: Live
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /company/jobber/skip:
+    post:
+      operationId: setJobberSkipped
+      tags: [company]
+      summary: Skip Jobber (or un-skip it) and run bookings inside Book My Cleaning
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobberSkipInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /company/quo/connect:
+    post:
+      operationId: connectQuo
+      tags: [phone]
+      summary: Connect this company's own Quo workspace with their API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectQuoInput"
+      responses:
+        "200":
+          description: Connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /company/quo/disconnect:
+    post:
+      operationId: disconnectQuo
+      tags: [phone]
+      summary: Disconnect the Quo workspace and remove registered webhooks
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /quo/numbers:
+    get:
+      operationId: listQuoNumbers
+      tags: [phone]
+      summary: List the real phone numbers in the connected Quo workspace
+      responses:
+        "200":
+          description: Quo numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuoNumber"
+    post:
+      operationId: selectQuoNumbers
+      tags: [phone]
+      summary: Choose which Quo lines the receptionist watches and register webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoNumberSelection"
+      responses:
+        "200":
+          description: Watched lines updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+  /calls/sync:
+    post:
+      operationId: syncCallsFromQuo
+      tags: [calls]
+      summary: Backfill recent calls, Sona transcripts, and summaries from Quo
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+  /services:
+    get:
+      operationId: listServices
+      tags: [services]
+      summary: List the company's services and price ranges
+      responses:
+        "200":
+          description: Services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+    post:
+      operationId: createService
+      tags: [services]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+  /services/{id}:
+    patch:
+      operationId: updateService
+      tags: [services]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+    delete:
+      operationId: deleteService
+      tags: [services]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  /me:
+    get:
+      operationId: getCurrentUser
+      tags: [team]
+      summary: The signed-in account's seat within its company
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /bookings/{id}/crew:
+    put:
+      operationId: setBookingCrew
+      tags: [bookings]
+      summary: Set which cleaners are working a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetBookingCrewInput"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Booking not found
+  /team:
+    get:
+      operationId: listTeamMembers
+      tags: [team]
+      summary: List team members
+      responses:
+        "200":
+          description: Team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamMember"
+    post:
+      operationId: inviteTeamMember
+      tags: [team]
+      summary: Invite a dispatcher or cleaner by name and email
+      description: >-
+        Sends a real Clerk sign-up invitation to the address. The seat is
+        claimed the first time that person signs in with the address verified
+        on their account, so the invite still works if the email bounces.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberInput"
+      responses:
+        "201":
+          description: Invited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+  /team/import:
+    post:
+      operationId: importTeamMembers
+      tags: [team]
+      summary: Add or update staff in bulk from a spreadsheet
+      description: >-
+        Takes the rows of a staff spreadsheet the owner exported, edited and
+        uploaded again. Rows are matched to existing people by email, or by
+        name when they have no email, so a round trip updates rather than
+        duplicates. Bad rows are reported, never fatal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportTeamMembersInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportTeamMembersResult"
+  /team/{id}:
+    patch:
+      operationId: updateTeamMember
+      tags: [team]
+      summary: Edit a staff member's details
+      description: >-
+        Saves whatever the owner changed on the staff card. A new home address
+        is geocoded here so it can be pinned on the live map. Adding an email
+        to someone who had none also sends them a sign-up invitation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+    delete:
+      operationId: removeTeamMember
+      tags: [team]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+  /calls:
+    get:
+      operationId: listCalls
+      tags: [calls]
+      summary: List calls, most recent first
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Calls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Call"
+  /calls/{id}:
+    get:
+      operationId: getCall
+      tags: [calls]
+      summary: Get a call with its full transcript and extracted answers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Call detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+        "404":
+          description: Not found
+  /calls/{id}/booking-draft:
+    get:
+      operationId: getCallBookingDraft
+      tags: [calls]
+      summary: Everything the New Booking form can pre-fill from what the caller said
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft booking fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingDraft"
+        "404":
+          description: Not found
+  /booking-drafts:
+    post:
+      operationId: draftBookingFromText
+      tags: [bookings]
+      summary: Read booking details out of what was said on a live call
+      description: >
+        Takes the running transcript from the dispatcher's microphone and
+        returns the same shape as a draft built from a Quo call, so the New
+        Booking form fills itself in the same way either way. Nothing is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftBookingFromTextInput"
+      responses:
+        "200":
+          description: Draft booking fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingDraft"
+  /calls/simulate:
+    post:
+      operationId: simulateTestCall
+      tags: [calls]
+      summary: Run a simulated test call using the company's receptionist configuration
+      responses:
+        "201":
+          description: Simulated call created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+  /bookings/range:
+    get:
+      operationId: listBookingsInRange
+      tags: [bookings]
+      summary: Lightweight bookings across a span of days, for the map's calendar views
+      description: >-
+        Everything the day/3-day/week/month calendars need to lay out blocks and
+        count busy days, including bookings that have no coordinates yet. Never
+        carries price or contact details, so crew can use the same view.
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: First day of the range, YYYY-MM-DD in the company's timezone.
+          schema:
+            type: string
+        - name: end
+          in: query
+          required: true
+          description: Last day of the range (inclusive), YYYY-MM-DD in the company's timezone.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bookings in range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingRange"
+        "400":
+          description: Missing, malformed, or too wide a range
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List bookings created from calls
+      responses:
+        "200":
+          description: Bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Add a booking by hand (walk-in, repeat customer, or a call the AI missed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  # Public: no authentication. The token in the URL is the authorisation — the
+  # customer is reading a text on their phone, not signing in.
+  /quote/{token}:
+    get:
+      operationId: getPublicQuote
+      tags: [publicQuote]
+      summary: The customer's own view of their quote
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicQuote"
+        "404":
+          description: No such quote
+  /quote/{token}/approve:
+    post:
+      operationId: approvePublicQuote
+      tags: [publicQuote]
+      summary: Customer accepts the quote
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicQuote"
+        "404":
+          description: No such quote
+  /quote/{token}/pay:
+    post:
+      operationId: payPublicQuote
+      tags: [publicQuote]
+      summary: Start a Stripe Checkout session for the deposit
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Where to send the customer to pay
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checkoutUrl]
+                properties:
+                  checkoutUrl:
+                    type: string
+        "400":
+          description: Nothing payable on this quote
+        "404":
+          description: No such quote
+        "409":
+          description: Already paid
+        "502":
+          description: Stripe could not be reached
+  /quote/{token}/payment/refresh:
+    post:
+      operationId: refreshPublicQuotePayment
+      tags: [publicQuote]
+      summary: Re-check payment status with Stripe after checkout
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The quote, with payment status brought up to date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicQuote"
+        "404":
+          description: No such quote
+  /bookings/{id}/quote-preview:
+    get:
+      operationId: getQuotePreview
+      tags: [bookings]
+      summary: The quote text that would be sent to this customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotePreview"
+  /bookings/{id}/send-quote:
+    post:
+      operationId: sendQuote
+      tags: [bookings]
+      summary: Text the quote to the customer from the company's own Quo number
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendQuoteInput"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{id}:
+    patch:
+      operationId: updateBooking
+      tags: [bookings]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{id}/confirm-time:
+    post:
+      operationId: confirmBookingTime
+      tags: [bookings]
+      summary: Owner confirms the displayed time is correct after a timezone change
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{id}/send-reschedule-text:
+    post:
+      operationId: sendRescheduleText
+      tags: [bookings]
+      summary: Text the customer their booking's new time from the company's Quo number
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{id}/sync-jobber:
+    post:
+      operationId: syncBookingToJobber
+      tags: [bookings]
+      summary: Push this booking into Jobber as a real client + work request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Synced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Key metrics for the dispatcher dashboard
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent activity feed (calls answered, bookings created, syncs)
+      responses:
+        "200":
+          description: Activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+  /map/config:
+    get:
+      operationId: getMapConfig
+      tags: [map]
+      summary: Google Maps key for the dispatcher's browser (owner/dispatcher only)
+      responses:
+        "200":
+          description: Map config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapConfig"
+  /map/data:
+    get:
+      operationId: getMapData
+      tags: [map]
+      summary: Live cleaner positions, that day's job pins, and saved pins
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Day to show jobs for, YYYY-MM-DD in the company's timezone.
+          schema:
+            type: string
+        - name: end
+          in: query
+          required: false
+          description: >-
+            Last day of the range, YYYY-MM-DD in the company's timezone. When
+            given, jobs cover every day from `date` to `end` inclusive so the
+            week and month views can pin a whole span at once. Omit for a
+            single day.
+          schema:
+            type: string
+        - name: all
+          in: query
+          required: false
+          description: >-
+            Ignore the date range and pin every located job the caller may see,
+            one pin per address rather than one per visit. Answers "where are
+            my clients" instead of "where is the crew today"; `date` and `end`
+            are ignored when set.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Map data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapData"
+  /map/pins:
+    post:
+      operationId: createMapPin
+      tags: [map]
+      summary: Save a map pin, geocoding the address when coordinates are absent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePinInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPin"
+        "400":
+          description: Could not resolve the pin to coordinates
+  /map/pins/{id}:
+    delete:
+      operationId: deleteMapPin
+      tags: [map]
+      summary: Delete a map pin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  /staff/location:
+    post:
+      operationId: reportStaffLocation
+      tags: [staff]
+      summary: The calling team member reports their own GPS position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffLocationInput"
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffLocation"
+  /schedule:
+    get:
+      operationId: getSchedule
+      tags: [schedule]
+      summary: The day's schedule — owners/dispatchers see all, cleaners see their own
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Day to show, YYYY-MM-DD in the company's timezone.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    CustomQuestion:
+      type: object
+      required: [question, answer]
+      properties:
+        question: { type: string }
+        answer: { type: string }
+    CompanyInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        timezone:
+          type: string
+          minLength: 1
+          description: IANA time zone detected by the browser (e.g. America/Toronto)
+    CompanyUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        greeting: { type: string }
+        collectFields:
+          type: array
+          items: { type: string }
+        customQuestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomQuestion"
+        ringThroughNumber: { type: string }
+        # Fallback number for owner outage/recovery texts when no ring-through
+        # number is set.
+        notificationNumber: { type: string }
+        # IANA zone name, e.g. America/Edmonton. Validated server-side against
+        # the runtime's timezone database.
+        timezone: { type: string, minLength: 1 }
+        quoteRateSolo: { type: number, minimum: 0, maximum: 10000 }
+        quoteRateTeam: { type: number, minimum: 0, maximum: 10000 }
+        quoteFuelSurcharge: { type: number, minimum: 0, maximum: 10000 }
+        quoteTaxLabel: { type: string, minLength: 1 }
+        quoteTaxRate: { type: number, minimum: 0, maximum: 100 }
+        quoteFeesLabel: { type: string, minLength: 1 }
+        quoteFeesRate: { type: number, minimum: 0, maximum: 100 }
+        quoteDepositAmount: { type: number, minimum: 0, maximum: 1000000 }
+        quoteDepositEmail: { type: ["string", "null"] }
+    ConnectQuoInput:
+      type: object
+      required: [apiKey]
+      properties:
+        apiKey: { type: string }
+    QuoNumberSelection:
+      type: object
+      required: [numberIds]
+      properties:
+        numberIds:
+          type: array
+          items: { type: string }
+    QuoNumber:
+      type: object
+      required: [id, phoneNumber]
+      properties:
+        id: { type: string }
+        phoneNumber: { type: string }
+        name: { type: ["string", "null"] }
+        watched: { type: boolean }
+    WatchedNumber:
+      type: object
+      required: [id, phoneNumber, name, watched]
+      properties:
+        id: { type: string }
+        phoneNumber: { type: string }
+        name: { type: string }
+        watched: { type: boolean }
+    SetupStatus:
+      type: object
+      required:
+        [
+          accountCreated,
+          jobberConnected,
+          jobberSkipped,
+          jobberResolved,
+          quoConnected,
+          phoneProvisioned,
+          receptionistConfigured,
+          teamInvited,
+          isLive,
+          completedSteps,
+          totalSteps,
+        ]
+      properties:
+        accountCreated: { type: boolean }
+        jobberConnected: { type: boolean }
+        jobberSkipped: { type: boolean }
+        # True once the owner has made a choice either way, so the wizard can
+        # advance. Connecting Jobber later un-skips it.
+        jobberResolved: { type: boolean }
+        quoConnected: { type: boolean }
+        phoneProvisioned: { type: boolean }
+        receptionistConfigured: { type: boolean }
+        teamInvited: { type: boolean }
+        isLive: { type: boolean }
+        completedSteps: { type: integer }
+        totalSteps: { type: integer }
+    Company:
+      type: object
+      required:
+        [
+          id,
+          name,
+          timezone,
+          greeting,
+          collectFields,
+          customQuestions,
+          jobberConnected,
+          jobberSkipped,
+          jobberNeedsReauth,
+          jobberRedirectUri,
+          quoConnected,
+          quoNeedsReauth,
+          watchedNumbers,
+          isLive,
+          setupStatus,
+          createdAt,
+        ]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        timezone:
+          type: string
+          description: IANA zone the company schedules in. Booking times are shown and texted in this zone.
+        greeting: { type: string }
+        collectFields:
+          type: array
+          items: { type: string }
+        customQuestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomQuestion"
+        ringThroughNumber: { type: ["string", "null"] }
+        # Fallback number for owner outage/recovery texts when no ring-through
+        # number is set.
+        notificationNumber: { type: ["string", "null"] }
+        # Raw values saved before phone validation existed that the one-time
+        # cleanup pass could not normalize to a textable number. The live
+        # field was cleared; these hold what was removed so settings can warn
+        # the owner. Null once the owner saves a replacement.
+        ringThroughNumberRejected: { type: ["string", "null"] }
+        notificationNumberRejected: { type: ["string", "null"] }
+        phoneNumber: { type: ["string", "null"] }
+        jobberConnected: { type: boolean }
+        jobberSkipped: { type: boolean }
+        jobberAccountName: { type: ["string", "null"] }
+        jobberNeedsReauth: { type: boolean }
+        # The exact redirect URI this server will send to Jobber. Shown in
+        # settings so the owner registers the string we actually use, rather
+        # than one that looks right and fails at the last step.
+        jobberRedirectUri: { type: string }
+        quoConnected: { type: boolean }
+        quoWorkspaceName: { type: ["string", "null"] }
+        quoKeyLast4: { type: ["string", "null"] }
+        # True when Quo answered 401/403 for the stored key — the owner needs
+        # to reconnect before calls flow again.
+        quoNeedsReauth: { type: boolean }
+        quoteRateSolo: { type: number }
+        quoteRateTeam: { type: number }
+        quoteFuelSurcharge: { type: number }
+        quoteTaxLabel: { type: string }
+        quoteTaxRate: { type: number }
+        quoteFeesLabel: { type: string }
+        quoteFeesRate: { type: number }
+        quoteDepositAmount: { type: number }
+        quoteDepositEmail: { type: ["string", "null"] }
+        watchedNumbers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WatchedNumber"
+        isLive: { type: boolean }
+        setupStatus:
+          $ref: "#/components/schemas/SetupStatus"
+        createdAt: { type: string }
+    JobberConnectStart:
+      type: object
+      required: [authorizeUrl]
+      properties:
+        authorizeUrl: { type: string }
+    SyncResult:
+      type: object
+      required: [synced, skipped]
+      properties:
+        synced: { type: integer }
+        skipped: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+    ServiceInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        priceMin: { type: number }
+        priceMax: { type: number }
+        durationMinutes: { type: integer }
+    ServiceUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        priceMin: { type: number }
+        priceMax: { type: number }
+        durationMinutes: { type: integer }
+    Service:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        priceMin: { type: ["number", "null"] }
+        priceMax: { type: ["number", "null"] }
+        durationMinutes: { type: ["integer", "null"] }
+        createdAt: { type: string }
+    TeamMemberInput:
+      type: object
+      # Only the name is required. Everything else is optional because staff
+      # get added mid-shift from a phone, and a half-filled card that exists is
+      # worth more than a complete one nobody stopped to create.
+      required: [name, role]
+      properties:
+        name: { type: string }
+        # Optional: staff who don't use the app have no address. When present
+        # it is what connects them to a login, so it also triggers the invite.
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        # Only a dispatcher or a cleaner can be invited. The owner seat is the
+        # company's Clerk account and is never created through this endpoint.
+        role: { type: string, enum: [dispatcher, cleaner] }
+        # A label on their card, never a permission level — see TeamMember.
+        isLead: { type: boolean }
+        active: { type: boolean }
+        homeAddress: { type: ["string", "null"] }
+    TeamMemberUpdate:
+      type: object
+      # Every field optional: this is a patch, and the form saves whatever the
+      # owner touched without having to resend the rest of the card.
+      properties:
+        name: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: string, enum: [dispatcher, cleaner] }
+        isLead: { type: boolean }
+        active: { type: boolean }
+        homeAddress: { type: ["string", "null"] }
+    ImportTeamMembersInput:
+      type: object
+      required: [members]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMemberInput"
+    ImportTeamMembersResult:
+      type: object
+      required: [added, updated, skipped, errors]
+      properties:
+        added: { type: integer }
+        # Matched to an existing person by email, or by name when they have no
+        # email — so re-uploading an edited export updates rather than clones.
+        updated: { type: integer }
+        skipped: { type: integer }
+        # Human-readable reasons, one per row that couldn't be taken, so the
+        # owner can fix the spreadsheet instead of guessing.
+        errors:
+          type: array
+          items: { type: string }
+    TeamMember:
+      type: object
+      required:
+        [
+          id,
+          name,
+          role,
+          isLead,
+          active,
+          status,
+          hasLogin,
+          inviteEmailSent,
+          blockedByOtherCompany,
+          createdAt,
+        ]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        # Null for staff who don't sign in to the app at all.
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        role: { type: string, enum: [owner, dispatcher, cleaner] }
+        # A display label, NOT a permission level: a lead cleaner sees exactly
+        # what a cleaner sees. Kept apart from `role` so it can never widen
+        # anyone's access by accident.
+        isLead: { type: boolean }
+        # On the roster. Inactive staff keep their history and their login,
+        # they just stop appearing where work gets assigned.
+        active: { type: boolean }
+        homeAddress: { type: ["string", "null"] }
+        homeLat: { type: ["number", "null"] }
+        homeLng: { type: ["number", "null"] }
+        status: { type: string, enum: [active, invited] }
+        # True once this person has signed up and their verified email was
+        # matched to this seat, i.e. they can actually sign in.
+        hasLogin: { type: boolean }
+        # False when Clerk would not send the sign-up email. The seat still
+        # works — they just have to sign up with the invited address manually.
+        inviteEmailSent: { type: boolean }
+        # True when this invite can never be accepted: the address is already
+        # attached to another company, and a login can only belong to one.
+        blockedByOtherCompany: { type: boolean }
+        claimedAt: { type: ["string", "null"] }
+        createdAt: { type: string }
+    CrewMember:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        role: { type: string, enum: [owner, dispatcher, cleaner] }
+    SetBookingCrewInput:
+      type: object
+      required: [teamMemberIds]
+      properties:
+        # The complete crew for the job — this replaces whoever was on it.
+        # An empty list unassigns everyone.
+        teamMemberIds:
+          type: array
+          maxItems: 20
+          items: { type: integer }
+    CurrentUser:
+      type: object
+      required: [role, name, email, companyName]
+      properties:
+        # Which seat the signed-in account holds. Drives what the dashboard
+        # shows and what the API will let them do.
+        role: { type: string, enum: [owner, dispatcher, cleaner] }
+        # The team_members row backing this session. Null for the owner, whose
+        # access comes from owning the company rather than holding a seat.
+        teamMemberId: { type: ["integer", "null"] }
+        name: { type: string }
+        email: { type: string }
+        companyName: { type: string }
+    TranscriptSegment:
+      type: object
+      required: [speaker, text, offsetSeconds]
+      properties:
+        speaker: { type: string, enum: [caller, ai] }
+        text: { type: string }
+        offsetSeconds: { type: number }
+    ExtractedAnswer:
+      type: object
+      required: [field, value]
+      properties:
+        field: { type: string }
+        value: { type: string }
+    Call:
+      type: object
+      required:
+        [
+          id,
+          callerName,
+          callerPhone,
+          status,
+          startedAt,
+          durationSeconds,
+          isTest,
+        ]
+      properties:
+        id: { type: integer }
+        callerName: { type: string }
+        callerPhone: { type: string }
+        status: { type: string, enum: [in_progress, completed, missed, booked] }
+        serviceRequested: { type: ["string", "null"] }
+        preferredTime: { type: ["string", "null"] }
+        startedAt: { type: string }
+        durationSeconds: { type: integer }
+        isTest: { type: boolean }
+        bookingId: { type: ["integer", "null"] }
+        direction: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        quoCallId: { type: ["string", "null"] }
+        recordingUrl: { type: ["string", "null"] }
+    CallDetail:
+      type: object
+      required:
+        [
+          id,
+          callerName,
+          callerPhone,
+          status,
+          startedAt,
+          durationSeconds,
+          isTest,
+          transcript,
+          extractedAnswers,
+        ]
+      properties:
+        id: { type: integer }
+        callerName: { type: string }
+        callerPhone: { type: string }
+        status: { type: string, enum: [in_progress, completed, missed, booked] }
+        serviceRequested: { type: ["string", "null"] }
+        preferredTime: { type: ["string", "null"] }
+        startedAt: { type: string }
+        durationSeconds: { type: integer }
+        isTest: { type: boolean }
+        bookingId: { type: ["integer", "null"] }
+        direction: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        quoCallId: { type: ["string", "null"] }
+        recordingUrl: { type: ["string", "null"] }
+        transcript:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranscriptSegment"
+        extractedAnswers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtractedAnswer"
+    DraftBookingFromTextInput:
+      type: object
+      required: [text]
+      properties:
+        # Capped because this is a running microphone transcript, and a
+        # forgotten open mic would otherwise post an ever-growing body.
+        text: { type: string, minLength: 1, maxLength: 20000 }
+    BookingDraft:
+      type: object
+      # A suggestion, never a saved booking. Every field is nullable because
+      # a caller who mumbles their address simply leaves that box empty for
+      # the dispatcher to fill in.
+      required: [callId, filledFields]
+      properties:
+        # Null when the draft came from the dispatcher's microphone rather
+        # than from a call Quo transcribed.
+        callId: { type: ["integer", "null"] }
+        customerName: { type: ["string", "null"] }
+        customerPhone: { type: ["string", "null"] }
+        customerAddress: { type: ["string", "null"] }
+        addressCity: { type: ["string", "null"] }
+        addressProvince: { type: ["string", "null"] }
+        addressPostal: { type: ["string", "null"] }
+        service: { type: ["string", "null"] }
+        bedrooms: { type: ["integer", "null"] }
+        bathrooms: { type: ["integer", "null"] }
+        # What the caller said about timing, in their words ("next Tuesday").
+        # Deliberately not a date: guessing one and being wrong is worse than
+        # showing the dispatcher the phrase and letting them pick.
+        preferredTime: { type: ["string", "null"] }
+        internalNotes: { type: ["string", "null"] }
+        # Which of the above we actually found something for, so the form can
+        # highlight the boxes it filled instead of the dispatcher hunting.
+        filledFields:
+          type: array
+          items: { type: string }
+    Booking:
+      type: object
+      required:
+        [
+          id,
+          customerName,
+          customerPhone,
+          service,
+          scheduledFor,
+          status,
+          quoteTotals,
+          jobberSynced,
+          needsTimeReview,
+          createdAt,
+        ]
+      properties:
+        id: { type: integer }
+        callId: { type: ["integer", "null"] }
+        customerName: { type: string }
+        customerPhone: { type: string }
+        customerEmail: { type: ["string", "null"] }
+        # Street line only — city/province/postal are separate, because the
+        # booking desk types them into separate boxes and Jobber wants them
+        # apart. Older bookings have the whole address in this one field.
+        customerAddress: { type: ["string", "null"] }
+        addressCity: { type: ["string", "null"] }
+        addressProvince: { type: ["string", "null"] }
+        addressPostal: { type: ["string", "null"] }
+        service: { type: string }
+        # Job scope as walked through on the phone. All optional.
+        bedrooms: { type: ["integer", "null"] }
+        bathrooms: { type: ["integer", "null"] }
+        extras:
+          oneOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+        # one_time | weekly | biweekly | monthly — what the customer asked
+        # for. Recurring visits themselves live in Jobber, not here.
+        frequency: { type: ["string", "null"] }
+        # Gate codes, dogs, where the key is. Never shown to the customer.
+        internalNotes: { type: ["string", "null"] }
+        scheduledFor: { type: string }
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        # How the job was priced: hours x crew rate, plus fuel, less any promo.
+        quoteHours: { type: ["number", "null"] }
+        quoteCrewLabel: { type: ["string", "null"] }
+        quoteHourlyRate: { type: ["number", "null"] }
+        quoteFuelSurcharge: { type: ["number", "null"] }
+        quoteDiscountAmount: { type: ["number", "null"] }
+        quoteReferralSource: { type: ["string", "null"] }
+        # Flat subtotal for a job priced without the calculator. Before the
+        # company's tax and fees, not the customer-facing total.
+        quotedAmount: { type: ["number", "null"] }
+        quoteDeposit: { type: ["number", "null"] }
+        quoteNotes: { type: ["string", "null"] }
+        quoteMessage: { type: ["string", "null"] }
+        quoteSentAt: { type: ["string", "null"] }
+        # Where the customer views their quote. Null until a quote is sent.
+        quoteUrl: { type: ["string", "null"] }
+        quoteApprovedAt: { type: ["string", "null"] }
+        depositPaidAt: { type: ["string", "null"] }
+        depositPaidAmount: { type: ["number", "null"] }
+        # Derived from those inputs and the company's rates, never stored, so a
+        # rate change can't leave a quote disagreeing with itself. Null for
+        # cleaner callers: pricing never leaves the server for a crew login.
+        quoteTotals:
+          oneOf:
+            - $ref: "#/components/schemas/QuoteTotals"
+            - type: "null"
+        # What the customer was actually promised, frozen when the text went
+        # out. Null until a quote has been sent.
+        quoteSentTotals:
+          oneOf:
+            - $ref: "#/components/schemas/QuoteTotals"
+            - type: "null"
+        # True when a company timezone change shifted this booking's displayed
+        # time and the owner hasn't yet confirmed or adjusted it.
+        needsTimeReview: { type: boolean }
+        # The zone the booking was shown in before the switch, e.g.
+        # "America/Edmonton". Null unless flagged for review.
+        timeReviewPreviousTimezone: { type: ["string", "null"] }
+        jobberSynced: { type: boolean }
+        jobberJobId: { type: ["string", "null"] }
+        jobberClientId: { type: ["string", "null"] }
+        jobberWebUri: { type: ["string", "null"] }
+        jobberSyncError: { type: ["string", "null"] }
+        jobberSyncErrorAt: { type: ["string", "null"] }
+        # Geocoded position of the job's address, for the live dispatch map.
+        # Null until the address is resolved.
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        geocodedAt: { type: ["string", "null"] }
+        # Expected job length in minutes, for laying it out on the schedule.
+        durationMinutes: { type: ["integer", "null"] }
+        # The cleaners working this job. Empty until a crew is assigned.
+        crew:
+          type: array
+          items: { $ref: "#/components/schemas/CrewMember" }
+        createdAt: { type: string }
+    BookingUpdate:
+      type: object
+      properties:
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        scheduledFor: { type: string }
+        customerName: { type: string, minLength: 1 }
+        customerPhone: { type: string, minLength: 1 }
+        customerEmail: { type: ["string", "null"] }
+        customerAddress: { type: ["string", "null"] }
+        addressCity: { type: ["string", "null"], maxLength: 120 }
+        addressProvince: { type: ["string", "null"], maxLength: 60 }
+        addressPostal: { type: ["string", "null"], maxLength: 20 }
+        service: { type: string, minLength: 1 }
+        bedrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
+        bathrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
+        extras:
+          oneOf:
+            - type: array
+              items: { type: string, minLength: 1, maxLength: 60 }
+              maxItems: 30
+            - type: "null"
+        frequency:
+          oneOf:
+            - type: string
+              enum: [one_time, weekly, biweekly, monthly]
+            - type: "null"
+        internalNotes: { type: ["string", "null"], maxLength: 4000 }
+        # Bounded so a typo can't produce a nonsense quote: a cleaning job is
+        # not 5000 hours long, and no crew costs $1m an hour.
+        quoteHours: { type: ["number", "null"], minimum: 0, maximum: 24 }
+        quoteCrewLabel: { type: ["string", "null"], maxLength: 60 }
+        quoteHourlyRate:
+          { type: ["number", "null"], minimum: 0, maximum: 10000 }
+        quoteFuelSurcharge:
+          { type: ["number", "null"], minimum: 0, maximum: 10000 }
+        quoteDiscountAmount:
+          { type: ["number", "null"], minimum: 0, maximum: 100000 }
+        quoteReferralSource: { type: ["string", "null"], maxLength: 60 }
+        quotedAmount: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
+        quoteDeposit: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
+        quoteNotes: { type: ["string", "null"] }
+    BookingCreate:
+      type: object
+      required: [customerName, customerPhone, service, scheduledFor]
+      properties:
+        customerName: { type: string, minLength: 1 }
+        customerPhone: { type: string, minLength: 1 }
+        customerEmail: { type: ["string", "null"] }
+        customerAddress: { type: ["string", "null"] }
+        addressCity: { type: ["string", "null"], maxLength: 120 }
+        addressProvince: { type: ["string", "null"], maxLength: 60 }
+        addressPostal: { type: ["string", "null"], maxLength: 20 }
+        service: { type: string, minLength: 1 }
+        bedrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
+        bathrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
+        extras:
+          oneOf:
+            - type: array
+              items: { type: string, minLength: 1, maxLength: 60 }
+              maxItems: 30
+            - type: "null"
+        frequency:
+          oneOf:
+            - type: string
+              enum: [one_time, weekly, biweekly, monthly]
+            - type: "null"
+        internalNotes: { type: ["string", "null"], maxLength: 4000 }
+        # Who should work it, chosen while the customer is still on the phone.
+        # Same rule as the crew picker: this company's active people only.
+        teamMemberIds:
+          oneOf:
+            - type: array
+              items: { type: integer }
+              maxItems: 20
+            - type: "null"
+        scheduledFor: { type: string }
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        quoteHours: { type: ["number", "null"], minimum: 0, maximum: 24 }
+        quoteCrewLabel: { type: ["string", "null"], maxLength: 60 }
+        quoteHourlyRate:
+          { type: ["number", "null"], minimum: 0, maximum: 10000 }
+        quoteFuelSurcharge:
+          { type: ["number", "null"], minimum: 0, maximum: 10000 }
+        quoteDiscountAmount:
+          { type: ["number", "null"], minimum: 0, maximum: 100000 }
+        quoteReferralSource: { type: ["string", "null"], maxLength: 60 }
+        quotedAmount: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
+        quoteDeposit: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
+        quoteNotes: { type: ["string", "null"] }
+    QuoteLineItem:
+      type: object
+      required: [name, quantity, unitPrice]
+      properties:
+        name: { type: string, minLength: 1 }
+        # Usually hours.
+        quantity: { type: number }
+        # Negative for a discount line, so no minimum.
+        unitPrice: { type: number }
+    QuoteTotals:
+      type: object
+      required:
+        [
+          lineItems,
+          subtotal,
+          taxLabel,
+          taxRate,
+          taxAmount,
+          feesLabel,
+          feesRate,
+          feesAmount,
+          total,
+          deposit,
+        ]
+      properties:
+        # Rebuilt from the pricing inputs; these are the rows on the estimate.
+        lineItems:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteLineItem" }
+        subtotal: { type: number }
+        taxLabel: { type: string }
+        taxRate: { type: number }
+        taxAmount: { type: number }
+        feesLabel: { type: string }
+        feesRate: { type: number }
+        feesAmount: { type: number }
+        total: { type: number }
+        deposit: { type: number }
+        depositEmail: { type: ["string", "null"] }
+    # What a customer sees at their quote link. Deliberately narrow: this is
+    # served without authentication, so it carries only what belongs on the
+    # customer's own estimate and nothing else about the company or its jobs.
+    PublicQuote:
+      type: object
+      required:
+        [
+          companyName,
+          customerName,
+          service,
+          scheduledForLabel,
+          totals,
+          approved,
+        ]
+      properties:
+        companyName: { type: string }
+        customerName: { type: string }
+        customerAddress: { type: ["string", "null"] }
+        service: { type: string }
+        # The company's own description of this service, if they've written one.
+        serviceDescription: { type: ["string", "null"] }
+        # Preformatted in the company's timezone — the customer must see the
+        # same hour the dispatcher does, not their own device's timezone.
+        scheduledForLabel: { type: string }
+        totals: { $ref: "#/components/schemas/QuoteTotals" }
+        notes: { type: ["string", "null"] }
+        sentAtLabel: { type: ["string", "null"] }
+        approved: { type: boolean }
+        approvedAtLabel: { type: ["string", "null"] }
+        # True only once Stripe confirms the money cleared — never on the
+        # redirect back from Checkout, which the customer controls.
+        depositPaid: { type: boolean }
+        depositPaidAmount: { type: ["number", "null"] }
+        depositPaidAtLabel: { type: ["string", "null"] }
+        # What's still chargeable online, or null when nothing is owed.
+        payableAmount: { type: ["number", "null"] }
+    QuotePreview:
+      type: object
+      required: [message, canSend]
+      properties:
+        message: { type: string }
+        # False when the company has no Quo line to send from, or no key.
+        canSend: { type: boolean }
+        blockedReason: { type: ["string", "null"] }
+        fromNumber: { type: ["string", "null"] }
+        totals: { $ref: "#/components/schemas/QuoteTotals" }
+    SendQuoteInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 1600 }
+        # The edited message no longer contains the calculated price, and the
+        # dispatcher has explicitly confirmed they mean to send it anyway.
+        # Without this, such a send is refused so the booking's frozen quote
+        # can't silently disagree with what the customer was texted.
+        confirmPriceMismatch: { type: boolean }
+    JobberSkipInput:
+      type: object
+      required: [skipped]
+      properties:
+        skipped: { type: boolean }
+    DashboardSummary:
+      type: object
+      required:
+        [
+          callsToday,
+          callsThisWeek,
+          bookingsThisWeek,
+          answeredRate,
+          avgCallSeconds,
+          pendingBookings,
+          jobberSyncedCount,
+        ]
+      properties:
+        callsToday: { type: integer }
+        callsThisWeek: { type: integer }
+        bookingsThisWeek: { type: integer }
+        answeredRate: { type: number }
+        avgCallSeconds: { type: integer }
+        pendingBookings: { type: integer }
+        jobberSyncedCount: { type: integer }
+    ActivityItem:
+      type: object
+      required: [id, type, message, occurredAt]
+      properties:
+        id: { type: integer }
+        type:
+          {
+            type: string,
+            enum:
+              [
+                call_answered,
+                booking_created,
+                jobber_synced,
+                jobber_sync_failed,
+                quote_sent,
+                quote_approved,
+                deposit_paid,
+                test_call,
+                team_invited,
+                crew_assigned,
+                reschedule_texted,
+              ],
+          }
+        message: { type: string }
+        occurredAt: { type: string }
+    MapConfig:
+      type: object
+      required: [apiKey, configured]
+      properties:
+        # The Google Maps JS key, served to authenticated dispatchers only so it
+        # never has to be baked into the client bundle. Empty when unconfigured.
+        apiKey: { type: string }
+        configured: { type: boolean }
+    MapCleaner:
+      type: object
+      required: [teamMemberId, name, lat, lng, updatedAt]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        accuracy: { type: ["number", "null"] }
+        updatedAt: { type: string }
+    MapJobAssignee:
+      type: object
+      required: [teamMemberId, name]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+    MapJob:
+      type: object
+      required:
+        [bookingId, customerName, lat, lng, scheduledFor, status, assignees]
+      properties:
+        bookingId: { type: integer }
+        customerName: { type: string }
+        customerAddress: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        scheduledFor: { type: string }
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        assignees:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapJobAssignee"
+        # How many jobs this pin stands for. Always 1 in the dated views, where
+        # a pin is a visit. In `all` mode a pin is a place, so a house cleaned
+        # every week is one marker carrying its visit count instead of fifty
+        # markers stacked on the same roof.
+        visits: { type: integer }
+    MapPin:
+      type: object
+      required: [id, name, lat, lng]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        address: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+    StaffHome:
+      type: object
+      required: [teamMemberId, name, roleLabel, lat, lng, active]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+        # "Lead Cleaner", "Cleaner", "Dispatcher" — what shows on their card.
+        roleLabel: { type: string }
+        address: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        active: { type: boolean }
+    MapData:
+      type: object
+      required: [cleaners, jobs, pins, staffHomes]
+      properties:
+        cleaners:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapCleaner"
+        # Where each staff member lives. Home addresses are a colleague's
+        # personal information, so dispatch sees the whole crew's and a cleaner
+        # sees only their own.
+        staffHomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffHome"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapJob"
+        pins:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapPin"
+    JobberCalendarSync:
+      type: object
+      required:
+        [imported, updated, skipped, canceled, jobberCount, hitPageLimit]
+      properties:
+        imported: { type: integer }
+        updated: { type: integer }
+        # Jobber jobs with no scheduled time, or one we couldn't read.
+        skipped: { type: integer }
+        # Imported bookings that have since disappeared from Jobber.
+        canceled: { type: integer }
+        jobberCount: { type: integer }
+        # True when the account has more scheduled work than one sync can page
+        # through; the cancellation sweep is skipped in that case.
+        hitPageLimit: { type: boolean }
+    BookingRangeItem:
+      type: object
+      required:
+        [
+          bookingId,
+          customerName,
+          service,
+          scheduledFor,
+          durationMinutes,
+          status,
+          located,
+          assignees,
+        ]
+      properties:
+        bookingId: { type: integer }
+        customerName: { type: string }
+        service: { type: string }
+        scheduledFor: { type: string }
+        # Falls back to the service's duration, else 120 minutes — the calendar
+        # sizes a block by it, so it can never be null.
+        durationMinutes: { type: integer }
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        # False when the booking has an address we haven't resolved yet (or no
+        # address at all) — the calendar still shows it, the map can't pin it.
+        located: { type: boolean }
+        assignees:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapJobAssignee"
+    BookingRange:
+      type: object
+      required: [start, end, bookings]
+      properties:
+        start: { type: string }
+        end: { type: string }
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookingRangeItem"
+    StaffLocationInput:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracy: { type: ["number", "null"], minimum: 0 }
+    StaffLocation:
+      type: object
+      required: [teamMemberId, lat, lng, updatedAt]
+      properties:
+        teamMemberId: { type: integer }
+        lat: { type: number }
+        lng: { type: number }
+        accuracy: { type: ["number", "null"] }
+        updatedAt: { type: string }
+    ScheduleJob:
+      type: object
+      required: [bookingId, customerName, scheduledFor, durationMinutes, status]
+      properties:
+        bookingId: { type: integer }
+        customerName: { type: string }
+        customerAddress: { type: ["string", "null"] }
+        scheduledFor: { type: string }
+        # Falls back to the service's duration, else 120 minutes.
+        durationMinutes: { type: integer }
+        status:
+          { type: string, enum: [pending, confirmed, completed, canceled] }
+        price: { type: ["number", "null"] }
+    ScheduleCleaner:
+      type: object
+      required: [teamMemberId, name, jobs]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleJob"
+    Schedule:
+      type: object
+      required: [date, cleaners, unassigned]
+      properties:
+        date: { type: string }
+        cleaners:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleCleaner"
+        unassigned:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleJob"
+    CreatePinInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        address: { type: ["string", "null"] }
+        lat: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        lng: { type: ["number", "null"], minimum: -180, maximum: 180 }

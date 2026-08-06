@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "QKA7j6t07KHgo68G6pSiH"
+uri = "file://artifacts/product-tour-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"
+description = "Generated music: Clean driving electronic instrumental background music scoring a 33-second software product walkthrough. Bright arpeggiated synths, soft sidechained pads, tight electronic kick and h…"
+
+[[outputs]]
+id = "s3JpprFbJ5Lirev19USWY"
+uri = "file://artifacts/sales-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"
+description = "Generated music: Confident corporate-electronic instrumental background music scoring a 25-second B2B software sales pitch aimed at small business owners. Warm analog synth pads, muted plucked bass, …"

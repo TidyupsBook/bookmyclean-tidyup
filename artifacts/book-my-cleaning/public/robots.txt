@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /calls
+Disallow: /bookings
+Disallow: /setup
+Disallow: /onboarding
+Disallow: /team
+Disallow: /settings
+Disallow: /map
+Disallow: /schedule
+Disallow: /sign-in
+Disallow: /sign-up
+
+Sitemap: https://bookmycleaning.net/sitemap.xml

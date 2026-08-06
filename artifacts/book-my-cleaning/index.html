@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary metadata -->
+    <title>
+      Tidyups | Edmonton's #1 Residential &amp; Commercial Cleaning Service
+    </title>
+    <meta
+      name="description"
+      content="Professional residential and commercial cleaning in Edmonton — deep cleans, move-outs, Airbnb turnovers, and office cleaning. Insured, background-checked pros. AI-powered booking. Call (780) 718-5092."
+    />
+    <link rel="canonical" href="https://www.bookmycleaning.ca/" />
+
+    <!-- Open Graph (Facebook, LinkedIn, Slack, iMessage, WhatsApp) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.bookmycleaning.ca/" />
+    <meta
+      property="og:title"
+      content="Tidyups | Edmonton's #1 Residential &amp; Commercial Cleaning Service"
+    />
+    <meta
+      property="og:description"
+      content="Professional cleaning across Edmonton — deep cleans, move-outs, Airbnb turnovers, and office cleaning. Insured &amp; bonded. AI-powered booking. (780) 718-5092)."
+    />
+    <!-- og:image — add a 1200×630 jpg to /public/og-image.jpg to enable rich previews -->
+    <!-- <meta property="og:image" content="https://www.bookmycleaning.ca/og-image.jpg" /> -->
+    <meta property="og:locale" content="en_CA" />
+    <meta property="og:site_name" content="Tidyups" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Tidyups | Edmonton's #1 Cleaning Service"
+    />
+    <meta
+      name="twitter:description"
+      content="Professional cleaning in Edmonton. Deep cleans, move-outs, Airbnb turnovers, offices. Insured &amp; bonded pros. AI-powered booking. (780) 718-5092."
+    />
+    <!-- twitter:image — add /public/og-image.jpg to enable Twitter card images -->
+    <!-- <meta name="twitter:image" content="https://www.bookmycleaning.ca/og-image.jpg" /> -->
+
+    <!-- Additional SEO signals -->
+    <meta name="robots" content="index, follow" />
+    <meta name="geo.region" content="CA-AB" />
+    <meta name="geo.placename" content="Edmonton, Alberta, Canada" />
+
+    <!-- Google Fonts async load — non-blocking -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
+
+    <!-- Fontshare async load — non-blocking -->
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link
+      rel="preload"
+      as="style"
+      href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700&display=swap"
+      />
+    </noscript>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://bookmycleaning.ca/#website",
+            "url": "https://bookmycleaning.ca/",
+            "name": "Tidyups",
+            "description": "AI receptionist and professional cleaning services for Edmonton"
+          },
+          {
+            "@type": ["LocalBusiness", "HouseCleaning"],
+            "@id": "https://bookmycleaning.ca/#business",
+            "name": "Tidyups Cleaning Service Inc.",
+            "url": "https://bookmycleaning.ca/",
+            "telephone": "+17807185092",
+            "areaServed": {
+              "@type": "City",
+              "name": "Edmonton",
+              "addressRegion": "AB",
+              "addressCountry": "CA"
+            },
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Edmonton",
+              "addressRegion": "AB",
+              "addressCountry": "CA"
+            },
+            "description": "Professional residential and commercial cleaning across Edmonton. Background-checked, insured, and eco-friendly.",
+            "priceRange": "$$"
+          }
+        ]
+      }
+    </script>
+
+    <!-- Minimal above-the-fold styles so the static HTML is readable before JS
+         loads. React replaces this content once the bundle hydrates. -->
+    <style>
+      /*
+       * EVERY rule in this block must stay scoped to #static-shell.
+       *
+       * Tailwind v4 puts its utilities inside @layer, and an unlayered rule
+       * beats a layered one no matter how specific the layered one is. So a
+       * bare `* { margin: 0; padding: 0 }` here does not just lose to `p-6` —
+       * it silently overrides every spacing, centring and max-width utility in
+       * the entire app, in every page, at every window size.
+       */
+      #static-shell,
+      #static-shell *,
+      #static-shell *::before,
+      #static-shell *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Pre-render shell — visible to crawlers, replaced by React on load */
+      #static-shell {
+        min-height: 100vh;
+        background: #0a080c;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        color: #fff;
+      }
+      #static-shell a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* Nav */
+      #static-shell nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: rgba(10, 8, 12, 0.9);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 0 1.5rem;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      #static-shell .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: "Cabinet Grotesk", "Plus Jakarta Sans", sans-serif;
+        font-weight: 800;
+        font-size: 1.2rem;
+        letter-spacing: -0.02em;
+      }
+      #static-shell .nav-logo img {
+        width: 32px;
+        height: 32px;
+      }
+      #static-shell .nav-cta {
+        display: inline-block;
+        background: linear-gradient(135deg, #ec4899, #a855f7);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.875rem;
+        padding: 0.5rem 1.25rem;
+        border-radius: 9999px;
+      }
+
+      /* Hero */
+      #static-shell .hero {
+        padding: 9rem 1.5rem 5rem;
+        max-width: 72rem;
+        margin: 0 auto;
+      }
+      #static-shell .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 9999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #ccc;
+        margin-bottom: 1.5rem;
+      }
+      #static-shell h1 {
+        font-family: "Cabinet Grotesk", "Plus Jakarta Sans", sans-serif;
+        font-weight: 800;
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        color: #fff;
+        margin-bottom: 1.25rem;
+      }
+      #static-shell h1 .gradient-text {
+        background: linear-gradient(135deg, #ec4899, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      #static-shell .hero-desc {
+        font-size: 1.1rem;
+        color: #a09aad;
+        line-height: 1.7;
+        max-width: 38rem;
+        margin-bottom: 2.5rem;
+      }
+      #static-shell .hero-desc strong {
+        color: #fff;
+      }
+      #static-shell .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+      }
+      #static-shell .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: linear-gradient(135deg, #ec4899, #a855f7);
+        color: #fff;
+        font-weight: 700;
+        font-size: 1rem;
+        padding: 0.9rem 2rem;
+        border-radius: 9999px;
+      }
+      #static-shell .phone-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #fff;
+      }
+      #static-shell .trust-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: #7c7189;
+      }
+      #static-shell .trust-badges span {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      #static-shell .trust-badges span::before {
+        content: "✓";
+        color: #ec4899;
+        font-weight: 700;
+      }
+
+      /* Services section */
+      #static-shell .services {
+        padding: 5rem 1.5rem;
+        max-width: 72rem;
+        margin: 0 auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      #static-shell .section-label {
+        display: block;
+        text-align: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #ec4899;
+        margin-bottom: 0.75rem;
+      }
+      #static-shell h2 {
+        font-family: "Cabinet Grotesk", "Plus Jakarta Sans", sans-serif;
+        font-weight: 800;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        color: #fff;
+        text-align: center;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.75rem;
+      }
+      #static-shell .section-sub {
+        text-align: center;
+        color: #a09aad;
+        font-size: 1rem;
+        margin-bottom: 3rem;
+        max-width: 36rem;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      #static-shell .service-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        list-style: none;
+      }
+      #static-shell .service-card {
+        background: #120e17;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 1.25rem;
+        padding: 2rem;
+      }
+      #static-shell .service-card h3 {
+        font-family: "Cabinet Grotesk", "Plus Jakarta Sans", sans-serif;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #fff;
+        margin-bottom: 0.5rem;
+      }
+      #static-shell .service-card p {
+        font-size: 0.9rem;
+        color: #a09aad;
+        line-height: 1.6;
+      }
+
+      /* Services list (ticker items as readable list for crawlers) */
+      #static-shell .service-types {
+        max-width: 72rem;
+        margin: 0 auto 3rem;
+        padding: 0 1.5rem;
+      }
+      #static-shell .service-types-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        list-style: none;
+      }
+      #static-shell .service-types-list li {
+        background: #1a1523;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 9999px;
+        padding: 0.35rem 1rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #a09aad;
+      }
+
+      /* CTA section */
+      #static-shell .cta-section {
+        background: #1a1523;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 5rem 1.5rem;
+        text-align: center;
+      }
+      #static-shell .cta-section h2 {
+        margin-bottom: 1rem;
+      }
+      #static-shell .cta-section p {
+        font-size: 1rem;
+        color: #a09aad;
+        max-width: 36rem;
+        margin: 0 auto 2rem;
+        line-height: 1.7;
+      }
+
+      /* Footer */
+      #static-shell footer {
+        background: #0a080c;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        font-size: 0.85rem;
+        color: #7c7189;
+      }
+      #static-shell footer .footer-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        font-family: "Cabinet Grotesk", "Plus Jakarta Sans", sans-serif;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      #static-shell footer img {
+        width: 24px;
+        height: 24px;
+        opacity: 0.8;
+      }
+
+      /* Hide the static shell once React has painted */
+      .js-loaded #static-shell {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Static pre-render for crawlers (GPTBot, ClaudeBot, Googlebot, social bots).
+      React replaces #root on load; the #static-shell is hidden via JS class toggle.
+    -->
+    <div id="static-shell">
+      <nav aria-label="Site navigation">
+        <div class="nav-logo">
+          <img src="/logo.svg" alt="Tidyups logo" width="32" height="32" />
+          Tidyups
+        </div>
+        <a href="/sign-up" class="nav-cta">Get Your Free Quote</a>
+      </nav>
+
+      <main>
+        <!-- Hero -->
+        <section class="hero">
+          <div class="eyebrow">⭐ Edmonton's #1 Rated Cleaning Service</div>
+          <h1>
+            Sparkling spaces,<br />
+            <span class="gradient-text">zero hassle.</span>
+          </h1>
+          <p class="hero-desc">
+            Professional residential &amp; commercial cleaning across Edmonton —
+            from deep cleans to move-outs. Trusted, background-checked pros who
+            show up on time. <strong>Leave the mess to us.</strong>
+          </p>
+          <div class="hero-actions">
+            <a href="/sign-up" class="btn-primary">Get Your Free Quote →</a>
+            <a href="tel:+17807185092" class="phone-link">
+              📞 (780) 718-5092
+            </a>
+          </div>
+          <div class="trust-badges">
+            <span>Insured &amp; Bonded</span>
+            <span>Eco-Friendly</span>
+            <span>Satisfaction Guaranteed</span>
+            <span>2,000+ Happy Edmonton Clients</span>
+          </div>
+        </section>
+
+        <!-- Service types (crawler-readable list from ticker) -->
+        <div class="service-types">
+          <ul class="service-types-list" aria-label="Cleaning service types">
+            <li>Office Cleaning</li>
+            <li>Recurring Plans</li>
+            <li>Post-Construction</li>
+            <li>Deep Cleaning</li>
+            <li>Move-Out Cleaning</li>
+            <li>Airbnb Turnover</li>
+            <li>Eco-Friendly Products</li>
+          </ul>
+        </div>
+
+        <!-- Services / How it works -->
+        <section class="services">
+          <span class="section-label">Our Services</span>
+          <h2>Cleaning solutions for every need</h2>
+          <p class="section-sub">
+            Book in minutes. Our AI receptionist handles calls 24/7 and creates
+            bookings directly in your schedule.
+          </p>
+          <ul class="service-grid">
+            <li class="service-card">
+              <h3>Residential Cleaning</h3>
+              <p>
+                Weekly, bi-weekly, or one-time cleans for homes of any size in
+                Edmonton. Background-checked professionals who respect your
+                space.
+              </p>
+            </li>
+            <li class="service-card">
+              <h3>Deep Cleaning</h3>
+              <p>
+                A thorough top-to-bottom clean covering every corner — ideal for
+                spring cleaning, post-party recovery, or first-time clients.
+              </p>
+            </li>
+            <li class="service-card">
+              <h3>Move-Out Cleaning</h3>
+              <p>
+                Get your full deposit back. We clean to property-management
+                standards so your landlord is satisfied.
+              </p>
+            </li>
+            <li class="service-card">
+              <h3>Commercial &amp; Office Cleaning</h3>
+              <p>
+                Flexible schedules for offices, retail spaces, and commercial
+                properties across Edmonton and the surrounding area.
+              </p>
+            </li>
+            <li class="service-card">
+              <h3>Airbnb &amp; Short-Term Rental</h3>
+              <p>
+                Rapid turnovers between guests with fresh linens, restocked
+                supplies, and a spotless five-star presentation.
+              </p>
+            </li>
+            <li class="service-card">
+              <h3>Post-Construction Cleaning</h3>
+              <p>
+                Remove dust, debris, and construction residue so your new space
+                is move-in ready from day one.
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-section">
+          <h2>Stop letting revenue ring out.</h2>
+          <p>
+            Join the Edmonton cleaning businesses booking more jobs while
+            scrubbing fewer floors. Our AI receptionist never sleeps.
+          </p>
+          <a href="/sign-up" class="btn-primary">Create your free account</a>
+        </section>
+      </main>
+
+      <footer>
+        <div class="footer-logo">
+          <img src="/logo.svg" alt="Tidyups" width="24" height="24" />
+          Tidyups
+        </div>
+        <p>
+          &copy; 2026 Tidyups Cleaning Service Inc. All rights reserved.<br />
+          Serving Edmonton, St. Albert, Spruce Grove, Leduc, and Sherwood Park.
+        </p>
+        <address style="margin-top: 0.5rem; font-style: normal">
+          Phone: <a href="tel:+17807185092">(780) 718-5092</a>
+        </address>
+      </footer>
+    </div>
+
+    <!-- React SPA root — replaces static shell for JS-capable browsers -->
+    <div id="root"></div>
+
+    <script>
+      // Tell CSS that JS is running; hides #static-shell once React paints.
+      // Using requestAnimationFrame defers until after the first React render
+      // so there is no flash of un-styled content.
+      document.addEventListener("DOMContentLoaded", function () {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            document.body.classList.add("js-loaded");
+          });
+        });
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+node_modules
+pnpm-lock.yaml
+dist
+build
+.cache
+.config
+.local
+.agents
+attached_assets
+coverage
+*.min.*
+artifacts/*/src/generated
+**/generated
+**/.generated
+.replit
+artifacts/owner-mobile/expo-env.d.ts

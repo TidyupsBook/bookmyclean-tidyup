@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Book My Cleaning"
+description = "Multi-company AI receptionist SaaS for cleaning companies using Jobber. Companies sign up, run a setup wizard (connect Jobber, pick a phone number, customize the AI receptionist's greeting/questions/services), invite their team, and get a dispatcher dashboard with live call transcripts that turn into bookings."
+version = "1.0.0"
+id = "artifacts/book-my-cleaning"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18337
+
+[services.development]
+run = "pnpm --filter @workspace/book-my-cleaning run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/book-my-cleaning", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/book-my-cleaning/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18337"
+BASE_PATH = "/"

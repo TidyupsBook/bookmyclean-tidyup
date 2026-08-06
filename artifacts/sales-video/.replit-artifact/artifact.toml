@@ -1,0 +1,28 @@
+kind = "video"
+previewPath = "/sales-video/"
+title = "Sales Pitch Video"
+description = "A ~30 second animated sales pitch for Book My Cleaning by Tidyups, aimed at owners of residential cleaning companies. Pitches the AI receptionist that answers every call, books the job, texts the quote and collects the deposit."
+version = "1.0.0"
+id = "artifacts/sales-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/sales-video/" ]
+localPort = 23569
+
+[services.development]
+run = "pnpm --filter @workspace/sales-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sales-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/sales-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23569"
+BASE_PATH = "/sales-video/"

@@ -1,0 +1,72 @@
+1. Product Blueprint — AI Receptionist for Jobber
+Cleaning Companies
+A sellable, self-serve version of the 833 Tidyups system — installable by any cleaning company from
+the Jobber App Marketplace.
+1. The Product in One Sentence
+Any cleaning company using Jobber connects their account, picks a phone number, customizes
+what the AI receptionist asks callers, and gets live-transcribed calls that turn into bookings on their
+own Jobber calendar — no missed calls, no manual data entry.
+2. What We Already Proved (in the 833 Tidyups app)
+The single-company version is live at bookcleaning.app and working end-to-end:
+• Real phone calls answered via Twilio, forwarded to the business line while an AI listens
+• Live transcription streamed to a dispatcher dashboard in real time
+• AI extracts caller name, address, service type, and preferred time during the call
+• Two-way Jobber sync: bookings created/edited/canceled flow both directions
+• Live cleaner GPS map, staff management, dispatcher access control (Clerk auth)
+• Battle-tested plumbing: multi-instance-safe call state, single-use stream tokens, webhook
+bursts handled
+This is the prototype. The product wraps it in multi-company packaging.
+3. The Setup Wizard (the "expobuilder" experience)
+New companies configure everything through a checklist-style wizard — no technical steps:
+1. Create account !’ company workspace created (owner login)
+2. Connect Jobber !’ one-click OAuth (same flow we built; the Jobber app just gets authorized
+against their account)
+3. Pick a phone number !’ choose a local number in their area code (provisioned automatically via
+Twilio), or forward their existing number to it
+4. Customize the receptionist — the core differentiator:
+• Business name + greeting script ("Thanks for calling Sunshine Cleaners!")
+• Check the questions the AI should collect: name, address, service type, home size, pets,
+preferred date, budget, how-did-you-hear
+• Add custom questions & answers ("Do you bring supplies?" !’ their answer)
+• Services & price ranges the AI can quote
+• Where to ring through: their business/cell number
+5. Invite the team !’ dispatchers and cleaners get their own logins
+6. Go live !’ test call button verifies everything before launch
+4. What Must Change vs. the Single-Company App
+Area — Today (833 Tidyups) — Product version
+Companies — One, hardcoded — Many — every table keyed by company; strict data isolation
+Jobber — One connected account — Each company OAuths their own; webhooks routed by Jobber
+account ID
+Phone — One Twilio number — One number per company (Twilio subaccounts), calls routed by dialed
+number
+AI script — Fixed prompts — Driven by each company's wizard answers (questions, greeting, services)
+Logins — One Clerk app, email allowlist — Clerk Organizations — each company is an org with owner/
+dispatcher/cleaner roles
+Branding — 833 Tidyups — Neutral product brand + each company's name in their own dashboard
+Billing — None — Subscription (Stripe) — e.g. free trial !’ monthly per-company plan
+5. Jobber Marketplace Requirements (verified from Jobber's docs)
+• Submit via Developer Center !’ Manage Apps !’ "Request a review"
+• Before submitting: 2FA enabled on the developer account, app logo uploaded, pre-submission
+checklist completed
+• Listing needs: app name, developer name, description, features/benefits, gallery screenshots
+(Manage App URL optional)
+• Jobber tests the app themselves; high quality bar; they email to coordinate release
+• No announcements/press until Jobber moves the app to "published"
+6. Suggested Build Order
+1. Foundation — multi-company data model, Clerk Organizations, company signup
+2. Jobber per-company OAuth — reuse existing flow, store tokens per company, route webhooks
+3. Phone provisioning — Twilio subaccount + number purchase per company, route inbound calls
+by dialed number
+4. Wizard + configurable AI script — the expobuilder-style setup; AI prompts assembled from
+company config
+5. Dashboard — the existing dispatcher panel, scoped per company
+6. Billing — Stripe subscription, trial period
+7. Polish + marketplace assets — logo, screenshots, listing copy, demo account for Jobber's
+reviewers
+8. Submit for Jobber review
+7. Open Product Decisions (for the owner)
+• Product name & brand (can't lean on "833 Tidyups")
+• Pricing (monthly flat? per-call? per-seat?) — phone minutes and AI transcription are per-call
+costs to cover
+• Include the cleaner mobile app + GPS map in v1, or dashboard-only first?
+• Beta strategy: free for 3–5 friendly cleaning companies before the marketplace listi
