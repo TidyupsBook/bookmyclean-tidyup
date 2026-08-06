@@ -19,6 +19,7 @@ import { db, companiesTable, bookingsTable, type Company } from "@workspace/db";
 import { getValidAccessToken, jobberGraphql } from "../lib/jobber";
 import { companyDayBounds } from "../lib/dayBounds";
 import { logger } from "../lib/logger";
+import { syncCompanyTimeSheets } from "./jobberTimeSheetSync";
 
 /** How often the background pull runs. */
 export const JOBBER_SYNC_INTERVAL_MS = 10 * 60 * 1000;
@@ -407,6 +408,23 @@ export async function runJobberCalendarSyncCycle(): Promise<void> {
         logger.info(
           { companyId: company.id, ...result },
           "Jobber calendar sync complete",
+        );
+      }
+      // Hours clocked in Jobber's own timer, pulled in so the office bills
+      // one set of numbers. Separate try: a timer read must not cost the
+      // owner their calendar import.
+      try {
+        const hours = await syncCompanyTimeSheets(company);
+        if (hours.imported || hours.updated) {
+          logger.info(
+            { companyId: company.id, ...hours },
+            "Jobber time sheet sync complete",
+          );
+        }
+      } catch (err) {
+        logger.warn(
+          { err, companyId: company.id },
+          "Jobber time sheet sync failed for company",
         );
       }
     } catch (err) {

@@ -19,6 +19,8 @@ export type TimeEntryRow = {
   endedAt: Date | null;
   startedByName: string | null;
   editedAt: Date | null;
+  /** Set when the stretch was clocked in Jobber's timer and pulled in here. */
+  jobberTimeEntryId?: string | null;
 };
 
 export type SerializedTimeEntry = {
@@ -28,6 +30,8 @@ export type SerializedTimeEntry = {
   minutes: number;
   startedByName: string | null;
   edited: boolean;
+  /** Where it was clocked: this app's Start/Stop button, or Jobber's timer. */
+  source: "app" | "jobber";
 };
 
 export type TimeSummary = {
@@ -79,6 +83,7 @@ export function summarizeTimeEntries(entries: TimeEntryRow[]): TimeSummary {
       minutes: entryMinutes(entry),
       startedByName: entry.startedByName,
       edited: entry.editedAt !== null,
+      source: entry.jobberTimeEntryId ? "jobber" : "app",
     })),
   };
 }

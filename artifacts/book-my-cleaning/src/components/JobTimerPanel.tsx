@@ -14,6 +14,7 @@ import {
   elapsedSeconds,
   formatStopwatch,
   formatWorkedTime,
+  jobberMinutes,
   totalMinutesSoFar,
   workedHours,
 } from "@/lib/jobTimer";
@@ -55,6 +56,7 @@ export function JobTimerPanel({
 
   const banked = booking.workedMinutes ?? 0;
   const total = totalMinutesSoFar(banked, running, now);
+  const fromJobber = jobberMinutes(booking.timeEntries);
   const hours = workedHours(total);
   const busy = startTimer.isPending || stopTimer.isPending;
 
@@ -165,6 +167,13 @@ export function JobTimerPanel({
                 <span className="font-medium text-foreground">
                   {formatWorkedTime(banked)}
                 </span>
+                {/* Hours nobody pressed Start for need an explanation. */}
+                {fromJobber > 0 && (
+                  <span data-testid={`text-jobber-time-${booking.id}`}>
+                    {" "}
+                    · {formatWorkedTime(fromJobber)} clocked in Jobber
+                  </span>
+                )}
               </span>
             ) : (
               <span>Not started</span>

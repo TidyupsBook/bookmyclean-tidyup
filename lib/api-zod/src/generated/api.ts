@@ -852,7 +852,8 @@ export const SetBookingCrewResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -962,7 +963,8 @@ export const StartBookingTimerResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -1071,7 +1073,8 @@ export const StopBookingTimerResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -1481,7 +1484,8 @@ export const ListBookingsResponseItem = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -1662,7 +1666,8 @@ export const CreateBookingResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -1962,7 +1967,8 @@ export const SendQuoteResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -2140,7 +2146,8 @@ export const UpdateBookingResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -2249,7 +2256,8 @@ export const ConfirmBookingTimeResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -2358,7 +2366,8 @@ export const SendRescheduleTextResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })
@@ -2467,7 +2476,8 @@ export const SyncBookingToJobberResponse = zod.object({
   "endedAt": zod.string().nullable(),
   "minutes": zod.int(),
   "startedByName": zod.string().nullish(),
-  "edited": zod.boolean().optional()
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
 })

@@ -18,6 +18,7 @@ export * from './bookingRangeItem';
 export * from './bookingRangeItemStatus';
 export * from './bookingStatus';
 export * from './bookingTimeEntry';
+export * from './bookingTimeEntrySource';
 export * from './bookingUpdate';
 export * from './bookingUpdateFrequency';
 export * from './bookingUpdateStatus';

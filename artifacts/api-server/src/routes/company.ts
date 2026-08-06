@@ -36,6 +36,7 @@ import {
   tokenExpiry,
 } from "../lib/jobber";
 import { syncCompanyCalendar } from "../services/jobberCalendarSync";
+import { syncCompanyTimeSheets } from "../services/jobberTimeSheetSync";
 import { runGeocodeBackfill } from "../services/geocodeBackfill";
 import { encryptJobberToken } from "../lib/secretBox";
 import { flagShiftedBookings } from "../lib/timezoneReview";
@@ -418,6 +419,23 @@ router.post(
 
     try {
       const result = await syncCompanyCalendar(company);
+      // Hours clocked in Jobber's own timer come in on the same "sync now".
+      // Best effort: a timer read failing must not lose the calendar import
+      // the owner actually pressed the button for.
+      try {
+        const hours = await syncCompanyTimeSheets(company);
+        if (hours.imported || hours.updated) {
+          logger.info(
+            { companyId: company.id, ...hours },
+            "Jobber time sheet sync complete",
+          );
+        }
+      } catch (err) {
+        logger.warn(
+          { err, companyId: company.id },
+          "Jobber time sheet sync failed during manual sync",
+        );
+      }
       // Newly imported addresses have no coordinates yet. Nudge the geocoder
       // rather than making the owner wait out its next cycle for pins.
       if (result.imported > 0 || result.updated > 0) {

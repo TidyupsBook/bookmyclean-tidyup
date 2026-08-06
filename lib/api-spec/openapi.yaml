@@ -1590,6 +1590,8 @@ components:
         startedByName: { type: ["string", "null"] }
         # True when the office corrected these times by hand.
         edited: { type: boolean }
+        # Where the stretch was clocked: this app, or Jobber's own timer.
+        source: { type: string, enum: [app, jobber] }
     BookingUpdate:
       type: object
       properties:

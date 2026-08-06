@@ -58,3 +58,19 @@ export function totalMinutesSoFar(
 export function workedHours(minutes: number): number {
   return Math.round((Math.max(0, minutes) / 60) * 10) / 10;
 }
+
+/**
+ * Minutes that were clocked in Jobber's own timer rather than here.
+ *
+ * Worth calling out on the card: an owner who sees three hours on a job nobody
+ * pressed Start for should be told where the time came from, not left assuming
+ * the app invented it.
+ */
+export function jobberMinutes(
+  entries: Array<{ minutes?: number; source?: string }> | null | undefined,
+): number {
+  if (!entries) return 0;
+  return entries
+    .filter((entry) => entry.source === "jobber")
+    .reduce((sum, entry) => sum + Math.max(0, entry.minutes ?? 0), 0);
+}

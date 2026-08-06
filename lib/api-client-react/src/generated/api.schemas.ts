@@ -489,6 +489,14 @@ export interface QuoteTotals {
   depositEmail?: string | null;
 }
 
+export type BookingTimeEntrySource = typeof BookingTimeEntrySource[keyof typeof BookingTimeEntrySource];
+
+
+export const BookingTimeEntrySource = {
+  app: 'app',
+  jobber: 'jobber',
+} as const;
+
 export interface BookingTimeEntry {
   id: number;
   startedAt: string;
@@ -498,6 +506,7 @@ export interface BookingTimeEntry {
   /** @nullable */
   startedByName?: string | null;
   edited?: boolean;
+  source?: BookingTimeEntrySource;
 }
 
 export interface Booking {

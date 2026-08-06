@@ -1645,6 +1645,10 @@ async function pushTimeToJobber(
   if (!company.jobberConnected || company.jobberNeedsReauth) return;
   // Already posted once. Nothing here is worth telling the customer's file twice.
   if (entry.jobberNoteId) return;
+  // This stretch came *from* Jobber's own timer. Sending it back would have
+  // the same hour sitting in their file twice, once as a timer and once as
+  // our note.
+  if (entry.jobberTimeEntryId) return;
   // Jobs we imported from their calendar take a job note; bookings we pushed
   // out exist in Jobber as a work request, which takes a request note.
   const jobId = booking.jobberSyncedJobId;

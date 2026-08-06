@@ -57,6 +57,11 @@ export const bookingTimeEntriesTable = pgTable(
     // retry cannot bill the customer for the same hour twice.
     jobberNoteId: text("jobber_note_id"),
     jobberSyncError: text("jobber_sync_error"),
+    // Set when the stretch was clocked in Jobber's own timer and pulled in
+    // here. Kept apart from `jobberNoteId` — one is a stretch we sent them,
+    // the other a stretch they sent us — so an imported hour is never posted
+    // back to Jobber as a note and counted twice.
+    jobberTimeEntryId: text("jobber_time_entry_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -68,6 +73,10 @@ export const bookingTimeEntriesTable = pgTable(
     uniqueIndex("booking_time_entries_open_idx")
       .on(table.bookingId)
       .where(sql`${table.endedAt} is null`),
+    // A Jobber timer lands here exactly once however many times the pull runs.
+    uniqueIndex("booking_time_entries_jobber_entry_idx")
+      .on(table.companyId, table.jobberTimeEntryId)
+      .where(sql`${table.jobberTimeEntryId} is not null`),
   ],
 );
 

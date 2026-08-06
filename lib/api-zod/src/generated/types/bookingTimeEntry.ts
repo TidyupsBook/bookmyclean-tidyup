@@ -5,6 +5,7 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { BookingTimeEntrySource } from './bookingTimeEntrySource';
 
 export interface BookingTimeEntry {
   id: number;
@@ -15,4 +16,5 @@ export interface BookingTimeEntry {
   /** @nullable */
   startedByName?: string | null;
   edited?: boolean;
+  source?: BookingTimeEntrySource;
 }
