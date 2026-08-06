@@ -404,9 +404,15 @@ router.patch(
           });
           return;
         }
-        invite = await sendInviteEmail(email);
-        updates.clerkInvitationId = invite.invitationId;
-        updates.status = "invited";
+        // The owner already has a login of their own, so the address on their
+        // card is a contact detail, not an invitation waiting to be accepted.
+        // Mailing them a sign-up link and parking their own card on "invited"
+        // would read as though they had lost their access.
+        if (target.role !== "owner") {
+          invite = await sendInviteEmail(email);
+          updates.clerkInvitationId = invite.invitationId;
+          updates.status = "invited";
+        }
       } else {
         // Address removed: nothing is outstanding any more.
         updates.clerkInvitationId = null;

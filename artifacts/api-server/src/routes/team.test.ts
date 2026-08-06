@@ -377,6 +377,35 @@ describe("who may change what", () => {
     expect(updated.inviteEmailSent).toBe(true);
     expect(updated.status).toBe("invited");
   });
+
+  it("lets the owner set the address on their own card without inviting themselves", async () => {
+    // The owner's own seat is a card on the roster like any other, but it is
+    // never claimed by a login — the company row is what makes them the owner.
+    const [ownerSeat] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId,
+        name: "The Owner",
+        email: `ownerseat_${runId}@test.invalid`,
+        role: "owner",
+        status: "active",
+      })
+      .returning();
+    createInvitation.mockClear();
+
+    const updated = await (
+      await call("PATCH", `/team/${ownerSeat!.id}`, {
+        as: "owner",
+        body: { email: `support_${runId}@test.invalid` },
+      })
+    ).json();
+
+    expect(updated.email).toBe(`support_${runId}@test.invalid`);
+    // No sign-up link, and their own card must not read as though their
+    // access were pending.
+    expect(createInvitation).not.toHaveBeenCalled();
+    expect(updated.status).not.toBe("invited");
+  });
 });
 
 describe("spreadsheet import", () => {

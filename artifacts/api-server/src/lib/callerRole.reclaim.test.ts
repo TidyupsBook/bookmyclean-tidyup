@@ -437,3 +437,73 @@ describe("a company whose owner login no longer exists", () => {
     expect(row?.ownerUserId).toBe(GHOST_OWNER);
   });
 });
+
+/**
+ * The owner's card on the staff list carries a contact address the owner can
+ * change to anything — their support inbox, say. Ownership itself lives on the
+ * company row, so that card must never be a seat anyone can claim: otherwise
+ * putting an address on it would quietly hand whoever holds that address the
+ * run of the company.
+ */
+describe("the owner's own card", () => {
+  it("cannot be claimed by whoever verifies the address written on it", async () => {
+    const cardEmail = `ownercard_${runId}@test.invalid`;
+    const stranger = `user_stranger_${runId}`;
+    const [card] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId,
+        name: "The Owner",
+        email: cardEmail,
+        role: "owner",
+        status: "active",
+      })
+      .returning();
+    clerkAccounts.set(stranger, {
+      emails: [{ address: cardEmail, verified: true }],
+    });
+
+    const caller = await resolveCaller(stranger);
+
+    // No company, no seat: they land in onboarding as a stranger, not in
+    // someone else's business as its owner.
+    expect(caller.company).toBeNull();
+    expect(caller.teamMemberId).toBeNull();
+    const [row] = await db
+      .select({ clerkUserId: teamMembersTable.clerkUserId })
+      .from(teamMembersTable)
+      .where(eq(teamMembersTable.id, card!.id));
+    expect(row?.clerkUserId).toBeNull();
+  });
+
+  it("cannot be taken over through the deleted-account recovery path either", async () => {
+    const cardEmail = `ownerghost_${runId}@test.invalid`;
+    const stranger = `user_ghoststranger_${runId}`;
+    const [card] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId,
+        name: "The Owner",
+        email: cardEmail,
+        role: "owner",
+        status: "active",
+        // Held by an account Clerk no longer knows, inside the window that
+        // releases an ordinary stranded seat.
+        clerkUserId: `user_deadowner_${runId}`,
+        recoveryUntil: OPEN_WINDOW,
+      })
+      .returning();
+    clerkAccounts.set(stranger, {
+      emails: [{ address: cardEmail, verified: true }],
+    });
+
+    const caller = await resolveCaller(stranger);
+
+    expect(caller.company).toBeNull();
+    const [row] = await db
+      .select({ clerkUserId: teamMembersTable.clerkUserId })
+      .from(teamMembersTable)
+      .where(eq(teamMembersTable.id, card!.id));
+    expect(row?.clerkUserId).toBe(`user_deadowner_${runId}`);
+  });
+});

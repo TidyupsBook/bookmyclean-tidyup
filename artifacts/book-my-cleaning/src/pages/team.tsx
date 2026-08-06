@@ -455,11 +455,11 @@ function StaffForm({
             phone: phone.trim() || null,
             homeAddress: address.trim() || null,
             active,
-            // The owner's own seat has no role to change and no invite to
-            // send, so leave both alone rather than having the server say no.
-            ...(isOwner
-              ? {}
-              : { ...fields, email: email.trim().toLowerCase() || null }),
+            // The owner's own seat has no role to change, so leave that alone
+            // rather than having the server say no. The address is still
+            // theirs to set — it is the contact on their own card.
+            email: email.trim().toLowerCase() || null,
+            ...(isOwner ? {} : fields),
           },
         },
         {
@@ -583,13 +583,15 @@ function StaffForm({
             type="email"
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Optional"
-            disabled={isOwner || member?.hasLogin}
+            disabled={member?.hasLogin}
             data-testid="input-staff-email"
           />
           <p className="text-xs text-muted-foreground">
             {member?.hasLogin
               ? "They've already signed in, so this address is locked to their login."
-              : "They sign in to the cleaner app with this email — their account connects automatically. Leave it blank for staff who don't use the app."}
+              : isOwner
+                ? "The address on your own card. Change it to whatever your customers and staff should write to — it doesn't change how you sign in."
+                : "They sign in to the cleaner app with this email — their account connects automatically. Leave it blank for staff who don't use the app."}
           </p>
         </div>
 

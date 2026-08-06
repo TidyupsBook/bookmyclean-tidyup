@@ -134,6 +134,8 @@ async function reclaimAbandonedSeat(
       and(
         isNotNull(teamMembersTable.clerkUserId),
         ne(teamMembersTable.clerkUserId, userId),
+        // Same rule as a first claim: an owner's card is never a way in.
+        ne(teamMembersTable.role, "owner"),
         // Stored addresses predate the trimming done on the Clerk side, so
         // normalize both ends or a stray space silently blocks recovery.
         inArray(sql`lower(trim(${teamMembersTable.email}))`, emails),
@@ -291,6 +293,11 @@ async function tryClaimSeat(userId: string): Promise<Caller | null> {
       .where(
         and(
           isNull(teamMembersTable.clerkUserId),
+          // Ownership comes from the company row and nowhere else. The owner's
+          // card carries a contact address they can change at will, so letting
+          // an address claim it would turn "put our support inbox on my card"
+          // into a way of handing someone owner access to the whole company.
+          ne(teamMembersTable.role, "owner"),
           inArray(sql`lower(trim(${teamMembersTable.email}))`, emails),
         ),
       )
