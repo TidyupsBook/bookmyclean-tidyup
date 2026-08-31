@@ -11,7 +11,6 @@
  * working from another city sees the hour the customer was promised.
  */
 import { useMemo } from "react";
-import { Link } from "wouter";
 import type { BookingRangeItem } from "@workspace/api-client-react";
 import { colorForTeamMember } from "@/lib/mapMarkers";
 import {
@@ -23,7 +22,7 @@ import {
   zonedHour,
 } from "@/lib/mapCalendar";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Pixels per hour in the week grid. Tall enough to read a two-line block. */
 const HOUR_PX = 56;
@@ -44,10 +43,6 @@ function crewColor(booking: BookingRangeItem): string {
     : "hsl(330, 81%, 60%)";
 }
 
-function bookingHref(booking: BookingRangeItem): string {
-  return `/bookings#booking-${booking.bookingId}`;
-}
-
 function crewLabel(booking: BookingRangeItem): string {
   if (booking.assignees.length === 0) return "Needs a crew";
   return booking.assignees.map((a) => a.name).join(", ");
@@ -62,11 +57,42 @@ function blockTitle(booking: BookingRangeItem, timeZone: string): string {
   ].join(" · ");
 }
 
-/** Cancelled work stays on the board, struck through, rather than vanishing. */
+/**
+ * Cancelled work stays on the board, struck through, rather than vanishing.
+ * Completed work stays too, dimmed — a done job reads as a shadow of itself
+ * so the calendar shows what's left at a glance.
+ */
 function cancelledStyle(booking: BookingRangeItem) {
-  return booking.status === "canceled"
-    ? { opacity: 0.5, textDecoration: "line-through" as const }
-    : {};
+  if (booking.status === "canceled")
+    return { opacity: 0.5, textDecoration: "line-through" as const };
+  if (booking.status === "completed") return { opacity: 0.55 };
+  return {};
+}
+
+/** Does this visit belong to the highlighted cleaner? */
+export function isHighlighted(
+  booking: BookingRangeItem,
+  highlight: number | null | undefined,
+): boolean {
+  return (
+    highlight != null &&
+    booking.assignees.some((a) => a.teamMemberId === highlight)
+  );
+}
+
+/**
+ * When a cleaner is highlighted from the roster strip, everyone else's blocks
+ * fade back so their work reads at a glance. Applied after cancelledStyle so
+ * the dim wins even on a struck-through block.
+ */
+function highlightStyle(
+  booking: BookingRangeItem,
+  highlight: number | null | undefined,
+) {
+  if (highlight == null) return {};
+  return isHighlighted(booking, highlight)
+    ? {}
+    : { opacity: 0.18, filter: "grayscale(0.5)" };
 }
 
 /* ─────────────────────────── Month ─────────────────────────── */
@@ -78,6 +104,8 @@ export function MonthBoard({
   bookingsByDay,
   timeZone,
   onOpenDay,
+  onSelectBooking,
+  highlight,
 }: {
   monthAnchor: string;
   dates: string[];
@@ -85,6 +113,9 @@ export function MonthBoard({
   bookingsByDay: BookingsByDay;
   timeZone: string;
   onOpenDay: (date: string) => void;
+  onSelectBooking: (bookingId: number) => void;
+  /** Team member whose visits stay full-strength while the rest dim. */
+  highlight?: number | null;
 }) {
   const month = monthAnchor.slice(0, 7);
 
@@ -144,13 +175,16 @@ export function MonthBoard({
               </div>
 
               {shown.map((booking) => (
-                <Link
+                <button
                   key={booking.bookingId}
-                  href={bookingHref(booking)}
-                  className="block rounded px-1.5 py-1 text-[11px] leading-tight text-white overflow-hidden hover:brightness-110 transition-[filter]"
+                  type="button"
+                  onClick={() => onSelectBooking(booking.bookingId)}
+                  data-testid={`chip-booking-${booking.bookingId}`}
+                  className="block w-full text-left rounded px-1.5 py-1 text-[11px] leading-tight text-white overflow-hidden hover:brightness-110 transition-[filter]"
                   style={{
                     background: crewColor(booking),
                     ...cancelledStyle(booking),
+                    ...highlightStyle(booking, highlight),
                   }}
                   title={blockTitle(booking, timeZone)}
                 >
@@ -159,7 +193,7 @@ export function MonthBoard({
                     {booking.customerName}
                   </div>
                   <div className="truncate opacity-90">{booking.service}</div>
-                </Link>
+                </button>
               ))}
 
               {hidden > 0 && (
@@ -187,12 +221,17 @@ export function WeekBoard({
   bookingsByDay,
   timeZone,
   onOpenDay,
+  onSelectBooking,
+  highlight,
 }: {
   dates: string[];
   today: string;
   bookingsByDay: BookingsByDay;
   timeZone: string;
   onOpenDay: (date: string) => void;
+  onSelectBooking: (bookingId: number) => void;
+  /** Team member whose visits stay full-strength while the rest dim. */
+  highlight?: number | null;
 }) {
   const hours = useMemo(
     () =>
@@ -274,6 +313,8 @@ export function WeekBoard({
                   booking={booking}
                   index={index}
                   timeZone={timeZone}
+                  onSelect={onSelectBooking}
+                  highlight={highlight}
                 />
               ))}
             </div>
@@ -288,10 +329,14 @@ function WeekBlock({
   booking,
   index,
   timeZone,
+  onSelect,
+  highlight,
 }: {
   booking: BookingRangeItem;
   index: number;
   timeZone: string;
+  onSelect: (bookingId: number) => void;
+  highlight?: number | null;
 }) {
   const hour = zonedHour(booking.scheduledFor, timeZone);
   // Clamp so a very early or very late job still shows at the edge of the grid
@@ -305,9 +350,11 @@ function WeekBlock({
   const height = Math.max(26, Math.min(hoursLong, maxHours) * HOUR_PX - 4);
 
   return (
-    <Link
-      href={bookingHref(booking)}
-      className="absolute rounded-md px-1.5 py-1 text-[11px] leading-tight text-white overflow-hidden shadow-sm hover:brightness-110 transition-[filter]"
+    <button
+      type="button"
+      onClick={() => onSelect(booking.bookingId)}
+      data-testid={`block-booking-${booking.bookingId}`}
+      className="absolute text-left rounded-md px-1.5 py-1 text-[11px] leading-tight text-white overflow-hidden shadow-sm hover:brightness-110 transition-[filter]"
       style={{
         top: top + 1,
         height,
@@ -316,6 +363,7 @@ function WeekBlock({
         right: 3,
         background: crewColor(booking),
         ...cancelledStyle(booking),
+        ...highlightStyle(booking, highlight),
       }}
       title={blockTitle(booking, timeZone)}
     >
@@ -324,7 +372,7 @@ function WeekBlock({
       </div>
       <div className="truncate opacity-90">{booking.service}</div>
       <div className="truncate opacity-80">{crewLabel(booking)}</div>
-    </Link>
+    </button>
   );
 }
 

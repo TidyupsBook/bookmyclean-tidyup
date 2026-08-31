@@ -36,12 +36,21 @@ There is no explicit "this was the AI" flag. Sona speaks from the workspace's ow
 number, so attribution means testing `identifier` against the set of workspace numbers
 from `/v1/phone-numbers` (and treating a present `userId` as the business side too).
 
-## Webhook signing
-Deliveries are svix-format: `webhook-id`, `webhook-timestamp`, `webhook-signature`
-headers, HMAC-SHA256 over `{id}.{timestamp}.{raw-body}`, base64. The signing key is
-returned **only in the creation response** as `whsec_...`; strip the prefix and
-base64-decode it to get the HMAC bytes. Reject timestamps older than a few minutes.
+## Webhook signing — TWO schemes, and the real one is the legacy one
+Webhooks registered through `/v1` sign deliveries with a **single
+`openphone-signature` header**: `hmac;1;<timestamp-ms>;<base64>`, HMAC-SHA256 over
+`{timestamp}.{raw-body}` with the base64-decoded signing key. The svix-style trio
+(`webhook-id`/`webhook-timestamp`/`webhook-signature`, signing
+`{id}.{timestamp}.{raw-body}`, key prefixed `whsec_`) is what Quo's newer docs
+describe, but real `/v1` deliveries do NOT carry those headers. A handler must accept
+both; on the legacy path there is no delivery-id header, so idempotency claims use the
+payload's own event `id` (which is also the scheme-stable choice when both exist).
 
-**How to apply:** persist the key at creation time — there is no endpoint that
-re-reveals it later in a usable form, so losing it means deleting and recreating the
-webhook.
+**Why:** the handler shipped trio-only and rejected 100% of real deliveries as
+"missing signature headers" — while its self-signed tests passed. Validating a webhook
+receiver only against requests you signed yourself is circular; capture a real
+delivery's header *names* in logs before trusting the scheme.
+
+The signing key is returned **only in the creation response**; persist it then —
+nothing re-reveals it later, so losing it means delete-and-recreate. Timestamp age
+gate must tolerate ms units and Quo's long retry tail (hours, original timestamp).

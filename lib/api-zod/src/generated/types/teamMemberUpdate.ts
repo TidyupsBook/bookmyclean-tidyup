@@ -15,9 +15,14 @@ export interface TeamMemberUpdate {
   phone?: string | null;
   role?: TeamMemberUpdateRole;
   isLead?: boolean;
+  /** @nullable */
+  title?: string | null;
   active?: boolean;
+  liveCallDispatching?: boolean;
   /** @nullable */
   color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
+  /** @nullable */
+  jobberConnectionId?: number | null;
 }

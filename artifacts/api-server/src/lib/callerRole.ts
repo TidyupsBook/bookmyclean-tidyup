@@ -37,9 +37,24 @@ export type Caller = {
   company: Company | null;
   /** Null for the owner, whose access comes from owning the company. */
   teamMemberId: number | null;
+  /**
+   * The seat's `live_call_dispatching` switch, false for anyone without a
+   * seat. Never read this directly to decide access — go through
+   * `canDispatchLiveCalls`, which is the single place the grant is defined.
+   */
+  liveCallDispatching: boolean;
   /** Seat display fields. Empty for an owner; `/me` enriches those override. */
   name: string;
   email: string;
+  /**
+   * The company this account has ASKED to join and is still waiting on.
+   *
+   * Deliberately not the same as `company`: a pending request grants nothing.
+   * It exists so the app can show "waiting for X to let you in" instead of
+   * dropping them into the create-a-company wizard, and so creating a company
+   * of their own can be held back while a request is outstanding.
+   */
+  pendingCompanyName: string;
 };
 
 /**
@@ -47,22 +62,60 @@ export type Caller = {
  * refreshing the page does not hit Clerk on every request, while an invite
  * created seconds ago still takes effect within the minute.
  */
+/**
+ * Who may take a booking off a live call — the incoming-call alert, the
+ * microphone panel, and the two routes that read a call into the booking
+ * form.
+ *
+ * The owner always can: his authority comes from owning the company. Anyone
+ * else needs BOTH a dispatcher seat and its `live_call_dispatching` switch —
+ * the switch is a grant on top of the role, not a role of its own, so a
+ * stray flag on a cleaner's row grants nothing. This function is the single
+ * place the grant is defined; routes and `/me` must call it rather than
+ * re-deriving it.
+ */
+export function canDispatchLiveCalls(caller: Caller): boolean {
+  if (caller.role === "owner") return caller.company !== null;
+  return caller.role === "dispatcher" && caller.liveCallDispatching;
+}
+
 const BOOTSTRAP_RECHECK_MS = 60_000;
 const bootstrapNegativeCache = new Map<string, number>();
 
 /**
- * The address to stamp on a company at creation, so ownership survives the
- * login that created it. Verified only, and null rather than a guess when
- * Clerk can't say — a wrong address here would be an ownership handle pointing
- * at the wrong person.
+ * The name and address to stamp on a company at creation, in one Clerk round
+ * trip.
+ *
+ * The email is what lets an owner back in if the login behind the company
+ * ever stops existing — verified only, and null rather than a guess when
+ * Clerk can't say, because a wrong address here would be an ownership handle
+ * pointing at the wrong person.
+ *
+ * The name goes on the owner's roster card at company creation, where it is
+ * what TEAMMATES see — on the map, in chat, on the team page — so a real name
+ * beats any placeholder. Null when Clerk has no name on file (or can't be
+ * reached); the caller picks the fallback, and the card stays editable from
+ * the Team page either way.
  */
-export async function ownerEmailFor(userId: string): Promise<string | null> {
+export async function ownerProfileFor(
+  userId: string,
+): Promise<{ email: string | null; name: string | null }> {
   try {
-    const [first] = await verifiedEmailsFor(userId);
-    return first ?? null;
+    const user = await clerkClient.users.getUser(userId);
+    const email =
+      user.emailAddresses
+        .filter((e) => e.verification?.status === "verified")
+        .map((e) => e.emailAddress.trim().toLowerCase())
+        .filter(Boolean)[0] ?? null;
+    const name =
+      [user.firstName, user.lastName]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join(" ") || null;
+    return { email, name };
   } catch (err) {
-    logger.error({ err, userId }, "[callerRole] owner email lookup failed");
-    return null;
+    logger.error({ err, userId }, "[callerRole] owner profile lookup failed");
+    return { email: null, name: null };
   }
 }
 
@@ -280,8 +333,10 @@ async function tryClaimSeat(userId: string): Promise<Caller | null> {
         role: "owner",
         company: reattached.value,
         teamMemberId: null,
+        liveCallDispatching: false,
         name: "",
         email: "",
+        pendingCompanyName: "",
       };
     }
 
@@ -357,6 +412,8 @@ async function tryClaimSeat(userId: string): Promise<Caller | null> {
           role: claimed.role as CallerRole,
           company,
           teamMemberId: claimed.id,
+          liveCallDispatching: claimed.liveCallDispatching,
+          pendingCompanyName: "",
           name: claimed.name,
           // A seat can exist without an address (staff who never sign in), but
           // a caller who just claimed one by verified email always has it.
@@ -387,8 +444,10 @@ export async function resolveCaller(userId: string): Promise<Caller> {
       role: "owner",
       company: owned,
       teamMemberId: null,
+      liveCallDispatching: false,
       name: "",
       email: "",
+      pendingCompanyName: "",
     };
   }
 
@@ -404,12 +463,31 @@ export async function resolveCaller(userId: string): Promise<Caller> {
       .from(companiesTable)
       .where(eq(companiesTable.id, seat.companyId));
     if (company) {
+      // Asked to join, not yet let in. Access is withheld entirely — the seat
+      // resolves to no company, exactly like a stranger, and only the waiting
+      // screen can tell the difference.
+      if (seat.status === "pending") {
+        return {
+          // The least-privileged role there is, so a waiting applicant cannot
+          // even reach the routes an owner-with-no-company can. What they
+          // asked to be is decided by whoever approves them, not by this.
+          role: "cleaner",
+          company: null,
+          teamMemberId: null,
+          liveCallDispatching: false,
+          name: seat.name,
+          email: seat.email ?? "",
+          pendingCompanyName: company.name,
+        };
+      }
       return {
         role: seat.role as CallerRole,
         company,
         teamMemberId: seat.id,
+        liveCallDispatching: seat.liveCallDispatching,
         name: seat.name,
         email: seat.email ?? "",
+        pendingCompanyName: "",
       };
     }
   }
@@ -424,8 +502,10 @@ export async function resolveCaller(userId: string): Promise<Caller> {
     role: "owner",
     company: null,
     teamMemberId: null,
+    liveCallDispatching: false,
     name: "",
     email: "",
+    pendingCompanyName: "",
   };
 }
 

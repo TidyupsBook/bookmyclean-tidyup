@@ -3,7 +3,7 @@ Cleaning Companies
 A sellable, self-serve version of the 833 Tidyups system — installable by any cleaning company from
 the Jobber App Marketplace.
 1. The Product in One Sentence
-Any cleaning company using Jobber connects their account, picks a phone number, customizes
+Any cleaning company using Jobber con nects their account, picks a phone number, customizes
 what the AI receptionist asks callers, and gets live-transcribed calls that turn into bookings on their
 own Jobber calendar — no missed calls, no manual data entry.
 2. What We Already Proved (in the 833 Tidyups app)
@@ -64,9 +64,10 @@ company config
 7. Polish + marketplace assets — logo, screenshots, listing copy, demo account for Jobber's
 reviewers
 8. Submit for Jobber review
-7. Open Product Decisions (for the owner)
+7. Open Product Decisions (for the owner).
 • Product name & brand (can't lean on "833 Tidyups")
 • Pricing (monthly flat? per-call? per-seat?) — phone minutes and AI transcription are per-call
 costs to cover
 • Include the cleaner mobile app + GPS map in v1, or dashboard-only first?
-• Beta strategy: free for 3–5 friendly cleaning companies before the marketplace listi
+• Beta strategy: free for 3–5 friendly cleaning companies before the marketplace l isti
+

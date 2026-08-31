@@ -28,8 +28,17 @@ export const CLEANER_REDACTED_NULL_KEYS = [
   "jobberJobId",
   "jobberClientId",
   "jobberWebUri",
+  "jobberInvoiceWebUri",
+  "jobberPropertyId",
+  "jobberQuoteId",
+  "jobberQuoteNumber",
+  "jobberQuoteWebUri",
   "jobberSyncError",
   "jobberSyncErrorAt",
+  "jobberAutomaticRetryStatus",
+  "jobberAutomaticRetriesRemaining",
+  "jobberNextRetryAt",
+  "jobberRetryUsesBookingConnection",
 ] as const;
 
 type SerializedBookingLike = Record<string, unknown>;

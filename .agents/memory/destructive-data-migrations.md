@@ -19,6 +19,21 @@ migration file the only chance to get it right.
   (`select table_name from information_schema.columns where column_name='company_id'`).
   A single missed non-cascading FK child makes the migration fail against the
   one database it exists to repair, and it will never have failed in development.
+- Also enumerate the complete foreign-key graph, including indirect references
+  between scoped tables. Cross-scope `SET NULL` and `CASCADE` edges are more
+  dangerous than blocking FKs because they can silently alter protected rows
+  while leaving row counts unchanged.
+- Persist the approved digest, actor, exact targets, and before/after snapshots
+  in a global immutable audit row inside the destructive transaction. The audit
+  must not have a foreign key to any row the repair deletes.
+
+**Why:** Scope-column counts alone cannot reveal every delete blocker or silent
+cross-company mutation, and a successful API response is not durable evidence
+of an irreversible production repair.
+
+**How to apply:** Lock every table participating in the FK graph, reject
+target-to-protected edges before mutation, delete in child-first graph order,
+and commit the independent audit record atomically with the repair.
 
 **Test it for real.** Seed fixtures in development at the *same ids* as the
 production rows, including one that must survive, then restart and check both

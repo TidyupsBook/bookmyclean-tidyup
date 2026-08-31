@@ -6,6 +6,18 @@ packages:
 
 autoInstallPeers: false
 
+audit:
+  ignore:
+    - GHSA-5p2g-fcmc-qvqq
+    - GHSA-w3rx-r6r6-pgpr
+
+# image-size has no upstream patched release for these CVEs. The pinned 2.x
+# package is protected by patches/image-size@2.0.2.patch instead.
+auditConfig:
+  ignoreCves:
+    - CVE-2025-71329
+    - CVE-2025-71330
+
 catalog:
   "@replit/vite-plugin-cartographer": ^0.5.21
   "@replit/vite-plugin-dev-banner": ^0.1.1

@@ -5,6 +5,8 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { CompanyBookingRequiredFieldsItem } from './companyBookingRequiredFieldsItem';
+import type { CompanyJobberEnvironment } from './companyJobberEnvironment';
 import type { CustomQuestion } from './customQuestion';
 import type { SetupStatus } from './setupStatus';
 import type { WatchedNumber } from './watchedNumber';
@@ -33,6 +35,7 @@ export interface Company {
   jobberAccountName?: string | null;
   jobberNeedsReauth: boolean;
   jobberRedirectUri: string;
+  jobberEnvironment: CompanyJobberEnvironment;
   quoConnected: boolean;
   /** @nullable */
   quoWorkspaceName?: string | null;
@@ -50,6 +53,9 @@ export interface Company {
   /** @nullable */
   quoteDepositEmail?: string | null;
   watchedNumbers: WatchedNumber[];
+  bookingRequiredFields: CompanyBookingRequiredFieldsItem[];
+  recentCallWindowMinutes: number;
+  rosterCapacity: number;
   isLive: boolean;
   setupStatus: SetupStatus;
   createdAt: string;

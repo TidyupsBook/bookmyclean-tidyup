@@ -5,7 +5,9 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { BookingJobberAutomaticRetryStatus } from './bookingJobberAutomaticRetryStatus';
 import type { BookingStatus } from './bookingStatus';
+import type { BookingTag } from './bookingTag';
 import type { BookingTimeEntry } from './bookingTimeEntry';
 import type { CrewMember } from './crewMember';
 import type { QuoteTotals } from './quoteTotals';
@@ -17,9 +19,16 @@ export interface Booking {
   customerName: string;
   customerPhone: string;
   /** @nullable */
+  tag?: BookingTag;
+  /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /** @nullable */
   addressCity?: string | null;
   /** @nullable */
@@ -65,6 +74,10 @@ export interface Booking {
   /** @nullable */
   quoteApprovedAt?: string | null;
   /** @nullable */
+  clientApprovedAt?: string | null;
+  /** @nullable */
+  clientApprovedBy?: string | null;
+  /** @nullable */
   depositPaidAt?: string | null;
   /** @nullable */
   depositPaidAmount?: number | null;
@@ -81,15 +94,48 @@ export interface Booking {
   /** @nullable */
   jobberWebUri?: string | null;
   /** @nullable */
+  jobberInvoiceId?: string | null;
+  /** @nullable */
+  jobberInvoiceNumber?: string | null;
+  /** @nullable */
+  jobberInvoiceWebUri?: string | null;
+  /** @nullable */
   jobberSyncError?: string | null;
   /** @nullable */
   jobberSyncErrorAt?: string | null;
+  /** @nullable */
+  jobberAutomaticRetryStatus: BookingJobberAutomaticRetryStatus;
+  /** @nullable */
+  jobberAutomaticRetriesRemaining: number | null;
+  /** @nullable */
+  jobberNextRetryAt: string | null;
+  /** @nullable */
+  jobberRetryUsesBookingConnection: boolean | null;
+  /** @nullable */
+  jobberPropertyId?: string | null;
+  /** @nullable */
+  jobberQuoteId?: string | null;
+  /** @nullable */
+  jobberQuoteNumber?: string | null;
+  /** @nullable */
+  jobberQuoteWebUri?: string | null;
+  /** @nullable */
+  jobberQuoteStatus?: string | null;
+  /** @nullable */
+  jobberSyncedRequestId?: string | null;
+  /** @nullable */
+  jobberSyncedQuoteId?: string | null;
+  /** @nullable */
+  jobberCreatedJobId?: string | null;
+  /** @nullable */
+  jobberJobWebUri?: string | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
   /** @nullable */
   geocodedAt?: string | null;
+  geocodingFailed?: boolean;
   /** @nullable */
   durationMinutes?: number | null;
   crew?: CrewMember[];

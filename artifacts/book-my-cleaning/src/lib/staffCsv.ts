@@ -48,7 +48,14 @@ export function staffToCsv(members: TeamMember[]): string {
   return [COLUMNS.join(","), ...rows].join("\r\n");
 }
 
-/** Split CSV text into rows of cells, honouring quoted fields. */
+/**
+ * Split CSV text into rows of cells, honouring quoted fields.
+ *
+ * Tabs count as separators too: a block copied straight out of a spreadsheet
+ * and pasted is tab-separated, not comma-separated, and it should read the
+ * same either way. Real CSV files never contain bare tabs, so this costs
+ * nothing on the file path.
+ */
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -72,7 +79,7 @@ function parseCsv(text: string): string[][] {
     }
     if (char === '"') {
       quoted = true;
-    } else if (char === ",") {
+    } else if (char === "," || char === "\t") {
       row.push(cell);
       cell = "";
     } else if (char === "\n" || char === "\r") {
@@ -92,6 +99,39 @@ function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim().length > 0));
 }
 
+/**
+ * Split "Jane Doe 555-0100" into name and phone.
+ *
+ * A list copied out of a phone's contacts app has no commas or tabs at all —
+ * just a name with the number tacked on the end. When a comma-free row is a
+ * single cell that ends in something phone-shaped (7+ digits, allowing the
+ * usual dashes, dots, spaces, and parentheses), peel the number off so it
+ * lands in the phone field instead of inside the name. Anything that already
+ * parsed into multiple cells is left strictly alone.
+ */
+function splitTrailingPhone(row: string[]): string[] {
+  if (row.length !== 1) return row;
+  const cell = row[0]!.trim();
+  // Leftmost match, so "(555) 010-0101" is taken whole rather than losing its
+  // area code to a greedy name.
+  const match = cell.match(/[\s:]+(\+?\(?\d[\d\s().-]{5,}\d)$/);
+  if (!match || match.index === undefined) return row;
+  let name = cell.slice(0, match.index).trim();
+  // Contact exports often label the number: "Jane Doe — mobile: 555-0100" or
+  // "Jane Doe mobile 555-0100". Strip one trailing label word (plus any dash
+  // or colon around it) — but only here, where a number actually follows, so
+  // a name that merely ends in one of these words is never touched.
+  name = name
+    .replace(/[\s]*[—–-]?\s*\b(mobile|cell|work|home|phone)\b\s*:?$/i, "")
+    .replace(/[\s]*[—–:-]+$/, "")
+    .trim();
+  const phone = match[1]!.trim();
+  const digits = phone.replace(/\D/g, "");
+  if (!name || !/[^\d\s]/.test(name)) return row;
+  if (digits.length < 7 || digits.length > 15) return row;
+  return [name, "", phone];
+}
+
 function isYes(value: string | undefined): boolean | undefined {
   const text = (value ?? "").trim().toLowerCase();
   if (!text) return undefined;
@@ -109,7 +149,7 @@ function isYes(value: string | undefined): boolean | undefined {
  * hand-typed list tends to look like.
  */
 export function csvToStaff(text: string): TeamMemberInput[] {
-  const rows = parseCsv(text.replace(/^\uFEFF/, ""));
+  const rows = parseCsv(text.replace(/^\uFEFF/, "")).map(splitTrailingPhone);
   if (rows.length === 0) return [];
 
   const header = rows[0]!.map((c) => c.trim().toLowerCase());

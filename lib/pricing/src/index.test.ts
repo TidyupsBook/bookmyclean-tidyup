@@ -9,7 +9,42 @@
  * money formatting cannot silently stop the warning firing.
  */
 import { describe, expect, it } from "vitest";
-import { messageContainsQuotePrice, quotedPriceAnchor } from "./index";
+import {
+  computeQuoteTotals,
+  FIXED_TAX_RATE,
+  messageContainsQuotePrice,
+  quotedPriceAnchor,
+} from "./index";
+
+describe("fixed quote policy", () => {
+  it("always applies 12.5% tax and never adds a supplies fee", () => {
+    const totals = computeQuoteTotals(
+      {
+        rateSolo: 75,
+        rateTeam: 150,
+        fuelSurcharge: 0,
+        taxLabel: "Legacy GST",
+        taxRate: 5,
+        feesLabel: "Fees & Supplies",
+        feesRate: 7.5,
+        depositAmount: 0,
+        depositEmail: null,
+      },
+      { quoteHours: 2, quoteHourlyRate: 75, quoteFuelSurcharge: 0 },
+      "Deep Clean",
+    );
+
+    expect(FIXED_TAX_RATE).toBe(12.5);
+    expect(totals.subtotal).toBe(150);
+    expect(totals.taxAmount).toBe(18.75);
+    expect(totals.taxRate).toBe(12.5);
+    expect(totals.total).toBe(168.75);
+    expect(totals.feesAmount).toBe(0);
+    expect(totals.lineItems.map((line) => line.name)).not.toContain(
+      "Fees & Supplies",
+    );
+  });
+});
 
 describe("quotedPriceAnchor", () => {
   it("leads with the deposit when there is one", () => {

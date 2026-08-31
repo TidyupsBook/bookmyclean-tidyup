@@ -10,6 +10,8 @@ import {
 } from "@workspace/db";
 import * as quo from "./quo";
 import { logger } from "./logger";
+import { scheduleJobberPush } from "../services/jobberPush";
+import { recordCaller } from "../services/callerDirectory";
 
 /**
  * Quo identifies each transcript turn by phone number. Anything spoken from
@@ -75,9 +77,33 @@ function summaryToText(summary: quo.QuoSummary | null): string | null {
   return String(summary.summary);
 }
 
-function callerNumberOf(call: quo.QuoCall, ourNumbers: Set<string>): string {
-  const other = call.participants?.find((p) => !ourNumbers.has(p));
-  return other ?? call.participants?.[0] ?? "Unknown";
+export function callerNumberOf(
+  call: quo.QuoCall,
+  ourNumbers: Set<string>,
+): string | null {
+  const owned = new Set(
+    [...ourNumbers]
+      .map((number) => quo.toE164(number))
+      .filter((number): number is string => Boolean(number)),
+  );
+  // A participant is a caller only when it is a dialable number and not one
+  // of the company's lines. Labels, "Unknown", and a second owned line must
+  // never turn into people in the directory.
+  return (
+    call.participants?.find((participant) => {
+      const normalized = quo.toE164(participant);
+      return Boolean(normalized && !owned.has(normalized));
+    }) ?? null
+  );
+}
+
+export function directoryCallerNumberOf(
+  call: quo.QuoCall,
+  ourNumbers: Set<string>,
+): string | null {
+  return call.direction === "incoming"
+    ? callerNumberOf(call, ourNumbers)
+    : null;
 }
 
 export type UpsertResult = { callRowId: number; created: boolean };
@@ -91,8 +117,11 @@ export async function upsertCall(
   company: Company,
   call: quo.QuoCall,
   ourNumbers: Set<string>,
+  syncCallerContact = true,
 ): Promise<UpsertResult> {
   const callerPhone = callerNumberOf(call, ourNumbers);
+  const directoryCallerPhone = directoryCallerNumberOf(call, ourNumbers);
+  const storedPhone = callerPhone ?? "Unknown";
   const isRinging = call.status === "ringing" || !call.completedAt;
   const status = isRinging ? "in_progress" : "completed";
   const startedAt = call.createdAt ? new Date(call.createdAt) : new Date();
@@ -103,8 +132,8 @@ export async function upsertCall(
     .insert(callsTable)
     .values({
       companyId: company.id,
-      callerName: callerPhone,
-      callerPhone,
+      callerName: storedPhone,
+      callerPhone: storedPhone,
       status,
       startedAt,
       durationSeconds: Math.round(call.duration ?? 0),
@@ -123,6 +152,11 @@ export async function upsertCall(
         durationSeconds: sql`greatest(${callsTable.durationSeconds}, excluded.duration_seconds)`,
         direction: sql`coalesce(excluded.direction, ${callsTable.direction})`,
         quoPhoneNumberId: sql`coalesce(excluded.quo_phone_number_id, ${callsTable.quoPhoneNumberId})`,
+        // Later deliveries often have a complete participant list. Repair a
+        // placeholder from the ringing webhook, but never replace a real
+        // caller with Unknown from a sparse delivery.
+        callerPhone: sql`case when excluded.caller_phone <> 'Unknown' then excluded.caller_phone else ${callsTable.callerPhone} end`,
+        callerName: sql`case when excluded.caller_name <> 'Unknown' then excluded.caller_name else ${callsTable.callerName} end`,
       },
       // A call belongs to exactly one tenant; never let another company's
       // delivery take over an existing row.
@@ -144,7 +178,21 @@ export async function upsertCall(
     await db.insert(activityTable).values({
       companyId: company.id,
       type: "call_answered",
-      message: `${call.direction === "outgoing" ? "Outgoing call to" : "Call from"} ${callerPhone}.`,
+      message: `${call.direction === "outgoing" ? "Outgoing call to" : "Call from"} ${storedPhone}.`,
+      callId: row.id,
+    });
+  }
+  // The caller directory is specifically people who called the company.
+  // Outgoing recipients still keep their real number on the call record, but
+  // do not become callers merely because the company dialed them.
+  if (directoryCallerPhone) {
+    await recordCaller(company.id, {
+      phone: directoryCallerPhone,
+      name: directoryCallerPhone,
+      startedAt,
+      callId: row.id,
+      isNewCall: row.isNew,
+      syncContact: syncCallerContact,
     });
   }
 
@@ -236,7 +284,13 @@ export async function applyTranscript(
         companyId: company.id,
         type: "booking_created",
         message: `Sona captured a ${booking.service} request from ${call.callerPhone}.`,
+        bookingId: booking.id,
       });
+
+      // A job the receptionist took off a call reaches Jobber the same way a
+      // job typed in at the desk does — the owner works out of Jobber, and a
+      // booking only he can see is a booking he will miss.
+      void scheduleJobberPush(company, booking);
     }
   }
 
@@ -265,7 +319,10 @@ export async function backfillCalls(
   let transcriptsImported = 0;
 
   for (const conv of conversations) {
-    const participant = conv.participants?.find((p) => !ourNumbers.has(p));
+    const participant = callerNumberOf(
+      { ...conv, status: "", direction: "incoming", createdAt: "" },
+      ourNumbers,
+    );
     if (!participant) continue;
 
     let calls: quo.QuoCall[] = [];
@@ -285,7 +342,7 @@ export async function backfillCalls(
     }
 
     for (const call of calls) {
-      const { created } = await upsertCall(company, call, ourNumbers);
+      const { created } = await upsertCall(company, call, ourNumbers, false);
       if (created) callsImported += 1;
       const applied = await applyTranscript(
         apiKey,

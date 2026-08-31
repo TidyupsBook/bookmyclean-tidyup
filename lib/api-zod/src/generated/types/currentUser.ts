@@ -14,4 +14,7 @@ export interface CurrentUser {
   name: string;
   email: string;
   companyName: string;
+  pendingCompanyName?: string;
+  canCreateCompany: boolean;
+  canTakeLiveCalls: boolean;
 }

@@ -44,6 +44,11 @@ const palette = {
   // Brand gradient stops
   brandOrange: "#ff7b54",
   brandPink: "#ec4899",
+  // Notification badge fills — one color per type (red = calls, pink =
+  // customer texts, purple = team chat, orange = leads), in deeper shades
+  // than the brand accents so the tiny white count text stays readable.
+  notifyMessages: "#db2777",
+  notifyChat: "#9333ea",
   brandPurple: "#a855f7",
 
   // Status

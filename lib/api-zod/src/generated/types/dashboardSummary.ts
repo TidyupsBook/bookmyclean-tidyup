@@ -14,4 +14,11 @@ export interface DashboardSummary {
   avgCallSeconds: number;
   pendingBookings: number;
   jobberSyncedCount: number;
+  upcomingBookings: number;
+  completedThisMonth: number;
+  totalBookings: number;
+  bookingsThisMonth: number;
+  canceledBookings: number;
+  revenueThisMonth: number | null;
+  newLeads: number;
 }

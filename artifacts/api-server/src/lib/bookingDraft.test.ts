@@ -51,17 +51,17 @@ describe("buildDraftFromText", () => {
     expect(draft.callId).toBeNull();
   });
 
-  it("reads a US ZIP code", () => {
+  it("does not auto-fill a US ZIP code for an Alberta booking", () => {
     const draft = buildDraftFromText(
       "I'm at 12 Oak Street, Portland, zip code 97201.",
     );
     expect(draft.customerAddress).toBe("12 Oak Street");
-    expect(draft.addressPostal).toBe("97201");
+    expect(draft.addressPostal).toBeNull();
   });
 
-  it("reads a ZIP+4", () => {
-    expect(buildDraftFromText("the zip is 97201-1234").addressPostal).toBe(
-      "97201-1234",
+  it("normalizes an unspaced Canadian postal code", () => {
+    expect(buildDraftFromText("the postal code is t6r0v4").addressPostal).toBe(
+      "T6R 0V4",
     );
   });
 
@@ -163,6 +163,86 @@ describe("buildDraftFromText", () => {
     expect(buildDraftFromText("hi this is sarah here").customerName).toBe(
       "Sarah",
     );
+  });
+});
+
+/**
+ * Earbuds mode: the customer is inaudible to the microphone, so the whole
+ * transcript is the dispatcher repeating details back — "so that's 123 Main
+ * Street… two bedrooms…". These pin down that confirmation phrasing fills
+ * the same boxes, and that it stays exactly as hard to fool as the
+ * first-person patterns: an echoed detail must never become a customer.
+ */
+describe("buildDraftFromText — the dispatcher repeating details back", () => {
+  it("hears a name confirmed in the second person", () => {
+    expect(
+      buildDraftFromText("So your name is Sarah Johnson?").customerName,
+    ).toBe("Sarah Johnson");
+    expect(
+      buildDraftFromText("And your name was Dave. Perfect.").customerName,
+    ).toBe("Dave");
+  });
+
+  it("hears an echoed name with a confirmation tail", () => {
+    expect(buildDraftFromText("Sarah Johnson, got it.").customerName).toBe(
+      "Sarah Johnson",
+    );
+    expect(
+      buildDraftFromText("Okay. So that's Sarah, right?").customerName,
+    ).toBe("Sarah");
+  });
+
+  it("never turns an echoed detail into a customer", () => {
+    for (const spoken of [
+      "Two bedrooms, one bathroom, got it",
+      "Deep clean, got it",
+      "Next Tuesday, right?",
+      "123 Main Street, got it",
+      "No pets, right?",
+      "So that's fine, right",
+      "Okay great, got it",
+    ]) {
+      expect(buildDraftFromText(spoken).customerName).toBeNull();
+    }
+  });
+
+  it("hears the address and the counts repeated back", () => {
+    const draft = buildDraftFromText(
+      "You said 123 Main Street? Two bedrooms, one bathroom, got it.",
+    );
+    expect(draft.customerAddress).toBe("123 Main Street");
+    expect(draft.bedrooms).toBe(2);
+    expect(draft.bathrooms).toBe(1);
+    expect(draft.customerName).toBeNull();
+  });
+
+  it("hears the service confirmed back", () => {
+    expect(
+      buildDraftFromText("So a deep clean next Friday, perfect.").service,
+    ).toBe("Deep Clean");
+  });
+
+  it("takes a seven-digit number only when it is named as the number", () => {
+    expect(buildDraftFromText("So that's 555-1234").customerPhone).toBe(
+      "555-1234",
+    );
+    expect(
+      buildDraftFromText("your number is 920-6391, got it").customerPhone,
+    ).toBe("920-6391");
+    // The same digits without the confirmation could be anything.
+    expect(
+      buildDraftFromText("the invoice was 555-1234 last time").customerPhone,
+    ).toBeNull();
+    // And a confirmed house number never has the three-four shape.
+    expect(
+      buildDraftFromText("So that's 5810 Mullen Place").customerPhone,
+    ).toBeNull();
+  });
+
+  it("still prefers a full ten-digit number", () => {
+    expect(
+      buildDraftFromText("So that's 780-920-6391, got it").customerPhone,
+    ).toBe("(780) 920-6391");
   });
 });
 

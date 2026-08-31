@@ -1,0 +1,132 @@
+appId: com.bookmycleaning.ownermobile
+name: Owner mobile speech autofill (installed build)
+onFlowComplete:
+  # Maestro runs this hook after both passing and failing flows. The final
+  # diagnostics line is still visible when a wait/assertion fails mid-capture;
+  # on a passing run the flow has deliberately stopped capture and hidden it.
+  - runFlow:
+      when:
+        visible:
+          id: live-diagnostics
+      label: Record privacy-safe speech diagnostics
+      commands:
+        - copyTextFrom:
+            id: live-diagnostics
+        # Keep only the four fields rendered by live-diagnostics. In
+        # particular, never copy or log the transcript view.
+        - evalScript: '${output.speechDiagnostics = (() => { const fields = maestro.copiedText.split(" · "); return { platform: fields[0].slice("Platform: ".length), permission: fields[1].slice("Permission: ".length), recognizerError: fields[2].slice("Recognizer error: ".length), lastTranscriptStage: fields[3].slice("Last stage: ".length) }; })()}'
+        - evalScript: '${console.log("SPEECH_SMOKE_DIAGNOSTICS_JSON " + JSON.stringify(output.speechDiagnostics))}'
+---
+# Run this against a native iOS or Android build, never Expo Go:
+#   pnpm --filter @workspace/owner-mobile exec expo run:ios --device
+#   pnpm --filter @workspace/owner-mobile exec expo run:android --device
+# Then, from the owner-mobile directory:
+#   pnpm run smoke:ios
+#   pnpm run smoke:android
+#
+# The same sentence is spoken in three natural pauses. Native speech
+# recognizers commonly return those pauses as separate final result entries;
+# the assertions below prove that the app joins them before sending the
+# booking-draft request. The request is also proven by the extracted values
+# appearing in the form. This flow never taps Save booking.
+#
+# Before starting the flow:
+#  1. Sign in as an owner in the installed build.
+#  2. Open New booking and leave all booking fields empty.
+#  3. Have the phone call audio on speaker (the phone cannot capture its own
+#     call audio when held to the ear or used with earbuds).
+#
+# Speak exactly this sentence, with a short pause at each |:
+#   "Hi, this is Jane Doe. | My number is 780-555-0100. | The address is
+#    123 Main Street, St. Albert, Alberta T8N 1N3."
+- launchApp:
+    clearState: false
+- openLink: owner-mobile:///booking/new
+- tapOn:
+    id: live-toggle-button
+- assertVisible:
+    text: "Stop listening"
+- assertVisible:
+    id: live-diagnostics
+- assertVisible:
+    text: "Platform: ${PLATFORM}"
+- extendedWaitUntil:
+    visible:
+      id: live-transcript
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: live-transcript
+      text: "Jane Doe"
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      id: live-transcript
+      text: "780-555-0100"
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      id: live-transcript
+      text: "123 Main Street"
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      id: input-name
+      text: "Jane Doe"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: input-phone
+      text: "780-555-0100"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: input-street
+      text: "123 Main Street"
+    timeout: 30000
+# Exercise a real recognizer interruption before this 120-second wait expires:
+#   iOS: have another phone call this device, or activate Siri briefly.
+#   Android: have another phone call this device, or start another microphone app.
+# Decline/end that interruption and return to this booking form. The native
+# recognizer uses "interrupted" on iOS and "audio-capture" on Android.
+- extendedWaitUntil:
+    visible:
+      id: live-stop-reason
+      text: "Listening paused because another call or phone audio session took over. Press Listen again when you're ready."
+    timeout: 120000
+- assertVisible:
+    id: live-toggle-button
+- assertVisible:
+    text: "Listen to this call"
+- assertNotVisible:
+    text: "Stop listening"
+- assertNotVisible:
+    id: live-error
+# Wait past the first reconnect rungs: the interruption must not restart capture.
+- wait: 3000
+- assertVisible:
+    text: "Listen to this call"
+- tapOn:
+    id: live-toggle-button
+- assertVisible:
+    text: "Stop listening"
+- pressKey: HOME
+- wait: 1000
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: live-toggle-button
+- assertVisible:
+    text: "Listen to this call"
+- assertVisible:
+    id: live-stop-reason
+- assertVisible:
+    text: "Listening stopped because the app went into the background."
+- assertNotVisible:
+    text: "Stop listening"
+- assertNotVisible:
+    id: live-error
+- assertNotVisible:
+    id: live-diagnostics
+- assertNotVisible:
+    id: save-error

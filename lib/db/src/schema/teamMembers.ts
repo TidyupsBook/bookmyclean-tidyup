@@ -39,6 +39,18 @@ export const teamMembersTable = pgTable(
      */
     isLead: boolean("is_lead").notNull().default(false),
     /**
+     * What this person is *called* on screen, in the owner's own words:
+     * "Site Supervisor", "Window Tech", "Office". Free text, and again NOT a
+     * permission level — it only replaces the wording that `role`/`isLead`
+     * would otherwise produce ("Cleaner", "Lead Cleaner"). Null means "use
+     * the standard wording", so an untouched roster reads exactly as before.
+     *
+     * Anything deciding what somebody may DO must read `role`; this column is
+     * for humans, and letting it near a permission check would hand the
+     * owner's authority to whoever can type a job title.
+     */
+    title: text("title"),
+    /**
      * Whether this person is currently on the roster. Distinct from `status`,
      * which tracks the invite: someone can be fully signed up and still be
      * off the roster for the winter. Inactive staff keep their history and
@@ -61,7 +73,41 @@ export const teamMembersTable = pgTable(
     homeLat: doublePrecision("home_lat"),
     homeLng: doublePrecision("home_lng"),
     homeGeocodedAt: timestamp("home_geocoded_at", { withTimezone: true }),
-    status: text("status").notNull().default("invited"), // active | invited
+    /**
+     * Whether this person's devices may store and show a live position.
+     *
+     * Off by default, and only the owner can turn it on (the Tracking page).
+     * Off means genuinely nothing: reported fixes are refused rather than
+     * stored, and switching it back off deletes whatever was there — so a
+     * cleaner who was never switched on has no position anywhere to leak.
+     *
+     * The owner's own seat is exempt: their authority over the company is
+     * what the whole page is built on, so their devices are always tracked
+     * and this column is not consulted for them.
+     */
+    locationSharing: boolean("location_sharing").notNull().default(false),
+    /**
+     * Whether this seat may take a booking off a live call — the incoming
+     * call alert, the microphone panel and the form-filling routes.
+     *
+     * Off by default, and only the owner can switch it (a toggle on the
+     * staff card). It is a grant on top of the dispatcher role, not a role
+     * of its own: the entitlement check requires role `dispatcher` AND this
+     * flag, so a stray true on a cleaner's row grants nothing. The owner
+     * never needs it — his authority comes from owning the company.
+     */
+    liveCallDispatching: boolean("live_call_dispatching")
+      .notNull()
+      .default(false),
+    /**
+     * active    — a working seat.
+     * invited   — created by the owner, waiting for that person to sign up.
+     * pending   — the reverse direction: THEY signed up first, typed the
+     *             company's join code, and are waiting to be let in. A pending
+     *             seat carries a Clerk account but grants nothing at all until
+     *             somebody with authority approves it.
+     */
+    status: text("status").notNull().default("invited"),
     /**
      * The Clerk account that claimed this seat. Null until the invitee signs up
      * and their VERIFIED email is matched to this row. Unique across the table,
@@ -77,6 +123,30 @@ export const teamMembersTable = pgTable(
      * manually with the invited address.
      */
     clerkInvitationId: text("clerk_invitation_id"),
+    /**
+     * The Jobber user this staff member IS, once the owner has said so (or a
+     * name match was unambiguous enough for the sync to adopt). This is what
+     * assignment sync keys on in both directions, so renaming someone on
+     * either side no longer breaks who a job is coloured for. Null means
+     * "unlinked" — the sync falls back to name matching for these, exactly
+     * as it always did.
+     *
+     * Identity only, on purpose: nothing else about the person (name, phone,
+     * role) syncs through this link.
+     */
+    jobberUserId: text("jobber_user_id"),
+    /**
+     * Which Jobber connection (account) this staff member is assigned to.
+     * Null means "use the company's only / primary connection" — the behaviour
+     * before multi-account support existed. When multiple connections are active
+     * the owner assigns each staff member to the right one here, and outbound
+     * scheduling / calendar sync route them through that connection.
+     *
+     * FK is enforced at the DB level (see migration 0073). Not declared in
+     * Drizzle to avoid a cross-schema import cycle; drizzle-orm doesn't need
+     * the FK for querying, only for schema diffing.
+     */
+    jobberConnectionId: integer("jobber_connection_id"),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     /**
      * How long this seat may be re-claimed by a verified matching email after
@@ -100,6 +170,13 @@ export const teamMembersTable = pgTable(
     uniqueIndex("team_members_company_email_idx").on(
       table.companyId,
       sql`lower(${table.email})`,
+    ),
+    // One seat per Jobber user per company — two staff members claiming the
+    // same Jobber identity would make assignment sync nondeterministic.
+    // NULLs are distinct in Postgres, so unlinked staff are unconstrained.
+    uniqueIndex("team_members_company_jobber_user_idx").on(
+      table.companyId,
+      table.jobberUserId,
     ),
   ],
 );

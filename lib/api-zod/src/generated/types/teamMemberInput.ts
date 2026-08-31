@@ -20,4 +20,6 @@ export interface TeamMemberInput {
   color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
+  /** @nullable */
+  jobberConnectionId?: number | null;
 }

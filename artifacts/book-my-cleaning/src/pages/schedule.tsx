@@ -19,18 +19,21 @@ import {
   useGetCompany,
   useGetCurrentUser,
   useListBookingsInRange,
+  useGetStaffPresence,
   getGetScheduleQueryKey,
   getListBookingsInRangeQueryKey,
+  getGetStaffPresenceQueryKey,
   BookingRangeItem,
   ScheduleJob,
   ScheduleCleaner,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { JobberSyncButton } from "@/components/JobberSyncButton";
 import { MonthBoard, WeekBoard } from "@/components/ScheduleCalendar";
+import { BookingDetailPanel } from "@/components/BookingDetailPanel";
+import { PhoneActions } from "@/components/PhoneActions";
 import { colorForTeamMember } from "@/lib/mapMarkers";
 import { companyTimeZone, formatZoned, zoneLabel } from "@/lib/time";
 import {
@@ -54,6 +57,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  Car,
   MapPin,
   Clock,
   User,
@@ -74,6 +78,10 @@ export function SchedulePage() {
   const queryClient = useQueryClient();
   const timeZone = companyTimeZone(company);
   const today = todayInZone(timeZone);
+
+  // Which client's visit is open. The boards carry too little to answer
+  // "what's their number, and where is it" — the panel fetches the rest.
+  const [openBookingId, setOpenBookingId] = useState<number | null>(null);
 
   const [view, setView] = useState<ScheduleView>("month");
   const [date, setDate] = useState(today);
@@ -108,6 +116,20 @@ export function SchedulePage() {
         enabled: view === "day",
       },
     },
+  );
+
+  // Who's out working right now — their phone reported a position in the last
+  // few minutes, the same signal that draws a bright car on the map. One poll
+  // feeds the day lanes and the crew legend.
+  const { data: presence } = useGetStaffPresence({
+    query: {
+      queryKey: getGetStaffPresenceQueryKey(),
+      refetchInterval: 60_000,
+    },
+  });
+  const liveIds = useMemo(
+    () => new Set(presence?.liveMemberIds ?? []),
+    [presence],
   );
 
   const bookingsByDay = useMemo(
@@ -247,6 +269,8 @@ export function SchedulePage() {
             isLoading={dayLoading}
             date={date}
             timeZone={timeZone}
+            onSelectBooking={setOpenBookingId}
+            liveIds={liveIds}
           />
         ) : rangeLoading ? (
           <LoadingSpinner className="mt-20" />
@@ -261,6 +285,7 @@ export function SchedulePage() {
                   bookingsByDay={bookingsByDay}
                   timeZone={timeZone}
                   onOpenDay={openDay}
+                  onSelectBooking={setOpenBookingId}
                 />
               ) : (
                 <WeekBoard
@@ -269,34 +294,61 @@ export function SchedulePage() {
                   bookingsByDay={bookingsByDay}
                   timeZone={timeZone}
                   onOpenDay={openDay}
+                  onSelectBooking={setOpenBookingId}
                 />
               )}
-              <CrewLegend bookings={rangeData?.bookings ?? []} />
+              <CrewLegend
+                bookings={rangeData?.bookings ?? []}
+                liveIds={liveIds}
+              />
             </div>
             <NeedsCrewRail
               bookings={rangeData?.bookings ?? []}
               timeZone={timeZone}
+              onSelectBooking={setOpenBookingId}
             />
           </div>
         )}
       </PanelErrorBoundary>
+
+      <BookingDetailPanel
+        bookingId={openBookingId}
+        onClose={() => setOpenBookingId(null)}
+      />
     </AppLayout>
   );
 }
 
 /* ───────────────────────── Day view ───────────────────────── */
 
-function DayView({
+/**
+ * The dim other lanes get when a cleaner is highlighted from the roster
+ * strip — same treatment as the month/week boards, so drilling into a day
+ * doesn't drop the filter feeling.
+ */
+function laneDimStyle(dimmed: boolean) {
+  return dimmed ? { opacity: 0.18, filter: "grayscale(0.5)" } : {};
+}
+
+export function DayView({
   schedule,
   isLoading,
   date,
   timeZone,
+  onSelectBooking,
+  highlight,
+  liveIds,
 }: {
   schedule:
     { cleaners: ScheduleCleaner[]; unassigned: ScheduleJob[] } | undefined;
   isLoading: boolean;
   date: string;
   timeZone: string;
+  onSelectBooking: (bookingId: number) => void;
+  /** Team member whose lane stays full-strength while the rest dim. */
+  highlight?: number | null;
+  /** Members whose phones are reporting a position right now. */
+  liveIds?: Set<number>;
 }) {
   if (isLoading) return <LoadingSpinner className="mt-20" />;
 
@@ -327,10 +379,18 @@ function DayView({
           key={cleaner.teamMemberId}
           cleaner={cleaner}
           timeZone={timeZone}
+          onSelectBooking={onSelectBooking}
+          dimmed={highlight != null && cleaner.teamMemberId !== highlight}
+          isLive={liveIds?.has(cleaner.teamMemberId) ?? false}
         />
       ))}
       {hasUnassigned && (
-        <UnassignedLane jobs={schedule!.unassigned} timeZone={timeZone} />
+        <UnassignedLane
+          jobs={schedule!.unassigned}
+          timeZone={timeZone}
+          onSelectBooking={onSelectBooking}
+          dimmed={highlight != null}
+        />
       )}
     </div>
   );
@@ -347,9 +407,11 @@ function DayView({
 function NeedsCrewRail({
   bookings,
   timeZone,
+  onSelectBooking,
 }: {
   bookings: BookingRangeItem[];
   timeZone: string;
+  onSelectBooking: (bookingId: number) => void;
 }) {
   const open = bookings.filter(
     (b) => b.assignees.length === 0 && b.status !== "canceled",
@@ -371,10 +433,12 @@ function NeedsCrewRail({
       ) : (
         <div className="max-h-[36rem] overflow-y-auto divide-y divide-border/60">
           {open.map((booking) => (
-            <Link
+            <button
               key={booking.bookingId}
-              href={`/bookings#booking-${booking.bookingId}`}
-              className="block px-4 py-3 hover:bg-secondary/50 transition-colors"
+              type="button"
+              onClick={() => onSelectBooking(booking.bookingId)}
+              data-testid={`row-needs-crew-${booking.bookingId}`}
+              className="block w-full text-left px-4 py-3 hover:bg-secondary/50 transition-colors"
             >
               <div className="text-sm font-medium text-foreground truncate">
                 {booking.customerName}
@@ -386,7 +450,7 @@ function NeedsCrewRail({
                 {shortDayLabel(zonedDayKey(booking.scheduledFor, timeZone))} ·{" "}
                 {zonedClock(booking.scheduledFor, timeZone)}
               </div>
-            </Link>
+            </button>
           ))}
         </div>
       )}
@@ -395,7 +459,14 @@ function NeedsCrewRail({
 }
 
 /** Which colour belongs to whom, so the blocks above can be read at a glance. */
-function CrewLegend({ bookings }: { bookings: BookingRangeItem[] }) {
+export function CrewLegend({
+  bookings,
+  liveIds,
+}: {
+  bookings: BookingRangeItem[];
+  /** Members whose phones are reporting a position right now. */
+  liveIds?: Set<number>;
+}) {
   const crew = new Map<number, { name: string; color: string | null }>();
   let anyUnassigned = false;
   for (const booking of bookings) {
@@ -418,6 +489,13 @@ function CrewLegend({ bookings }: { bookings: BookingRangeItem[] }) {
             style={{ background: colorForTeamMember(id, member.color) }}
           />
           {member.name}
+          {liveIds?.has(id) && (
+            <span
+              data-testid={`dot-live-legend-${id}`}
+              title="Live now — out working with location on"
+              className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"
+            />
+          )}
         </span>
       ))}
       {anyUnassigned && (
@@ -438,15 +516,26 @@ function CrewLegend({ bookings }: { bookings: BookingRangeItem[] }) {
 function CleanerLane({
   cleaner,
   timeZone,
+  onSelectBooking,
+  dimmed = false,
+  isLive = false,
 }: {
   cleaner: ScheduleCleaner;
   timeZone: string;
+  onSelectBooking: (bookingId: number) => void;
+  dimmed?: boolean;
+  /** Their phone is reporting a position right now — same rule as the map. */
+  isLive?: boolean;
 }) {
   const jobs = sortJobsByTime(cleaner.jobs);
   const total = totalDurationMinutes(cleaner.jobs);
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+    <div
+      className="bg-card border border-border rounded-xl shadow-sm flex flex-col overflow-hidden"
+      data-testid={`lane-cleaner-${cleaner.teamMemberId}`}
+      style={laneDimStyle(dimmed)}
+    >
       <div className="px-4 py-3 border-b border-border bg-secondary/40 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -463,6 +552,16 @@ function CleanerLane({
           <span className="font-semibold text-foreground truncate">
             {cleaner.name}
           </span>
+          {isLive && (
+            <span
+              data-testid={`badge-live-lane-${cleaner.teamMemberId}`}
+              title="Live now — out working with location on"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 shrink-0"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </span>
+          )}
         </div>
         <span className="text-xs text-muted-foreground shrink-0">
           {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
@@ -476,7 +575,12 @@ function CleanerLane({
           </p>
         ) : (
           jobs.map((job) => (
-            <JobCard key={job.bookingId} job={job} timeZone={timeZone} />
+            <JobCard
+              key={job.bookingId}
+              job={job}
+              timeZone={timeZone}
+              onSelect={onSelectBooking}
+            />
           ))
         )}
       </div>
@@ -487,13 +591,21 @@ function CleanerLane({
 function UnassignedLane({
   jobs,
   timeZone,
+  onSelectBooking,
+  dimmed = false,
 }: {
   jobs: ScheduleJob[];
   timeZone: string;
+  onSelectBooking: (bookingId: number) => void;
+  dimmed?: boolean;
 }) {
   const sorted = sortJobsByTime(jobs);
   return (
-    <div className="bg-card border border-amber-500/30 rounded-xl shadow-sm flex flex-col overflow-hidden">
+    <div
+      className="bg-card border border-amber-500/30 rounded-xl shadow-sm flex flex-col overflow-hidden"
+      data-testid="lane-unassigned"
+      style={laneDimStyle(dimmed)}
+    >
       <div className="px-4 py-3 border-b border-amber-500/30 bg-amber-500/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-amber-400" />
@@ -508,19 +620,58 @@ function UnassignedLane({
           Nobody is on these yet — assign a crew from Bookings.
         </p>
         {sorted.map((job) => (
-          <JobCard key={job.bookingId} job={job} timeZone={timeZone} />
+          <JobCard
+            key={job.bookingId}
+            job={job}
+            timeZone={timeZone}
+            onSelect={onSelectBooking}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function JobCard({ job, timeZone }: { job: ScheduleJob; timeZone: string }) {
+function JobCard({
+  job,
+  timeZone,
+  onSelect,
+}: {
+  job: ScheduleJob;
+  timeZone: string;
+  onSelect: (bookingId: number) => void;
+}) {
   const price = formatPrice(job.price);
   const duration = formatDuration(job.durationMinutes);
+  // A finished job stays on the board as a shadow of itself — dimmed with a
+  // green cast — so the day reads as "what's left" at a glance.
+  const done = job.status === "completed";
   return (
-    <Link href={`/bookings#booking-${job.bookingId}`}>
-      <div className="rounded-lg border border-border bg-background/40 p-3 hover:border-brand-pink/40 hover:bg-secondary/40 transition-colors cursor-pointer">
+    <button
+      type="button"
+      onClick={() => onSelect(job.bookingId)}
+      className="block w-full text-left"
+      data-testid={`card-job-${job.bookingId}`}
+    >
+      {job.travel && (
+        <div
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground pl-1 pb-1"
+          data-testid={`travel-job-${job.bookingId}`}
+        >
+          <Car className="w-3 h-3 shrink-0 text-brand-pink/70" />
+          <span>
+            ≈{job.travel.distanceKm} km · ~{job.travel.driveMinutes} min drive
+            from {job.travel.fromHome ? "home" : job.travel.fromLabel}
+          </span>
+        </div>
+      )}
+      <div
+        className={`rounded-lg border p-3 transition-all cursor-pointer ${
+          done
+            ? "border-green-500/25 bg-green-500/[0.05] opacity-60 hover:opacity-90"
+            : "border-border bg-background/40 hover:border-brand-pink/40 hover:bg-secondary/40"
+        }`}
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <Clock className="w-3.5 h-3.5 text-brand-pink shrink-0" />
@@ -537,6 +688,13 @@ function JobCard({ job, timeZone }: { job: ScheduleJob; timeZone: string }) {
             <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>{job.customerAddress || "Address not provided"}</span>
           </div>
+          <div className="text-xs text-muted-foreground">
+            <PhoneActions
+              phone={job.customerPhone}
+              name={job.customerName}
+              compact
+            />
+          </div>
         </div>
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>{duration || "—"}</span>
@@ -547,7 +705,7 @@ function JobCard({ job, timeZone }: { job: ScheduleJob; timeZone: string }) {
           )}
         </div>
       </div>
-    </Link>
+    </button>
   );
 }
 

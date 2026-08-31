@@ -12,7 +12,8 @@ import * as zod from 'zod/v4';
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.string(),
+  "database": zod.enum(['ok', 'paused', 'error'])
 })
 
 
@@ -39,6 +40,7 @@ export const GetCompanyResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -58,6 +60,9 @@ export const GetCompanyResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -107,6 +112,7 @@ export const CreateCompanyResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -126,6 +132,9 @@ export const CreateCompanyResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -168,6 +177,11 @@ export const updateCompanyBodyQuoteFeesRateMax = 100;
 export const updateCompanyBodyQuoteDepositAmountMin = 0;
 export const updateCompanyBodyQuoteDepositAmountMax = 1000000;
 
+export const updateCompanyBodyBookingRequiredFieldsMax = 6;
+
+export const updateCompanyBodyRecentCallWindowMinutesMin = 5;
+export const updateCompanyBodyRecentCallWindowMinutesMax = 1440;
+
 
 
 export const UpdateCompanyBody = zod.object({
@@ -189,7 +203,9 @@ export const UpdateCompanyBody = zod.object({
   "quoteFeesLabel": zod.string().min(1).optional(),
   "quoteFeesRate": zod.number().min(updateCompanyBodyQuoteFeesRateMin).max(updateCompanyBodyQuoteFeesRateMax).optional(),
   "quoteDepositAmount": zod.number().min(updateCompanyBodyQuoteDepositAmountMin).max(updateCompanyBodyQuoteDepositAmountMax).optional(),
-  "quoteDepositEmail": zod.string().nullish()
+  "quoteDepositEmail": zod.string().nullish(),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])).max(updateCompanyBodyBookingRequiredFieldsMax).optional(),
+  "recentCallWindowMinutes": zod.int().min(updateCompanyBodyRecentCallWindowMinutesMin).max(updateCompanyBodyRecentCallWindowMinutesMax).optional()
 })
 
 export const UpdateCompanyResponse = zod.object({
@@ -212,6 +228,7 @@ export const UpdateCompanyResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -231,6 +248,9 @@ export const UpdateCompanyResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -280,6 +300,7 @@ export const DisconnectJobberResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -299,6 +320,9 @@ export const DisconnectJobberResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -354,6 +378,7 @@ export const GoLiveResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -373,6 +398,9 @@ export const GoLiveResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -418,6 +446,7 @@ export const SetJobberSkippedResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -437,6 +466,9 @@ export const SetJobberSkippedResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -453,6 +485,58 @@ export const SetJobberSkippedResponse = zod.object({
 }),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary List all Jobber connections for this company (owner/dispatcher)
+ */
+export const ListJobberConnectionsResponseItem = zod.object({
+  "id": zod.int(),
+  "companyId": zod.int(),
+  "displayName": zod.string().nullish(),
+  "accountId": zod.string().nullish(),
+  "accountName": zod.string().nullish(),
+  "needsReauth": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListJobberConnectionsResponse = zod.array(ListJobberConnectionsResponseItem)
+
+
+/**
+ * @summary Rename a Jobber connection (owner only)
+ */
+export const UpdateJobberConnectionParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateJobberConnectionBodyDisplayNameMax = 80;
+
+
+
+export const UpdateJobberConnectionBody = zod.object({
+  "displayName": zod.string().max(updateJobberConnectionBodyDisplayNameMax).nullish()
+})
+
+export const UpdateJobberConnectionResponse = zod.object({
+  "id": zod.int(),
+  "companyId": zod.int(),
+  "displayName": zod.string().nullish(),
+  "accountId": zod.string().nullish(),
+  "accountName": zod.string().nullish(),
+  "needsReauth": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * Calls Jobber's appDisconnect mutation best-effort, then removes the connection row. Staff assigned to it are left unassigned so they fall back to the remaining primary connection.
+ * @summary Revoke and remove one Jobber connection (owner only)
+ */
+export const DeleteJobberConnectionParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteJobberConnectionResponse = zod.void()
 
 
 /**
@@ -482,6 +566,7 @@ export const ConnectQuoResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -501,6 +586,9 @@ export const ConnectQuoResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -542,6 +630,7 @@ export const DisconnectQuoResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -561,6 +650,9 @@ export const DisconnectQuoResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -618,6 +710,7 @@ export const SelectQuoNumbersResponse = zod.object({
   "jobberAccountName": zod.string().nullish(),
   "jobberNeedsReauth": zod.boolean(),
   "jobberRedirectUri": zod.string(),
+  "jobberEnvironment": zod.enum(['published', 'dev']),
   "quoConnected": zod.boolean(),
   "quoWorkspaceName": zod.string().nullish(),
   "quoKeyLast4": zod.string().nullish(),
@@ -637,6 +730,9 @@ export const SelectQuoNumbersResponse = zod.object({
   "name": zod.string(),
   "watched": zod.boolean()
 })),
+  "bookingRequiredFields": zod.array(zod.enum(['name', 'phone', 'email', 'address', 'service', 'time'])),
+  "recentCallWindowMinutes": zod.int(),
+  "rosterCapacity": zod.int(),
   "isLive": zod.boolean(),
   "setupStatus": zod.object({
   "accountCreated": zod.boolean(),
@@ -674,8 +770,7 @@ export const ListServicesResponseItem = zod.object({
   "description": zod.string().nullish(),
   "priceMin": zod.number().nullish(),
   "priceMax": zod.number().nullish(),
-  "durationMinutes": zod.int().nullish(),
-  "createdAt": zod.string()
+  "durationMinutes": zod.int().nullish()
 })
 export const ListServicesResponse = zod.array(ListServicesResponseItem)
 
@@ -683,9 +778,9 @@ export const ListServicesResponse = zod.array(ListServicesResponseItem)
 export const CreateServiceBody = zod.object({
   "name": zod.string(),
   "description": zod.string().optional(),
-  "priceMin": zod.number().optional(),
-  "priceMax": zod.number().optional(),
-  "durationMinutes": zod.int().optional()
+  "priceMin": zod.number().nullish(),
+  "priceMax": zod.number().nullish(),
+  "durationMinutes": zod.int().nullish()
 })
 
 export const CreateServiceResponse = zod.object({
@@ -694,8 +789,23 @@ export const CreateServiceResponse = zod.object({
   "description": zod.string().nullish(),
   "priceMin": zod.number().nullish(),
   "priceMax": zod.number().nullish(),
-  "durationMinutes": zod.int().nullish(),
-  "createdAt": zod.string()
+  "durationMinutes": zod.int().nullish()
+})
+
+
+/**
+ * @summary Add the suggested cleaning-service catalog without duplicating existing names
+ */
+export const ImportSuggestedServicesResponse = zod.object({
+  "created": zod.int(),
+  "services": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "priceMin": zod.number().nullish(),
+  "priceMax": zod.number().nullish(),
+  "durationMinutes": zod.int().nullish()
+}))
 })
 
 
@@ -706,9 +816,9 @@ export const UpdateServiceParams = zod.object({
 export const UpdateServiceBody = zod.object({
   "name": zod.string().optional(),
   "description": zod.string().optional(),
-  "priceMin": zod.number().optional(),
-  "priceMax": zod.number().optional(),
-  "durationMinutes": zod.int().optional()
+  "priceMin": zod.number().nullish(),
+  "priceMax": zod.number().nullish(),
+  "durationMinutes": zod.int().nullish()
 })
 
 export const UpdateServiceResponse = zod.object({
@@ -717,8 +827,7 @@ export const UpdateServiceResponse = zod.object({
   "description": zod.string().nullish(),
   "priceMin": zod.number().nullish(),
   "priceMax": zod.number().nullish(),
-  "durationMinutes": zod.int().nullish(),
-  "createdAt": zod.string()
+  "durationMinutes": zod.int().nullish()
 })
 
 
@@ -737,7 +846,10 @@ export const GetCurrentUserResponse = zod.object({
   "teamMemberId": zod.int().nullish(),
   "name": zod.string(),
   "email": zod.string(),
-  "companyName": zod.string()
+  "companyName": zod.string(),
+  "pendingCompanyName": zod.string().optional(),
+  "canCreateCompany": zod.boolean(),
+  "canTakeLiveCalls": zod.boolean()
 })
 
 
@@ -756,6 +868,8 @@ export const SetBookingCrewBody = zod.object({
   "teamMemberIds": zod.array(zod.int()).max(setBookingCrewBodyTeamMemberIdsMax)
 })
 
+export const setBookingCrewResponseAddressLine2Max = 120;
+
 
 
 
@@ -765,8 +879,10 @@ export const SetBookingCrewResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(setBookingCrewResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -791,6 +907,8 @@ export const SetBookingCrewResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -833,11 +951,28 @@ export const SetBookingCrewResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -867,6 +1002,8 @@ export const StartBookingTimerParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const startBookingTimerResponseAddressLine2Max = 120;
+
 
 
 
@@ -876,8 +1013,10 @@ export const StartBookingTimerResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(startBookingTimerResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -902,6 +1041,8 @@ export const StartBookingTimerResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -944,11 +1085,28 @@ export const StartBookingTimerResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -977,6 +1135,8 @@ export const StopBookingTimerParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const stopBookingTimerResponseAddressLine2Max = 120;
+
 
 
 
@@ -986,8 +1146,10 @@ export const StopBookingTimerResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(stopBookingTimerResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1012,6 +1174,8 @@ export const StopBookingTimerResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -1054,11 +1218,162 @@ export const StopBookingTimerResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "durationMinutes": zod.int().nullish(),
+  "crew": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
+})).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * Builds an unsent invoice in Jobber for the booking's client using the quoted line items (or the flat quoted amount), with a credit line for any deposit already paid. Idempotent — a booking that already has an invoice returns unchanged rather than minting a second one. The office reviews and sends the invoice from Jobber.
+ * @summary Create a Jobber invoice from this booking's quote
+ */
+export const CreateBookingInvoiceParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const createBookingInvoiceResponseAddressLine2Max = 120;
+
+
+
+
+
+export const CreateBookingInvoiceResponse = zod.object({
+  "id": zod.int(),
+  "callId": zod.int().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "customerEmail": zod.string().nullish(),
+  "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(createBookingInvoiceResponseAddressLine2Max).nullish(),
+  "addressCity": zod.string().nullish(),
+  "addressProvince": zod.string().nullish(),
+  "addressPostal": zod.string().nullish(),
+  "service": zod.string(),
+  "bedrooms": zod.int().nullish(),
+  "bathrooms": zod.int().nullish(),
+  "extras": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "frequency": zod.string().nullish(),
+  "internalNotes": zod.string().nullish(),
+  "scheduledFor": zod.string(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
+  "quoteHours": zod.number().nullish(),
+  "quoteCrewLabel": zod.string().nullish(),
+  "quoteHourlyRate": zod.number().nullish(),
+  "quoteFuelSurcharge": zod.number().nullish(),
+  "quoteDiscountAmount": zod.number().nullish(),
+  "quoteReferralSource": zod.string().nullish(),
+  "quotedAmount": zod.number().nullish(),
+  "quoteDeposit": zod.number().nullish(),
+  "quoteNotes": zod.string().nullish(),
+  "quoteMessage": zod.string().nullish(),
+  "quoteSentAt": zod.string().nullish(),
+  "quoteUrl": zod.string().nullish(),
+  "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
+  "depositPaidAt": zod.string().nullish(),
+  "depositPaidAmount": zod.number().nullish(),
+  "quoteTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]),
+  "quoteSentTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]).optional(),
+  "needsTimeReview": zod.boolean(),
+  "timeReviewPreviousTimezone": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberJobId": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
+  "jobberSyncError": zod.string().nullish(),
+  "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -1090,16 +1405,21 @@ export const ListTeamMembersResponseItem = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
   "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
   "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
-  "status": zod.enum(['active', 'invited']),
+  "status": zod.enum(['active', 'invited', 'pending']),
   "hasLogin": zod.boolean(),
   "inviteEmailSent": zod.boolean(),
   "blockedByOtherCompany": zod.boolean(),
   "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
   "createdAt": zod.string()
 })
 export const ListTeamMembersResponse = zod.array(ListTeamMembersResponseItem)
@@ -1117,7 +1437,8 @@ export const InviteTeamMemberBody = zod.object({
   "isLead": zod.boolean().optional(),
   "active": zod.boolean().optional(),
   "color": zod.string().nullish(),
-  "homeAddress": zod.string().nullish()
+  "homeAddress": zod.string().nullish(),
+  "jobberConnectionId": zod.int().nullish()
 })
 
 export const InviteTeamMemberResponse = zod.object({
@@ -1127,17 +1448,118 @@ export const InviteTeamMemberResponse = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
   "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
   "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
-  "status": zod.enum(['active', 'invited']),
+  "status": zod.enum(['active', 'invited', 'pending']),
   "hasLogin": zod.boolean(),
   "inviteEmailSent": zod.boolean(),
   "blockedByOtherCompany": zod.boolean(),
   "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * Generated on first use, so companies created before join codes existed get one the moment somebody looks. Not a credential — it only decides whose Staff page a sign-up request lands on, and nothing happens until that request is approved.
+ * @summary The code the crew types when signing up (owner/dispatcher)
+ */
+export const GetJoinCodeResponse = zod.object({
+  "joinCode": zod.string()
+})
+
+
+/**
+ * For when the code has been passed around beyond the crew. The old code stops matching immediately; existing staff and outstanding join requests are untouched, because the code only gates NEW requests.
+ * @summary Retire the current join code and mint a new one (owner only)
+ */
+export const RotateJoinCodeResponse = zod.object({
+  "joinCode": zod.string()
+})
+
+
+/**
+ * For someone who signed up on their own rather than following an invite. Creates a seat with status `pending`, which grants no access whatsoever until an owner or dispatcher approves it.
+ * @summary Ask to join a company using its join code
+ */
+export const RequestToJoinCompanyBody = zod.object({
+  "joinCode": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['dispatcher', 'cleaner']).optional()
+})
+
+export const RequestToJoinCompanyResponse = zod.object({
+  "ok": zod.boolean(),
+  "companyName": zod.string()
+})
+
+
+/**
+ * @summary Withdraw your own pending request to join
+ */
+export const CancelJoinRequestResponse = zod.object({
+  "ok": zod.boolean(),
+  "companyName": zod.string()
+})
+
+
+/**
+ * Turns a pending request into a working seat. A dispatcher may approve someone as a cleaner; only the owner can hand out a dispatcher seat.
+ * @summary Let a pending sign-up into the company
+ */
+export const ApproveTeamMemberParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ApproveTeamMemberBody = zod.object({
+  "role": zod.enum(['dispatcher', 'cleaner']),
+  "isLead": zod.boolean().optional()
+})
+
+export const ApproveTeamMemberResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
+  "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
+  "color": zod.string().nullish(),
+  "homeAddress": zod.string().nullish(),
+  "homeLat": zod.number().nullish(),
+  "homeLng": zod.number().nullish(),
+  "status": zod.enum(['active', 'invited', 'pending']),
+  "hasLogin": zod.boolean(),
+  "inviteEmailSent": zod.boolean(),
+  "blockedByOtherCompany": zod.boolean(),
+  "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Turn down a pending sign-up
+ */
+export const DeclineTeamMemberParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeclineTeamMemberResponse = zod.object({
+  "ok": zod.boolean(),
+  "companyName": zod.string()
 })
 
 
@@ -1154,7 +1576,8 @@ export const ImportTeamMembersBody = zod.object({
   "isLead": zod.boolean().optional(),
   "active": zod.boolean().optional(),
   "color": zod.string().nullish(),
-  "homeAddress": zod.string().nullish()
+  "homeAddress": zod.string().nullish(),
+  "jobberConnectionId": zod.int().nullish()
 }))
 })
 
@@ -1163,6 +1586,173 @@ export const ImportTeamMembersResponse = zod.object({
   "updated": zod.int(),
   "skipped": zod.int(),
   "errors": zod.array(zod.string())
+})
+
+
+/**
+ * Owner/dispatcher only, and only when Jobber is connected. Each entry says whether that Jobber user is already linked to a staff member, and — when unlinked — which staff member the sync's own name matching would suggest, so what the owner confirms is exactly what a sync would have done. Also includes an entry (gone=true) for each roster member whose stored link points at a Jobber user no longer in Jobber's active list, so a deactivated Jobber account never leaves a stale link invisible.
+ * @summary Jobber's active team members, with their link status here
+ */
+export const ListJobberTeamMembersResponse = zod.object({
+  "members": zod.array(zod.object({
+  "jobberUserId": zod.string(),
+  "name": zod.string(),
+  "gone": zod.boolean(),
+  "linkedTeamMemberId": zod.int().nullable(),
+  "suggestedTeamMemberId": zod.int().nullable()
+})),
+  "failedConnections": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string()
+}))
+})
+
+
+/**
+ * For a Jobber team member who has no counterpart here. Creates a roster-only cleaner seat — no email, no login — already linked to the Jobber user, so their visits colour correctly from the next sync on. Nothing is created without this explicit call.
+ * @summary Add a Jobber user to the roster as a new staff seat (owner only)
+ */
+export const importJobberUserBodyJobberUserIdMax = 200;
+
+
+
+export const ImportJobberUserBody = zod.object({
+  "jobberUserId": zod.string().min(1).max(importJobberUserBodyJobberUserIdMax)
+})
+
+export const ImportJobberUserResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
+  "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
+  "color": zod.string().nullish(),
+  "homeAddress": zod.string().nullish(),
+  "homeLat": zod.number().nullish(),
+  "homeLng": zod.number().nullish(),
+  "status": zod.enum(['active', 'invited', 'pending']),
+  "hasLogin": zod.boolean(),
+  "inviteEmailSent": zod.boolean(),
+  "blockedByOtherCompany": zod.boolean(),
+  "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * From then on assignment sync in both directions keys on the link, so renaming the person on either side changes nothing. Relinking a staff member to a different Jobber user replaces their old link.
+ * @summary Link a staff member to a Jobber user (owner only)
+ */
+export const LinkJobberUserParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const linkJobberUserBodyJobberUserIdMax = 200;
+
+
+
+export const LinkJobberUserBody = zod.object({
+  "jobberUserId": zod.string().min(1).max(linkJobberUserBodyJobberUserIdMax)
+})
+
+export const LinkJobberUserResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
+  "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
+  "color": zod.string().nullish(),
+  "homeAddress": zod.string().nullish(),
+  "homeLat": zod.number().nullish(),
+  "homeLng": zod.number().nullish(),
+  "status": zod.enum(['active', 'invited', 'pending']),
+  "hasLogin": zod.boolean(),
+  "inviteEmailSent": zod.boolean(),
+  "blockedByOtherCompany": zod.boolean(),
+  "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * The staff member stays on the roster; the sync just goes back to name matching for them.
+ * @summary Remove a staff member's Jobber link (owner only)
+ */
+export const UnlinkJobberUserParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UnlinkJobberUserResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
+  "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
+  "color": zod.string().nullish(),
+  "homeAddress": zod.string().nullish(),
+  "homeLat": zod.number().nullish(),
+  "homeLng": zod.number().nullish(),
+  "status": zod.enum(['active', 'invited', 'pending']),
+  "hasLogin": zod.boolean(),
+  "inviteEmailSent": zod.boolean(),
+  "blockedByOtherCompany": zod.boolean(),
+  "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * Clears the Clerk user id and invitation so the person can no longer sign in. The roster seat stays — name, phone, Jobber link, and all history are preserved — and the owner can invite someone new to the same seat. Does NOT remove the team_members row; use DELETE /team/{id} for a full remove.
+ * @summary Revoke a staff member's Clerk login without removing the seat (owner only)
+ */
+export const RevokeTeamMemberAccountParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const RevokeTeamMemberAccountResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
+  "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
+  "color": zod.string().nullish(),
+  "homeAddress": zod.string().nullish(),
+  "homeLat": zod.number().nullish(),
+  "homeLng": zod.number().nullish(),
+  "status": zod.enum(['active', 'invited', 'pending']),
+  "hasLogin": zod.boolean(),
+  "inviteEmailSent": zod.boolean(),
+  "blockedByOtherCompany": zod.boolean(),
+  "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
+  "createdAt": zod.string()
 })
 
 
@@ -1178,11 +1768,14 @@ export const UpdateTeamMemberBody = zod.object({
   "name": zod.string().optional(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
-  "role": zod.enum(['dispatcher', 'cleaner']).optional(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner']).optional(),
   "isLead": zod.boolean().optional(),
+  "title": zod.string().nullish(),
   "active": zod.boolean().optional(),
+  "liveCallDispatching": zod.boolean().optional(),
   "color": zod.string().nullish(),
-  "homeAddress": zod.string().nullish()
+  "homeAddress": zod.string().nullish(),
+  "jobberConnectionId": zod.int().nullish()
 })
 
 export const UpdateTeamMemberResponse = zod.object({
@@ -1192,16 +1785,21 @@ export const UpdateTeamMemberResponse = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['owner', 'dispatcher', 'cleaner']),
   "isLead": zod.boolean(),
+  "title": zod.string().nullish(),
+  "roleLabel": zod.string(),
   "active": zod.boolean(),
+  "liveCallDispatching": zod.boolean(),
   "color": zod.string().nullish(),
   "homeAddress": zod.string().nullish(),
   "homeLat": zod.number().nullish(),
   "homeLng": zod.number().nullish(),
-  "status": zod.enum(['active', 'invited']),
+  "status": zod.enum(['active', 'invited', 'pending']),
   "hasLogin": zod.boolean(),
   "inviteEmailSent": zod.boolean(),
   "blockedByOtherCompany": zod.boolean(),
   "claimedAt": zod.string().nullish(),
+  "jobberUserId": zod.string().nullable(),
+  "jobberConnectionId": zod.int().nullable(),
   "createdAt": zod.string()
 })
 
@@ -1211,6 +1809,221 @@ export const RemoveTeamMemberParams = zod.object({
 })
 
 export const RemoveTeamMemberResponse = zod.void()
+
+
+/**
+ * @summary The customer inbox, newest activity first
+ */
+export const ListMessageThreadsResponseItem = zod.object({
+  "id": zod.int(),
+  "customerPhone": zod.string(),
+  "customerName": zod.string().nullable(),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "lastDirection": zod.string().nullish(),
+  "unreadCount": zod.int()
+})
+export const ListMessageThreadsResponse = zod.array(ListMessageThreadsResponseItem)
+
+
+/**
+ * @summary Open (or reopen) the thread for a phone number
+ */
+export const StartMessageThreadBody = zod.object({
+  "phone": zod.string(),
+  "name": zod.string().nullish()
+})
+
+export const StartMessageThreadResponse = zod.object({
+  "id": zod.int(),
+  "customerPhone": zod.string(),
+  "customerName": zod.string().nullable(),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "lastDirection": zod.string().nullish(),
+  "unreadCount": zod.int()
+})
+
+
+/**
+ * @summary Unread inbound texts, for the sidebar badge
+ */
+export const GetUnreadMessageCountResponse = zod.object({
+  "unread": zod.int()
+})
+
+
+/**
+ * @summary One conversation in full. Opening it clears the unread badge.
+ */
+export const GetMessageThreadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetMessageThreadResponse = zod.object({
+  "thread": zod.object({
+  "id": zod.int(),
+  "customerPhone": zod.string(),
+  "customerName": zod.string().nullable(),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "lastDirection": zod.string().nullish(),
+  "unreadCount": zod.int()
+}),
+  "messages": zod.array(zod.object({
+  "id": zod.int(),
+  "direction": zod.enum(['inbound', 'outbound']),
+  "body": zod.string(),
+  "status": zod.enum(['received', 'sent', 'failed']),
+  "errorText": zod.string().nullish(),
+  "sentByName": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Reply from the business line
+ */
+export const SendClientMessageParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const sendClientMessageBodyBodyMax = 1600;
+
+
+
+export const SendClientMessageBody = zod.object({
+  "body": zod.string().min(1).max(sendClientMessageBodyBodyMax)
+})
+
+export const SendClientMessageResponse = zod.object({
+  "id": zod.int(),
+  "direction": zod.enum(['inbound', 'outbound']),
+  "body": zod.string(),
+  "status": zod.enum(['received', 'sent', 'failed']),
+  "errorText": zod.string().nullish(),
+  "sentByName": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Conversations this person is in
+ */
+export const ListStaffConversationsResponseItem = zod.object({
+  "id": zod.int(),
+  "kind": zod.enum(['direct', 'group']),
+  "title": zod.string(),
+  "memberNames": zod.array(zod.string()),
+  "members": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "isLive": zod.boolean()
+})),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "unreadCount": zod.int()
+})
+export const ListStaffConversationsResponse = zod.array(ListStaffConversationsResponseItem)
+
+
+/**
+ * @summary Start a direct chat or a group
+ */
+export const startStaffConversationBodyTitleMax = 60;
+
+
+
+export const StartStaffConversationBody = zod.object({
+  "memberIds": zod.array(zod.int()),
+  "title": zod.string().max(startStaffConversationBodyTitleMax).nullish()
+})
+
+export const StartStaffConversationResponse = zod.object({
+  "id": zod.int(),
+  "kind": zod.enum(['direct', 'group']),
+  "title": zod.string(),
+  "memberNames": zod.array(zod.string()),
+  "members": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "isLive": zod.boolean()
+})),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "unreadCount": zod.int()
+})
+
+
+/**
+ * @summary Teammates this person can message
+ */
+export const ListChatContactsResponseItem = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.string(),
+  "isLead": zod.boolean(),
+  "isLive": zod.boolean()
+})
+export const ListChatContactsResponse = zod.array(ListChatContactsResponseItem)
+
+
+/**
+ * @summary One conversation in full. Opening it marks it read.
+ */
+export const GetStaffConversationParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetStaffConversationResponse = zod.object({
+  "conversation": zod.object({
+  "id": zod.int(),
+  "kind": zod.enum(['direct', 'group']),
+  "title": zod.string(),
+  "memberNames": zod.array(zod.string()),
+  "members": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "isLive": zod.boolean()
+})),
+  "lastMessageAt": zod.string(),
+  "lastMessagePreview": zod.string().nullish(),
+  "unreadCount": zod.int()
+}),
+  "myMemberId": zod.int(),
+  "messages": zod.array(zod.object({
+  "id": zod.int(),
+  "memberId": zod.int(),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Post a message (also texted to anyone not reading)
+ */
+export const SendStaffMessageParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const sendStaffMessageBodyBodyMax = 2000;
+
+
+
+export const SendStaffMessageBody = zod.object({
+  "body": zod.string().min(1).max(sendStaffMessageBodyBodyMax)
+})
+
+export const SendStaffMessageResponse = zod.object({
+  "id": zod.int(),
+  "memberId": zod.int(),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
 
 
 /**
@@ -1234,7 +2047,8 @@ export const ListCallsResponseItem = zod.object({
   "direction": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "quoCallId": zod.string().nullish(),
-  "recordingUrl": zod.string().nullish()
+  "recordingUrl": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
 })
 export const ListCallsResponse = zod.array(ListCallsResponseItem)
 
@@ -1261,6 +2075,8 @@ export const GetCallResponse = zod.object({
   "summary": zod.string().nullish(),
   "quoCallId": zod.string().nullish(),
   "recordingUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "transcript": zod.array(zod.object({
   "speaker": zod.enum(['caller', 'ai']),
   "text": zod.string(),
@@ -1274,17 +2090,161 @@ export const GetCallResponse = zod.object({
 
 
 /**
+ * @summary Save the dispatcher's notepad for a call
+ */
+export const UpdateCallNotesParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateCallNotesBodyNotesMax = 20000;
+
+
+
+export const UpdateCallNotesBody = zod.object({
+  "notes": zod.string().max(updateCallNotesBodyNotesMax)
+})
+
+export const UpdateCallNotesResponse = zod.object({
+  "id": zod.int(),
+  "callerName": zod.string(),
+  "callerPhone": zod.string(),
+  "status": zod.enum(['in_progress', 'completed', 'missed', 'booked']),
+  "serviceRequested": zod.string().nullish(),
+  "preferredTime": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "durationSeconds": zod.int(),
+  "isTest": zod.boolean(),
+  "bookingId": zod.int().nullish(),
+  "direction": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "quoCallId": zod.string().nullish(),
+  "recordingUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.enum(['caller', 'ai']),
+  "text": zod.string(),
+  "offsetSeconds": zod.number()
+})),
+  "extractedAnswers": zod.array(zod.object({
+  "field": zod.string(),
+  "value": zod.string()
+}))
+})
+
+
+/**
+ * @summary Set or clear the owner's quick verdict on a call
+ */
+export const UpdateCallTagParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UpdateCallTagBody = zod.object({
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullable()
+})
+
+export const UpdateCallTagResponse = zod.object({
+  "id": zod.int(),
+  "callerName": zod.string(),
+  "callerPhone": zod.string(),
+  "status": zod.enum(['in_progress', 'completed', 'missed', 'booked']),
+  "serviceRequested": zod.string().nullish(),
+  "preferredTime": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "durationSeconds": zod.int(),
+  "isTest": zod.boolean(),
+  "bookingId": zod.int().nullish(),
+  "direction": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "quoCallId": zod.string().nullish(),
+  "recordingUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.enum(['caller', 'ai']),
+  "text": zod.string(),
+  "offsetSeconds": zod.number()
+})),
+  "extractedAnswers": zod.array(zod.object({
+  "field": zod.string(),
+  "value": zod.string()
+}))
+})
+
+
+/**
+ * Offered when no lead (or booking) already exists for this caller's phone number. The created lead immediately carries the Called badge because its phone matches the call by construction. Returns 409 when a lead with the same phone already exists for this company.
+ * @summary Create a lead pre-filled with the caller's name and phone
+ */
+export const SaveCallAsLeadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const SaveCallAsLeadResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
  * @summary Everything the New Booking form can pre-fill from what the caller said
  */
 export const GetCallBookingDraftParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const getCallBookingDraftResponseAddressLine2Max = 120;
+
+
+
 export const GetCallBookingDraftResponse = zod.object({
   "callId": zod.int().nullable(),
   "customerName": zod.string().nullish(),
   "customerPhone": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(getCallBookingDraftResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1309,11 +2269,16 @@ export const DraftBookingFromTextBody = zod.object({
   "text": zod.string().min(1).max(draftBookingFromTextBodyTextMax)
 })
 
+export const draftBookingFromTextResponseAddressLine2Max = 120;
+
+
+
 export const DraftBookingFromTextResponse = zod.object({
   "callId": zod.int().nullable(),
   "customerName": zod.string().nullish(),
   "customerPhone": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(draftBookingFromTextResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1344,6 +2309,8 @@ export const SimulateTestCallResponse = zod.object({
   "summary": zod.string().nullish(),
   "quoCallId": zod.string().nullish(),
   "recordingUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "transcript": zod.array(zod.object({
   "speaker": zod.enum(['caller', 'ai']),
   "text": zod.string(),
@@ -1388,6 +2355,13 @@ export const ListBookingsInRangeResponse = zod.object({
 /**
  * @summary List bookings created from calls
  */
+export const ListBookingsQueryParams = zod.object({
+  "since": zod.coerce.string().optional().describe('First day of the window, YYYY-MM-DD in the company\'s timezone. Defaults to August 1, 2026 (the history floor). Pass a tighter value to keep the response small when you only need recent data.'),
+  "until": zod.coerce.string().optional().describe('Last day of the window (inclusive), YYYY-MM-DD in the company\'s timezone. Omit for no upper bound (all bookings to the future).')
+})
+
+export const listBookingsResponseAddressLine2Max = 120;
+
 
 
 
@@ -1397,8 +2371,10 @@ export const ListBookingsResponseItem = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(listBookingsResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1423,6 +2399,8 @@ export const ListBookingsResponseItem = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -1465,11 +2443,28 @@ export const ListBookingsResponseItem = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -1495,14 +2490,13 @@ export const ListBookingsResponse = zod.array(ListBookingsResponseItem)
 /**
  * @summary Add a booking by hand (walk-in, repeat customer, or a call the AI missed)
  */
-
+export const createBookingBodyAddressLine2Max = 120;
 
 export const createBookingBodyAddressCityMax = 120;
 
 export const createBookingBodyAddressProvinceMax = 60;
 
 export const createBookingBodyAddressPostalMax = 20;
-
 
 export const createBookingBodyBedroomsMin = 0;
 export const createBookingBodyBedroomsMax = 50;
@@ -1543,22 +2537,24 @@ export const createBookingBodyQuoteDepositMax = 1000000;
 
 
 export const CreateBookingBody = zod.object({
-  "customerName": zod.string().min(1),
-  "customerPhone": zod.string().min(1),
+  "customerName": zod.string().optional(),
+  "customerPhone": zod.string().optional(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(createBookingBodyAddressLine2Max).nullish(),
   "addressCity": zod.string().max(createBookingBodyAddressCityMax).nullish(),
   "addressProvince": zod.string().max(createBookingBodyAddressProvinceMax).nullish(),
   "addressPostal": zod.string().max(createBookingBodyAddressPostalMax).nullish(),
-  "service": zod.string().min(1),
+  "service": zod.string().optional(),
   "bedrooms": zod.int().min(createBookingBodyBedroomsMin).max(createBookingBodyBedroomsMax).nullish(),
   "bathrooms": zod.int().min(createBookingBodyBathroomsMin).max(createBookingBodyBathroomsMax).nullish(),
   "extras": zod.union([zod.array(zod.string().min(1).max(createBookingBodyExtrasOneItemMax)).max(createBookingBodyExtrasOneMax),zod.null()]).optional(),
   "frequency": zod.union([zod.enum(['one_time', 'weekly', 'biweekly', 'monthly']),zod.null()]).optional(),
   "internalNotes": zod.string().max(createBookingBodyInternalNotesMax).nullish(),
+  "leadId": zod.int().nullish(),
+  "routeStopId": zod.int().nullish(),
   "teamMemberIds": zod.union([zod.array(zod.int()).max(createBookingBodyTeamMemberIdsOneMax),zod.null()]).optional(),
   "scheduledFor": zod.string(),
-  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']).optional(),
   "quoteHours": zod.number().min(createBookingBodyQuoteHoursMin).max(createBookingBodyQuoteHoursMax).nullish(),
   "quoteCrewLabel": zod.string().max(createBookingBodyQuoteCrewLabelMax).nullish(),
   "quoteHourlyRate": zod.number().min(createBookingBodyQuoteHourlyRateMin).max(createBookingBodyQuoteHourlyRateMax).nullish(),
@@ -1570,6 +2566,8 @@ export const CreateBookingBody = zod.object({
   "quoteNotes": zod.string().nullish()
 })
 
+export const createBookingResponseAddressLine2Max = 120;
+
 
 
 
@@ -1579,8 +2577,10 @@ export const CreateBookingResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(createBookingResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1605,6 +2605,8 @@ export const CreateBookingResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -1647,11 +2649,28 @@ export const CreateBookingResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -1821,6 +2840,61 @@ export const RefreshPublicQuotePaymentResponse = zod.object({
 
 
 /**
+ * @summary Take a cleaning request from the public website form
+ */
+export const submitPublicRequestBodyFirstNameMax = 100;
+
+export const submitPublicRequestBodyLastNameMax = 100;
+
+export const submitPublicRequestBodyPhoneMax = 40;
+
+export const submitPublicRequestBodyEmailMax = 200;
+
+export const submitPublicRequestBodyStreetAddressMax = 200;
+
+export const submitPublicRequestBodyCityMax = 100;
+
+export const submitPublicRequestBodyProvinceMax = 100;
+
+export const submitPublicRequestBodyPostCodeMax = 20;
+
+export const submitPublicRequestBodyServiceMax = 200;
+
+export const submitPublicRequestBodyBedroomsMax = 50;
+
+export const submitPublicRequestBodyBathroomsMax = 50;
+
+export const submitPublicRequestBodyDateOfServiceRequestedMax = 200;
+
+export const submitPublicRequestBodyHeardAboutMax = 200;
+
+export const submitPublicRequestBodyWebsiteMax = 200;
+
+
+
+export const SubmitPublicRequestBody = zod.object({
+  "firstName": zod.string().max(submitPublicRequestBodyFirstNameMax).optional(),
+  "lastName": zod.string().max(submitPublicRequestBodyLastNameMax).optional(),
+  "phone": zod.string().min(1).max(submitPublicRequestBodyPhoneMax),
+  "email": zod.string().max(submitPublicRequestBodyEmailMax).optional(),
+  "streetAddress": zod.string().max(submitPublicRequestBodyStreetAddressMax).optional(),
+  "city": zod.string().max(submitPublicRequestBodyCityMax).optional(),
+  "province": zod.string().max(submitPublicRequestBodyProvinceMax).optional(),
+  "postCode": zod.string().max(submitPublicRequestBodyPostCodeMax).optional(),
+  "service": zod.string().max(submitPublicRequestBodyServiceMax).optional(),
+  "bedrooms": zod.string().max(submitPublicRequestBodyBedroomsMax).optional(),
+  "bathrooms": zod.string().max(submitPublicRequestBodyBathroomsMax).optional(),
+  "dateOfServiceRequested": zod.string().max(submitPublicRequestBodyDateOfServiceRequestedMax).optional(),
+  "heardAbout": zod.string().max(submitPublicRequestBodyHeardAboutMax).optional(),
+  "website": zod.string().max(submitPublicRequestBodyWebsiteMax).optional()
+})
+
+export const SubmitPublicRequestResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary The quote text that would be sent to this customer
  */
 export const GetQuotePreviewParams = zod.object({
@@ -1871,6 +2945,8 @@ export const SendQuoteBody = zod.object({
   "confirmPriceMismatch": zod.boolean().optional()
 })
 
+export const sendQuoteResponseAddressLine2Max = 120;
+
 
 
 
@@ -1880,8 +2956,10 @@ export const SendQuoteResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(sendQuoteResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -1906,6 +2984,8 @@ export const SendQuoteResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -1948,11 +3028,161 @@ export const SendQuoteResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "durationMinutes": zod.int().nullish(),
+  "crew": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
+})).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary One booking in full, for the detail panel opened from the schedule
+ */
+export const GetBookingParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const getBookingResponseAddressLine2Max = 120;
+
+
+
+
+
+export const GetBookingResponse = zod.object({
+  "id": zod.int(),
+  "callId": zod.int().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "customerEmail": zod.string().nullish(),
+  "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(getBookingResponseAddressLine2Max).nullish(),
+  "addressCity": zod.string().nullish(),
+  "addressProvince": zod.string().nullish(),
+  "addressPostal": zod.string().nullish(),
+  "service": zod.string(),
+  "bedrooms": zod.int().nullish(),
+  "bathrooms": zod.int().nullish(),
+  "extras": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "frequency": zod.string().nullish(),
+  "internalNotes": zod.string().nullish(),
+  "scheduledFor": zod.string(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
+  "quoteHours": zod.number().nullish(),
+  "quoteCrewLabel": zod.string().nullish(),
+  "quoteHourlyRate": zod.number().nullish(),
+  "quoteFuelSurcharge": zod.number().nullish(),
+  "quoteDiscountAmount": zod.number().nullish(),
+  "quoteReferralSource": zod.string().nullish(),
+  "quotedAmount": zod.number().nullish(),
+  "quoteDeposit": zod.number().nullish(),
+  "quoteNotes": zod.string().nullish(),
+  "quoteMessage": zod.string().nullish(),
+  "quoteSentAt": zod.string().nullish(),
+  "quoteUrl": zod.string().nullish(),
+  "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
+  "depositPaidAt": zod.string().nullish(),
+  "depositPaidAmount": zod.number().nullish(),
+  "quoteTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]),
+  "quoteSentTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]).optional(),
+  "needsTimeReview": zod.boolean(),
+  "timeReviewPreviousTimezone": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberJobId": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
+  "jobberSyncError": zod.string().nullish(),
+  "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -1978,14 +3208,13 @@ export const UpdateBookingParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
-
+export const updateBookingBodyAddressLine2Max = 120;
 
 export const updateBookingBodyAddressCityMax = 120;
 
 export const updateBookingBodyAddressProvinceMax = 60;
 
 export const updateBookingBodyAddressPostalMax = 20;
-
 
 export const updateBookingBodyBedroomsMin = 0;
 export const updateBookingBodyBedroomsMax = 50;
@@ -2026,14 +3255,15 @@ export const updateBookingBodyQuoteDepositMax = 1000000;
 export const UpdateBookingBody = zod.object({
   "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']).optional(),
   "scheduledFor": zod.string().optional(),
-  "customerName": zod.string().min(1).optional(),
-  "customerPhone": zod.string().min(1).optional(),
+  "customerName": zod.string().optional(),
+  "customerPhone": zod.string().optional(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(updateBookingBodyAddressLine2Max).nullish(),
   "addressCity": zod.string().max(updateBookingBodyAddressCityMax).nullish(),
   "addressProvince": zod.string().max(updateBookingBodyAddressProvinceMax).nullish(),
   "addressPostal": zod.string().max(updateBookingBodyAddressPostalMax).nullish(),
-  "service": zod.string().min(1).optional(),
+  "service": zod.string().optional(),
   "bedrooms": zod.int().min(updateBookingBodyBedroomsMin).max(updateBookingBodyBedroomsMax).nullish(),
   "bathrooms": zod.int().min(updateBookingBodyBathroomsMin).max(updateBookingBodyBathroomsMax).nullish(),
   "extras": zod.union([zod.array(zod.string().min(1).max(updateBookingBodyExtrasOneItemMax)).max(updateBookingBodyExtrasOneMax),zod.null()]).optional(),
@@ -2050,6 +3280,8 @@ export const UpdateBookingBody = zod.object({
   "quoteNotes": zod.string().nullish()
 })
 
+export const updateBookingResponseAddressLine2Max = 120;
+
 
 
 
@@ -2059,8 +3291,10 @@ export const UpdateBookingResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(updateBookingResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -2085,6 +3319,8 @@ export const UpdateBookingResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -2127,11 +3363,28 @@ export const UpdateBookingResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -2160,6 +3413,8 @@ export const ConfirmBookingTimeParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const confirmBookingTimeResponseAddressLine2Max = 120;
+
 
 
 
@@ -2169,8 +3424,10 @@ export const ConfirmBookingTimeResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(confirmBookingTimeResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -2195,6 +3452,8 @@ export const ConfirmBookingTimeResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -2237,11 +3496,28 @@ export const ConfirmBookingTimeResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -2260,6 +3536,20 @@ export const ConfirmBookingTimeResponse = zod.object({
   "source": zod.enum(['app', 'jobber']).optional()
 })).optional(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary The new-time text that would be sent to this customer
+ */
+export const GetRescheduleTextPreviewParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetRescheduleTextPreviewResponse = zod.object({
+  "message": zod.string(),
+  "canSend": zod.boolean(),
+  "blockedReason": zod.string().nullish()
 })
 
 
@@ -2270,6 +3560,16 @@ export const SendRescheduleTextParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const sendRescheduleTextBodyMessageMax = 1600;
+
+
+
+export const SendRescheduleTextBody = zod.object({
+  "message": zod.string().min(1).max(sendRescheduleTextBodyMessageMax).optional()
+})
+
+export const sendRescheduleTextResponseAddressLine2Max = 120;
+
 
 
 
@@ -2279,8 +3579,10 @@ export const SendRescheduleTextResponse = zod.object({
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(sendRescheduleTextResponseAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -2305,6 +3607,8 @@ export const SendRescheduleTextResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -2347,11 +3651,28 @@ export const SendRescheduleTextResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -2374,23 +3695,34 @@ export const SendRescheduleTextResponse = zod.object({
 
 
 /**
- * @summary Push this booking into Jobber as a real client + work request
+ * @summary Record local approval or schedule an already-approved quote in Jobber (owner/dispatcher only)
  */
-export const SyncBookingToJobberParams = zod.object({
+export const ApproveBookingParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const approveBookingBodyScheduleDefault = false;
+
+export const ApproveBookingBody = zod.object({
+  "schedule": zod.boolean().default(approveBookingBodyScheduleDefault)
+})
+
+export const approveBookingResponseBookingAddressLine2Max = 120;
 
 
 
 
-export const SyncBookingToJobberResponse = zod.object({
+
+export const ApproveBookingResponse = zod.object({
+  "booking": zod.object({
   "id": zod.int(),
   "callId": zod.int().nullish(),
   "customerName": zod.string(),
   "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
   "customerEmail": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(approveBookingResponseBookingAddressLine2Max).nullish(),
   "addressCity": zod.string().nullish(),
   "addressProvince": zod.string().nullish(),
   "addressPostal": zod.string().nullish(),
@@ -2415,6 +3747,8 @@ export const SyncBookingToJobberResponse = zod.object({
   "quoteSentAt": zod.string().nullish(),
   "quoteUrl": zod.string().nullish(),
   "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
   "depositPaidAt": zod.string().nullish(),
   "depositPaidAmount": zod.number().nullish(),
   "quoteTotals": zod.union([zod.object({
@@ -2457,11 +3791,166 @@ export const SyncBookingToJobberResponse = zod.object({
   "jobberJobId": zod.string().nullish(),
   "jobberClientId": zod.string().nullish(),
   "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
   "jobberSyncError": zod.string().nullish(),
   "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "durationMinutes": zod.int().nullish(),
+  "crew": zod.array(zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'dispatcher', 'cleaner'])
+})).optional(),
+  "timerRunningSince": zod.string().nullish(),
+  "workedMinutes": zod.int().optional(),
+  "timeEntries": zod.array(zod.object({
+  "id": zod.int(),
+  "startedAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "minutes": zod.int(),
+  "startedByName": zod.string().nullish(),
+  "edited": zod.boolean().optional(),
+  "source": zod.enum(['app', 'jobber']).optional()
+})).optional(),
+  "createdAt": zod.string()
+}),
+  "recorded": zod.boolean(),
+  "scheduledInJobber": zod.boolean(),
+  "unmatchedCrew": zod.array(zod.string()),
+  "jobberError": zod.string().nullish()
+})
+
+
+/**
+ * @summary Push this booking into Jobber as a real client + work request
+ */
+export const SyncBookingToJobberParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const syncBookingToJobberResponseAddressLine2Max = 120;
+
+
+
+
+
+export const SyncBookingToJobberResponse = zod.object({
+  "id": zod.int(),
+  "callId": zod.int().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "customerEmail": zod.string().nullish(),
+  "customerAddress": zod.string().nullish(),
+  "addressLine2": zod.string().max(syncBookingToJobberResponseAddressLine2Max).nullish(),
+  "addressCity": zod.string().nullish(),
+  "addressProvince": zod.string().nullish(),
+  "addressPostal": zod.string().nullish(),
+  "service": zod.string(),
+  "bedrooms": zod.int().nullish(),
+  "bathrooms": zod.int().nullish(),
+  "extras": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "frequency": zod.string().nullish(),
+  "internalNotes": zod.string().nullish(),
+  "scheduledFor": zod.string(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
+  "quoteHours": zod.number().nullish(),
+  "quoteCrewLabel": zod.string().nullish(),
+  "quoteHourlyRate": zod.number().nullish(),
+  "quoteFuelSurcharge": zod.number().nullish(),
+  "quoteDiscountAmount": zod.number().nullish(),
+  "quoteReferralSource": zod.string().nullish(),
+  "quotedAmount": zod.number().nullish(),
+  "quoteDeposit": zod.number().nullish(),
+  "quoteNotes": zod.string().nullish(),
+  "quoteMessage": zod.string().nullish(),
+  "quoteSentAt": zod.string().nullish(),
+  "quoteUrl": zod.string().nullish(),
+  "quoteApprovedAt": zod.string().nullish(),
+  "clientApprovedAt": zod.string().nullish(),
+  "clientApprovedBy": zod.string().nullish(),
+  "depositPaidAt": zod.string().nullish(),
+  "depositPaidAmount": zod.number().nullish(),
+  "quoteTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]),
+  "quoteSentTotals": zod.union([zod.object({
+  "lineItems": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "quantity": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "subtotal": zod.number(),
+  "taxLabel": zod.string(),
+  "taxRate": zod.number(),
+  "taxAmount": zod.number(),
+  "feesLabel": zod.string(),
+  "feesRate": zod.number(),
+  "feesAmount": zod.number(),
+  "total": zod.number(),
+  "deposit": zod.number(),
+  "depositEmail": zod.string().nullish()
+}),zod.null()]).optional(),
+  "needsTimeReview": zod.boolean(),
+  "timeReviewPreviousTimezone": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberJobId": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberInvoiceId": zod.string().nullish(),
+  "jobberInvoiceNumber": zod.string().nullish(),
+  "jobberInvoiceWebUri": zod.string().nullish(),
+  "jobberSyncError": zod.string().nullish(),
+  "jobberSyncErrorAt": zod.string().nullish(),
+  "jobberAutomaticRetryStatus": zod.union([zod.literal('none'),zod.literal('pending'),zod.literal('exhausted'),zod.literal('manual'),zod.literal(null)]).nullable(),
+  "jobberAutomaticRetriesRemaining": zod.int().nullable(),
+  "jobberNextRetryAt": zod.string().nullable(),
+  "jobberRetryUsesBookingConnection": zod.boolean().nullable(),
+  "jobberPropertyId": zod.string().nullish(),
+  "jobberQuoteId": zod.string().nullish(),
+  "jobberQuoteNumber": zod.string().nullish(),
+  "jobberQuoteWebUri": zod.string().nullish(),
+  "jobberQuoteStatus": zod.string().nullish(),
+  "jobberSyncedRequestId": zod.string().nullish(),
+  "jobberSyncedQuoteId": zod.string().nullish(),
+  "jobberCreatedJobId": zod.string().nullish(),
+  "jobberJobWebUri": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodedAt": zod.string().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
   "durationMinutes": zod.int().nullish(),
   "crew": zod.array(zod.object({
   "id": zod.int(),
@@ -2493,7 +3982,14 @@ export const GetDashboardSummaryResponse = zod.object({
   "answeredRate": zod.number(),
   "avgCallSeconds": zod.int(),
   "pendingBookings": zod.int(),
-  "jobberSyncedCount": zod.int()
+  "jobberSyncedCount": zod.int(),
+  "upcomingBookings": zod.int(),
+  "completedThisMonth": zod.int(),
+  "totalBookings": zod.int(),
+  "bookingsThisMonth": zod.int(),
+  "canceledBookings": zod.int(),
+  "revenueThisMonth": zod.number().nullable(),
+  "newLeads": zod.int()
 })
 
 
@@ -2502,11 +3998,531 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.int(),
-  "type": zod.enum(['call_answered', 'booking_created', 'jobber_synced', 'jobber_sync_failed', 'quote_sent', 'quote_approved', 'deposit_paid', 'test_call', 'team_invited', 'crew_assigned', 'reschedule_texted', 'job_started', 'job_finished']),
+  "type": zod.enum(['call_answered', 'booking_created', 'jobber_synced', 'jobber_sync_failed', 'quote_sent', 'quote_approved', 'deposit_paid', 'test_call', 'team_invited', 'join_code_changed', 'crew_assigned', 'reschedule_texted', 'text_given_up', 'job_started', 'job_finished', 'cleaner_running_late', 'cleaner_back_on_time', 'lead_converted', 'lead_request_received']),
   "message": zod.string(),
-  "occurredAt": zod.string()
+  "occurredAt": zod.string(),
+  "canResendText": zod.boolean().optional(),
+  "resendPhone": zod.string().optional(),
+  "callId": zod.int().optional(),
+  "bookingId": zod.int().optional()
 })
 export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem)
+
+
+/**
+ * @summary Re-queue the dropped text to a confirmed phone number (owner/dispatcher only)
+ */
+export const ResendGivenUpTextParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const resendGivenUpTextBodyToPhoneRegExp = new RegExp('^\\+[1-9][0-9]{1,14}$');
+
+
+export const ResendGivenUpTextBody = zod.object({
+  "toPhone": zod.string().regex(resendGivenUpTextBodyToPhoneRegExp).describe('Recipient in E.164 format, for example +15551234567.')
+})
+
+export const ResendGivenUpTextResponse = zod.object({
+  "queued": zod.boolean()
+})
+
+
+/**
+ * @summary List sheet-synced leads, newest first (owner/dispatcher only)
+ */
+export const ListLeadsQueryParams = zod.object({
+  "status": zod.enum(['new', 'converted', 'dismissed']).optional().describe('Filter to one review state. Omit for every lead.')
+})
+
+export const ListLeadsResponseItem = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
+
+
+/**
+ * @summary Pull new rows from the leads Google Sheet right now
+ */
+export const syncLeadsResponseTabStatusesItemRowsSeenMin = 0;
+
+export const syncLeadsResponseTabStatusesItemEligibleRowsMin = 0;
+
+export const syncLeadsResponseTabStatusesItemImportedRowsMin = 0;
+
+export const syncLeadsResponseTabStatusesItemDuplicateRowsMin = 0;
+
+export const syncLeadsResponseTabStatusesItemSkippedRowsMin = 0;
+
+
+
+export const SyncLeadsResponse = zod.object({
+  "imported": zod.int(),
+  "error": zod.string().nullable(),
+  "tabStatuses": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.enum(['read', 'failed']),
+  "error": zod.string().optional(),
+  "rowsSeen": zod.int().min(syncLeadsResponseTabStatusesItemRowsSeenMin).optional(),
+  "eligibleRows": zod.int().min(syncLeadsResponseTabStatusesItemEligibleRowsMin).optional(),
+  "importedRows": zod.int().min(syncLeadsResponseTabStatusesItemImportedRowsMin).optional(),
+  "duplicateRows": zod.int().min(syncLeadsResponseTabStatusesItemDuplicateRowsMin).optional(),
+  "skippedRows": zod.int().min(syncLeadsResponseTabStatusesItemSkippedRowsMin).optional(),
+  "eligibilityWarning": zod.string().optional().describe('Explains why a readable tab had non-empty rows but no qualifying leads.')
+}))
+})
+
+
+/**
+ * @summary When the leads sheet was last polled, and whether that worked
+ */
+export const getLeadSyncStatusResponseTabStatusesItemRowsSeenMin = 0;
+
+export const getLeadSyncStatusResponseTabStatusesItemEligibleRowsMin = 0;
+
+export const getLeadSyncStatusResponseTabStatusesItemImportedRowsMin = 0;
+
+export const getLeadSyncStatusResponseTabStatusesItemDuplicateRowsMin = 0;
+
+export const getLeadSyncStatusResponseTabStatusesItemSkippedRowsMin = 0;
+
+
+
+export const GetLeadSyncStatusResponse = zod.object({
+  "configured": zod.boolean().describe('True only when the shared Google Sheet lead feed is configured for the current company.'),
+  "lastSyncAt": zod.string().nullable(),
+  "lastSuccessAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "warning": zod.string().nullable(),
+  "tabStatuses": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.enum(['read', 'failed']),
+  "error": zod.string().optional(),
+  "rowsSeen": zod.int().min(getLeadSyncStatusResponseTabStatusesItemRowsSeenMin).optional(),
+  "eligibleRows": zod.int().min(getLeadSyncStatusResponseTabStatusesItemEligibleRowsMin).optional(),
+  "importedRows": zod.int().min(getLeadSyncStatusResponseTabStatusesItemImportedRowsMin).optional(),
+  "duplicateRows": zod.int().min(getLeadSyncStatusResponseTabStatusesItemDuplicateRowsMin).optional(),
+  "skippedRows": zod.int().min(getLeadSyncStatusResponseTabStatusesItemSkippedRowsMin).optional(),
+  "eligibilityWarning": zod.string().optional().describe('Explains why a readable tab had non-empty rows but no qualifying leads.')
+})),
+  "stale": zod.boolean().describe('True when the automatic poller has missed three expected sync windows.')
+})
+
+
+/**
+ * @summary Preview the lead sheet question mappings without importing rows
+ */
+export const GetLeadSyncPreviewResponse = zod.object({
+  "tabs": zod.array(zod.object({
+  "name": zod.string(),
+  "status": zod.enum(['read', 'failed']),
+  "error": zod.string().optional(),
+  "questionMappings": zod.array(zod.object({
+  "header": zod.string(),
+  "destination": zod.enum(['service', 'bedrooms', 'bathrooms', 'dateOfServiceRequested']),
+  "exampleAnswer": zod.string().optional().describe('A short example answer from the first data row, when present.')
+})),
+  "metadataHeaders": zod.array(zod.string()),
+  "unmappedHeaders": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary One lead in full, for prefilling the booking form
+ */
+export const GetLeadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetLeadResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
+ * @summary Add or correct a lead's phone number or email address
+ */
+export const UpdateLeadContactParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UpdateLeadContactBody = zod.object({
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+})
+
+export const UpdateLeadContactResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
+ * @summary Dismiss several "new" leads in one request
+ */
+
+
+
+export const BulkDismissLeadsBody = zod.object({
+  "ids": zod.array(zod.int()).min(1)
+})
+
+export const BulkDismissLeadsResponse = zod.object({
+  "dismissed": zod.int(),
+  "skipped": zod.int()
+})
+
+
+/**
+ * @summary Drop a lead out of the "new" view (it stays filterable)
+ */
+export const DismissLeadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DismissLeadResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
+ * @summary Set or clear the owner's quick verdict on a lead
+ */
+export const UpdateLeadTagParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const UpdateLeadTagBody = zod.object({
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullable()
+})
+
+export const UpdateLeadTagResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
+ * Conditional on the lead not already being converted, so two dispatchers (or a double click) cannot convert the same lead twice.
+ * @summary Mark a lead converted and link it to the booking created from it
+ */
+export const ConvertLeadParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ConvertLeadBody = zod.object({
+  "bookingId": zod.int()
+})
+
+export const ConvertLeadResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+
+
+/**
+ * Form leads push themselves to Jobber the moment they are submitted, so this button is the retry after a failure. Idempotent: a client or request Jobber already created for this lead is reused, never minted again. Sheet leads are never pushed and are refused here.
+ * @summary Retry sending a website-form lead into Jobber
+ */
+export const SyncLeadToJobberParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const SyncLeadToJobberResponse = zod.object({
+  "id": zod.int(),
+  "externalId": zod.string(),
+  "source": zod.enum(['sheet', 'form', 'jobber', 'call']),
+  "sourceTab": zod.string(),
+  "status": zod.enum(['new', 'converted', 'dismissed']),
+  "name": zod.string(),
+  "phoneDisplay": zod.string(),
+  "phoneE164": zod.string().nullish(),
+  "hasCalled": zod.boolean(),
+  "lastCallAt": zod.string().nullish(),
+  "lastCallId": zod.int().nullish(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "bedrooms": zod.string().nullish(),
+  "bathrooms": zod.string().nullish(),
+  "dateOfServiceRequested": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postCode": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "campaignName": zod.string().nullish(),
+  "adName": zod.string().nullish(),
+  "formName": zod.string().nullish(),
+  "inboxUrl": zod.string().nullish(),
+  "sheetLeadStatus": zod.string().nullish(),
+  "heardAbout": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "createdTime": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "geocodingFailed": zod.boolean().optional(),
+  "convertedBookingId": zod.int().nullish(),
+  "convertedAt": zod.string().nullish(),
+  "jobberSynced": zod.boolean(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberPushError": zod.string().nullish(),
+  "jobberPushErrorAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "callId": zod.int().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
 
 
 /**
@@ -2515,6 +4531,48 @@ export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem
 export const GetMapConfigResponse = zod.object({
   "apiKey": zod.string(),
   "configured": zod.boolean()
+})
+
+
+/**
+ * @summary Address suggestions for an address box, looked up server-side
+ */
+export const GetAddressSuggestionsQueryParams = zod.object({
+  "q": zod.coerce.string().describe('What has been typed so far. Fewer than 3 characters returns nothing.'),
+  "lat": zod.coerce.number().optional().describe('Bias results toward this point (the company\'s area).'),
+  "lng": zod.coerce.number().optional()
+})
+
+export const GetAddressSuggestionsResponse = zod.object({
+  "suggestions": zod.array(zod.object({
+  "id": zod.string(),
+  "primary": zod.string(),
+  "secondary": zod.string(),
+  "full": zod.string()
+})),
+  "available": zod.boolean()
+})
+
+
+/**
+ * Answers "where is this?" for a one-off lookup — measuring distances to a customer's address, say — so the dispatcher doesn't have to save a pin just to ask a question. Resolved server-side, like every other geocode, so the key never reaches the browser.
+ * @summary Place a typed address on the map without saving anything
+ */
+export const geocodeMapAddressQueryAddressMax = 250;
+
+
+
+export const GeocodeMapAddressQueryParams = zod.object({
+  "address": zod.coerce.string().max(geocodeMapAddressQueryAddressMax).describe('A postal address. Bounded because every distinct value is a paid lookup at Google — no real address is anywhere near this long.'),
+  "lat": zod.coerce.number().optional().describe('Bias the answer toward the area this company works in, so a street name that also exists in another province or country resolves to the local one. A bias, not a fence: an address genuinely elsewhere still resolves when it\'s the only match.'),
+  "lng": zod.coerce.number().optional()
+})
+
+export const GeocodeMapAddressResponse = zod.object({
+  "found": zod.boolean(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "message": zod.string().nullish()
 })
 
 
@@ -2528,15 +4586,30 @@ export const GetMapDataQueryParams = zod.object({
 })
 
 export const GetMapDataResponse = zod.object({
+  "office": zod.union([zod.object({
+  "deviceId": zod.int(),
+  "label": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number()
+}),zod.null()]),
   "cleaners": zod.array(zod.object({
   "teamMemberId": zod.int(),
+  "deviceId": zod.int().nullable(),
+  "deviceLabel": zod.string().nullish(),
+  "platform": zod.string().nullish(),
   "name": zod.string(),
   "color": zod.string().nullish(),
+  "isOwner": zod.boolean(),
   "lat": zod.number(),
   "lng": zod.number(),
   "accuracy": zod.number().nullish(),
   "updatedAt": zod.string()
 })),
+  "livePositions": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.string().nullable()
+}),
   "staffHomes": zod.array(zod.object({
   "teamMemberId": zod.int(),
   "name": zod.string(),
@@ -2546,6 +4619,14 @@ export const GetMapDataResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "active": zod.boolean()
+})),
+  "staffWithoutHome": zod.array(zod.object({
+  "teamMemberId": zod.int(),
+  "name": zod.string(),
+  "roleLabel": zod.string(),
+  "active": zod.boolean(),
+  "reason": zod.enum(['missing', 'unplaceable']),
+  "address": zod.string().nullish()
 })),
   "jobs": zod.array(zod.object({
   "bookingId": zod.int(),
@@ -2569,6 +4650,77 @@ export const GetMapDataResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number()
 }))
+})
+
+
+/**
+ * @summary The trail from each live cleaner to their next job today, with ETA
+ */
+export const GetMapRoutesResponse = zod.object({
+  "routes": zod.array(zod.object({
+  "teamMemberId": zod.int(),
+  "name": zod.string(),
+  "color": zod.string().nullish(),
+  "bookingId": zod.int(),
+  "customerName": zod.string(),
+  "customerAddress": zod.string().nullish(),
+  "destLat": zod.number(),
+  "destLng": zod.number(),
+  "scheduledFor": zod.string(),
+  "etaSeconds": zod.int(),
+  "distanceMeters": zod.int(),
+  "source": zod.enum(['google', 'estimate']),
+  "path": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}))
+})),
+  "livePositions": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary Get an actual driving route between two map points
+ */
+export const getMapDrivingRouteQueryStartLatMin = -90;
+export const getMapDrivingRouteQueryStartLatMax = 90;
+
+export const getMapDrivingRouteQueryStartLngMin = -180;
+export const getMapDrivingRouteQueryStartLngMax = 180;
+
+export const getMapDrivingRouteQueryEndLatMin = -90;
+export const getMapDrivingRouteQueryEndLatMax = 90;
+
+export const getMapDrivingRouteQueryEndLngMin = -180;
+export const getMapDrivingRouteQueryEndLngMax = 180;
+
+
+
+export const GetMapDrivingRouteQueryParams = zod.object({
+  "startLat": zod.coerce.number().min(getMapDrivingRouteQueryStartLatMin).max(getMapDrivingRouteQueryStartLatMax),
+  "startLng": zod.coerce.number().min(getMapDrivingRouteQueryStartLngMin).max(getMapDrivingRouteQueryStartLngMax),
+  "endLat": zod.coerce.number().min(getMapDrivingRouteQueryEndLatMin).max(getMapDrivingRouteQueryEndLatMax),
+  "endLng": zod.coerce.number().min(getMapDrivingRouteQueryEndLngMin).max(getMapDrivingRouteQueryEndLngMax)
+})
+
+export const getMapDrivingRouteResponseDistanceMetersMin = 0;
+
+export const getMapDrivingRouteResponseDurationSecondsMin = 0;
+
+export const getMapDrivingRouteResponsePathMin = 2;
+
+
+
+export const GetMapDrivingRouteResponse = zod.object({
+  "distanceMeters": zod.int().min(getMapDrivingRouteResponseDistanceMetersMin),
+  "durationSeconds": zod.int().min(getMapDrivingRouteResponseDurationSecondsMin),
+  "path": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+})).min(getMapDrivingRouteResponsePathMin)
 })
 
 
@@ -2601,6 +4753,38 @@ export const CreateMapPinResponse = zod.object({
 
 
 /**
+ * @summary Rename, re-address or move a saved map pin
+ */
+export const UpdateMapPinParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+export const updateMapPinBodyLatMin = -90;
+export const updateMapPinBodyLatMax = 90;
+
+export const updateMapPinBodyLngMin = -180;
+export const updateMapPinBodyLngMax = 180;
+
+
+
+export const UpdateMapPinBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "address": zod.string().nullish(),
+  "lat": zod.number().min(updateMapPinBodyLatMin).max(updateMapPinBodyLatMax).nullish(),
+  "lng": zod.number().min(updateMapPinBodyLngMin).max(updateMapPinBodyLngMax).nullish()
+}).describe('All fields optional — send only what changed. A new address without coordinates is geocoded server-side; explicit coordinates win.')
+
+export const UpdateMapPinResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullish(),
+  "lat": zod.number(),
+  "lng": zod.number()
+})
+
+
+/**
  * @summary Delete a map pin
  */
 export const DeleteMapPinParams = zod.object({
@@ -2608,6 +4792,273 @@ export const DeleteMapPinParams = zod.object({
 })
 
 export const DeleteMapPinResponse = zod.void()
+
+
+/**
+ * @summary List saved cleaner routes
+ */
+export const ListSavedRoutesResponseItem = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "teamMemberId": zod.int(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "stops": zod.array(zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+export const ListSavedRoutesResponse = zod.array(ListSavedRoutesResponseItem)
+
+
+/**
+ * @summary Create a named route for a team member
+ */
+export const createSavedRouteBodyNameMax = 200;
+
+
+
+export const CreateSavedRouteBody = zod.object({
+  "name": zod.string().min(1).max(createSavedRouteBodyNameMax),
+  "teamMemberId": zod.int()
+})
+
+export const CreateSavedRouteResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "teamMemberId": zod.int(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "stops": zod.array(zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get a saved route and its ordered stops
+ */
+export const GetSavedRouteParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetSavedRouteResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "teamMemberId": zod.int(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "stops": zod.array(zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Rename or reassign a saved route
+ */
+export const UpdateSavedRouteParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateSavedRouteBodyNameMax = 200;
+
+
+
+export const UpdateSavedRouteBody = zod.object({
+  "name": zod.string().min(1).max(updateSavedRouteBodyNameMax).optional(),
+  "teamMemberId": zod.int().optional()
+})
+
+export const UpdateSavedRouteResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "teamMemberId": zod.int(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "stops": zod.array(zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Delete a saved route
+ */
+export const DeleteSavedRouteParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeleteSavedRouteResponse = zod.void()
+
+
+/**
+ * @summary Add a stop to a saved route
+ */
+export const AddSavedRouteStopParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const addSavedRouteStopBodyNameMax = 200;
+
+
+
+export const AddSavedRouteStopBody = zod.object({
+  "name": zod.string().min(1).max(addSavedRouteStopBodyNameMax),
+  "address": zod.string().nullish(),
+  "lat": zod.number(),
+  "lng": zod.number()
+})
+
+export const AddSavedRouteStopResponse = zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Set saved route stop order
+ */
+export const ReorderSavedRouteStopsParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const reorderSavedRouteStopsBodyStopIdsMin = 0;
+
+
+
+export const ReorderSavedRouteStopsBody = zod.object({
+  "stopIds": zod.array(zod.int()).min(reorderSavedRouteStopsBodyStopIdsMin)
+})
+
+export const ReorderSavedRouteStopsResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "teamMemberId": zod.int(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string(),
+  "stops": zod.array(zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get one stop for booking prefill
+ */
+export const GetSavedRouteStopParams = zod.object({
+  "routeId": zod.coerce.number().int(),
+  "stopId": zod.coerce.number().int()
+})
+
+export const GetSavedRouteStopResponse = zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Edit a saved route stop
+ */
+export const UpdateSavedRouteStopParams = zod.object({
+  "routeId": zod.coerce.number().int(),
+  "stopId": zod.coerce.number().int()
+})
+
+export const updateSavedRouteStopBodyNameMax = 200;
+
+
+
+export const UpdateSavedRouteStopBody = zod.object({
+  "name": zod.string().min(1).max(updateSavedRouteStopBodyNameMax).optional(),
+  "address": zod.string().nullish(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+})
+
+export const UpdateSavedRouteStopResponse = zod.object({
+  "id": zod.int(),
+  "routeId": zod.int(),
+  "position": zod.int(),
+  "name": zod.string(),
+  "address": zod.string().nullable(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "linkedBookingId": zod.int().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a saved route stop
+ */
+export const DeleteSavedRouteStopParams = zod.object({
+  "routeId": zod.coerce.number().int(),
+  "stopId": zod.coerce.number().int()
+})
+
+export const DeleteSavedRouteStopResponse = zod.void()
 
 
 /**
@@ -2621,20 +5072,149 @@ export const reportStaffLocationBodyLngMax = 180;
 
 export const reportStaffLocationBodyAccuracyMin = 0;
 
+export const reportStaffLocationBodyDeviceKeyMax = 120;
+
+export const reportStaffLocationBodyRecoveryKeyMax = 256;
+
+export const reportStaffLocationBodyDeviceLabelMax = 60;
+
 
 
 export const ReportStaffLocationBody = zod.object({
-  "lat": zod.number().min(reportStaffLocationBodyLatMin).max(reportStaffLocationBodyLatMax),
-  "lng": zod.number().min(reportStaffLocationBodyLngMin).max(reportStaffLocationBodyLngMax),
-  "accuracy": zod.number().min(reportStaffLocationBodyAccuracyMin).nullish()
+  "lat": zod.number().min(reportStaffLocationBodyLatMin).max(reportStaffLocationBodyLatMax).nullish(),
+  "lng": zod.number().min(reportStaffLocationBodyLngMin).max(reportStaffLocationBodyLngMax).nullish(),
+  "accuracy": zod.number().min(reportStaffLocationBodyAccuracyMin).nullish(),
+  "deviceKey": zod.string().max(reportStaffLocationBodyDeviceKeyMax).nullish(),
+  "recoveryKey": zod.string().max(reportStaffLocationBodyRecoveryKeyMax).nullish(),
+  "deviceLabel": zod.string().max(reportStaffLocationBodyDeviceLabelMax).nullish(),
+  "platform": zod.union([zod.literal('web'),zod.literal('ios'),zod.literal('android'),zod.literal('other'),zod.literal(null)]).nullish(),
+  "locationHealth": zod.enum(['unknown', 'granted', 'permission-denied', 'storage-cleared']).optional()
 })
 
 export const ReportStaffLocationResponse = zod.object({
+  "status": zod.enum(['recorded']),
   "teamMemberId": zod.int(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "deviceId": zod.int().nullish(),
+  "deviceLabel": zod.string().nullish(),
+  "platform": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
   "accuracy": zod.number().nullish(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string().nullish(),
+  "message": zod.string().nullish(),
+  "recoveryMatched": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Which team members' devices reported a position in the last few minutes
+ */
+export const GetStaffPresenceResponse = zod.object({
+  "liveMemberIds": zod.array(zod.int()),
+  "livePositions": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.string().nullable()
+})
+})
+
+
+/**
+ * The owner's tracking page. Lists each person on the roster with the devices they have signed in from, their last-seen times and their current positions, plus the per-person live-location switch. Owner only — this is the whole company's whereabouts on one screen.
+ * @summary Every device in the company, who it belongs to, and whether it's live
+ */
+export const ListStaffDevicesResponse = zod.object({
+  "people": zod.array(zod.object({
+  "teamMemberId": zod.int(),
+  "name": zod.string(),
+  "roleLabel": zod.string(),
+  "color": zod.string().nullish(),
+  "isOwner": zod.boolean(),
+  "sharingEnabled": zod.boolean(),
+  "canChangeSharing": zod.boolean(),
+  "devices": zod.array(zod.object({
+  "id": zod.int(),
+  "label": zod.string(),
+  "platform": zod.string(),
+  "locationHealth": zod.enum(['unknown', 'granted', 'permission-denied', 'storage-cleared']).optional(),
+  "isOffice": zod.boolean(),
+  "lastSeenAt": zod.string().nullish(),
+  "live": zod.boolean(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish()
+}))
+})),
+  "livePositions": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.string().nullable()
+})
+})
+
+
+/**
+ * Give a device the name it should carry on the map and the tracking page — "Tidyups Location", "Richard's iPad". The owner may rename any device in the company; anybody else may rename only their own. The name sticks: a device reporting its position never overwrites a name that was set here.
+ * @summary Rename one device
+ */
+export const RenameStaffDeviceParams = zod.object({
+  "id": zod.coerce.number().int().describe('The device id being renamed.')
+})
+
+export const renameStaffDeviceBodyLabelMax = 60;
+
+
+
+export const RenameStaffDeviceBody = zod.object({
+  "label": zod.string().min(1).max(renameStaffDeviceBodyLabelMax)
+})
+
+export const RenameStaffDeviceResponse = zod.object({
+  "id": zod.int(),
+  "label": zod.string(),
+  "platform": zod.string(),
+  "locationHealth": zod.enum(['unknown', 'granted', 'permission-denied', 'storage-cleared']).optional(),
+  "isOffice": zod.boolean(),
+  "lastSeenAt": zod.string().nullish(),
+  "live": zod.boolean(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish()
+})
+
+
+/**
+ * Owner only. Removes the device and its stored position, so it disappears from the tracking page and the map. Not undoable — but the person keeps their seat and their account, and the same physical device simply reappears as a new device if it ever reports again.
+ * @summary Permanently forget one device
+ */
+export const DeleteStaffDeviceParams = zod.object({
+  "id": zod.coerce.number().int().describe('The device id being deleted.')
+})
+
+export const DeleteStaffDeviceResponse = zod.void()
+
+
+/**
+ * Owner only. The office is a place, not a crew member: the flagged device is drawn as a building parked on the company's stored office location, and never on whatever the browser last reported. One device per company — marking a new one clears the old flag. Marking requires an office address the first time (it is geocoded server-side and stored on the company); after that the saved spot is reused unless a new address is sent.
+ * @summary Mark one device as the office, or unmark it
+ */
+export const SetOfficeDeviceParams = zod.object({
+  "id": zod.coerce.number().int().describe('The device id being marked or unmarked.')
+})
+
+export const setOfficeDeviceBodyAddressMax = 300;
+
+
+
+export const SetOfficeDeviceBody = zod.object({
+  "office": zod.boolean(),
+  "address": zod.string().max(setOfficeDeviceBodyAddressMax).nullish()
+})
+
+export const SetOfficeDeviceResponse = zod.object({
+  "deviceId": zod.int(),
+  "isOffice": zod.boolean(),
+  "address": zod.string().nullable(),
+  "lat": zod.number().nullable(),
+  "lng": zod.number().nullable()
 })
 
 
@@ -2654,21 +5234,256 @@ export const GetScheduleResponse = zod.object({
   "jobs": zod.array(zod.object({
   "bookingId": zod.int(),
   "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
   "scheduledFor": zod.string(),
   "durationMinutes": zod.int(),
   "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
-  "price": zod.number().nullish()
+  "price": zod.number().nullish(),
+  "travel": zod.union([zod.object({
+  "fromHome": zod.boolean(),
+  "fromLabel": zod.string(),
+  "distanceKm": zod.number(),
+  "driveMinutes": zod.int()
+}),zod.null()]).optional()
 }))
 })),
   "unassigned": zod.array(zod.object({
   "bookingId": zod.int(),
   "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
   "customerAddress": zod.string().nullish(),
   "scheduledFor": zod.string(),
   "durationMinutes": zod.int(),
   "status": zod.enum(['pending', 'confirmed', 'completed', 'canceled']),
-  "price": zod.number().nullish()
+  "price": zod.number().nullish(),
+  "travel": zod.union([zod.object({
+  "fromHome": zod.boolean(),
+  "fromLabel": zod.string(),
+  "distanceKm": zod.number(),
+  "driveMinutes": zod.int()
+}),zod.null()]).optional()
+}))
+})
+
+
+/**
+ * @summary The company's client directory, A→Z (owner/dispatcher only)
+ */
+export const ListClientsResponseItem = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "phoneE164": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "email": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postalCode": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "source": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListClientsResponse = zod.array(ListClientsResponseItem)
+
+
+/**
+ * @summary Add a client contact (owner/dispatcher only)
+ */
+
+
+
+export const CreateClientBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postalCode": zod.string().nullish()
+})
+
+export const CreateClientResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "phoneE164": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "email": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postalCode": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "source": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a client contact (owner/dispatcher only)
+ */
+export const UpdateClientParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+
+
+export const UpdateClientBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postalCode": zod.string().nullish()
+})
+
+export const UpdateClientResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "phoneE164": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "email": zod.string().nullish(),
+  "streetAddress": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "province": zod.string().nullish(),
+  "postalCode": zod.string().nullish(),
+  "jobberClientId": zod.string().nullish(),
+  "source": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Company callers directory, most recently called first (owner/dispatcher only)
+ */
+export const ListCallersResponseItem = zod.object({
+  "id": zod.int(),
+  "phone": zod.string(),
+  "phoneE164": zod.string(),
+  "bestName": zod.string(),
+  "firstCallAt": zod.coerce.date(),
+  "latestCallAt": zod.coerce.date(),
+  "callCount": zod.int(),
+  "clientId": zod.int().nullish(),
+  "knownClient": zod.boolean(),
+  "quoContactId": zod.string().nullish()
+})
+export const ListCallersResponse = zod.array(ListCallersResponseItem)
+
+
+/**
+ * @summary Calls associated with one caller (owner/dispatcher only)
+ */
+export const ListCallerCallsParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListCallerCallsResponseItem = zod.object({
+  "id": zod.int(),
+  "callerName": zod.string(),
+  "callerPhone": zod.string(),
+  "status": zod.enum(['in_progress', 'completed', 'missed', 'booked']),
+  "serviceRequested": zod.string().nullish(),
+  "preferredTime": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "durationSeconds": zod.int(),
+  "isTest": zod.boolean(),
+  "bookingId": zod.int().nullish(),
+  "direction": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "quoCallId": zod.string().nullish(),
+  "recordingUrl": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish()
+})
+export const ListCallerCallsResponse = zod.array(ListCallerCallsResponseItem)
+
+
+/**
+ * @summary Quotes created in Jobber, mirrored here with their status (owner/dispatcher only)
+ */
+export const ListJobberQuotesResponseItem = zod.object({
+  "id": zod.int(),
+  "jobberQuoteId": zod.string(),
+  "quoteNumber": zod.int().nullish(),
+  "title": zod.string().nullish(),
+  "clientName": zod.string().nullish(),
+  "clientPhone": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "status": zod.string(),
+  "totalCents": zod.int().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "jobberCreatedAt": zod.coerce.date().nullish(),
+  "sentAt": zod.coerce.date().nullish(),
+  "transitionedAt": zod.coerce.date().nullish(),
+  "lastSyncedAt": zod.coerce.date()
+})
+export const ListJobberQuotesResponse = zod.array(ListJobberQuotesResponseItem)
+
+
+/**
+ * @summary Invoices created in Jobber, mirrored here with paid/pending standing (owner/dispatcher only)
+ */
+export const ListJobberInvoicesResponseItem = zod.object({
+  "id": zod.int(),
+  "jobberInvoiceId": zod.string(),
+  "invoiceNumber": zod.string().nullish(),
+  "subject": zod.string().nullish(),
+  "clientName": zod.string().nullish(),
+  "clientPhone": zod.string().nullish(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "status": zod.string(),
+  "totalCents": zod.int().nullish(),
+  "balanceCents": zod.int().nullish(),
+  "jobberWebUri": zod.string().nullish(),
+  "issuedAt": zod.coerce.date().nullish(),
+  "dueAt": zod.coerce.date().nullish(),
+  "jobberCreatedAt": zod.coerce.date().nullish(),
+  "lastSyncedAt": zod.coerce.date()
+})
+export const ListJobberInvoicesResponse = zod.array(ListJobberInvoicesResponseItem)
+
+
+/**
+ * @summary Set or clear a customer's quick verdict from any dashboard surface
+ */
+export const UpdateCustomerTagParams = zod.object({
+  "kind": zod.enum(['lead', 'call', 'booking', 'invoice', 'client']),
+  "id": zod.coerce.number().int()
+})
+
+export const UpdateCustomerTagBody = zod.object({
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullable()
+})
+
+export const UpdateCustomerTagResponse = zod.object({
+  "kind": zod.enum(['lead', 'call', 'booking', 'invoice', 'client']),
+  "id": zod.int(),
+  "tag": zod.union([zod.literal('client'),zod.literal('good_lead'),zod.literal('bad_lead'),zod.literal('spam'),zod.literal(null)]).nullable()
+})
+
+
+/**
+ * @summary Find a person by name or phone across leads, bookings, clients and staff (owner/dispatcher only)
+ */
+export const SearchDirectoryQueryParams = zod.object({
+  "q": zod.coerce.string().describe('Name fragment or phone number (any format). At least 2 characters.')
+})
+
+export const SearchDirectoryResponse = zod.object({
+  "results": zod.array(zod.object({
+  "kind": zod.enum(['lead', 'booking', 'client', 'team']),
+  "id": zod.int(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "detail": zod.string().nullish(),
+  "date": zod.string().nullish(),
+  "status": zod.string().nullish()
 }))
 })
 

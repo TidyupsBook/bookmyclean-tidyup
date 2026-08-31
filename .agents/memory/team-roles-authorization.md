@@ -87,6 +87,18 @@ Clerk email only — an unverified address would let someone hijack an invite by
 typing it in. The claim is a conditional `UPDATE ... WHERE clerk_user_id IS
 NULL`, which is what makes concurrent first requests safe.
 
+The owner approved this identity model for staff: the roster phone number is
+contact information, while a verified email is the sign-in identity that
+recovers the same staff role/profile on any device.
+
+**Why:** matching an account by a phone number someone typed would let an
+attacker take over another worker's profile. Managed Clerk does not offer
+phone-number sign-in here, and email verification supplies proof of control.
+
+**How to apply:** keep staff authorization bound to the Clerk user ID after
+the first verified-email claim. Do not make a raw roster phone number a login
+or account-linking key; preserve it for calls, texts, and display.
+
 A signed-in account with no company and no seat is treated as a *prospective
 owner*, not as denied — that is the onboarding state, and it is what lets
 someone create their first company.
@@ -101,3 +113,18 @@ Authorization resolution must stay a pure database lookup. Clerk is only called
 on the rare first-sign-in bootstrap (negative-cached ~60s) and in `/me` for
 display name/email. Fetching the owner's Clerk profile on every request added a
 network round trip to every single API call.
+
+# Job titles are free text, and still not a role
+
+`team_members.title` is the owner's own wording for a seat ("Site Supervisor")
+and, when set, replaces the standard role wording everywhere. Null means the
+standard wording.
+
+**Why:** the owner wanted to invent his own role names. Adding them to `role`
+would have put arbitrary user-typed values into the authorization matrix.
+
+**How to apply:** the server computes one `roleLabel` (title, then the
+role/isLead wording) and ships it on the payload — clients must render that,
+never re-derive it, or a card and a map pin drift apart. A title is writable
+by whoever may edit the card (never a cleaner editing their own), and nothing
+that decides access may read `title`.

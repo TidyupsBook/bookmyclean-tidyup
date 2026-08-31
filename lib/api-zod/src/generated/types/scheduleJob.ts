@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ScheduleJobStatus } from './scheduleJobStatus';
+import type { TravelLeg } from './travelLeg';
 
 export interface ScheduleJob {
   bookingId: number;
   customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
   /** @nullable */
   customerAddress?: string | null;
   scheduledFor: string;
@@ -17,4 +20,5 @@ export interface ScheduleJob {
   status: ScheduleJobStatus;
   /** @nullable */
   price?: number | null;
+  travel?: TravelLeg | null;
 }

@@ -27,3 +27,10 @@ change — re-audit every path that can end the pull early.
 loop, find the sweep/reconcile step and enumerate the ways the pull can finish
 short. Cover each with a test that asserts *zero* cancellations, not just that
 the happy path still works.
+
+**Terminal statuses are sweep-exempt:** reconcile-by-absence may only touch
+rows in a *cancellable* state. A `completed` row that later vanishes from the
+remote (archived/deleted there) records work that already happened — sweeping
+it to `canceled` silently rewrites history and revenue totals. Exclude every
+one-way status in the sweep's WHERE clause, and pair each "status X is one-way"
+upsert rule with a sweep test proving absence can't undo it.

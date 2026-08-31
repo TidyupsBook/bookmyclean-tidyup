@@ -11,6 +11,14 @@
  * pulled in via `importLibrary()`. Constructing straight off the namespace
  * throws "g.Map is not a constructor".
  *
+ * EQUALLY IMPORTANT: the script tag's `load` event is *not* the ready signal.
+ * What that URL serves is a small bootstrap that goes on to fetch the real SDK,
+ * and `importLibrary` only exists once that second file has run. Waiting on
+ * `load` and reading `importLibrary` straight away is a race that Google now
+ * loses every time — the map stops working with no change on our side. The
+ * `callback=` parameter is the supported ready signal, so that is what this
+ * waits for.
+ *
  * So this module resolves with the constructors themselves. Callers use what
  * they are handed and never touch `window.google`, which makes the ordering
  * bug impossible to reintroduce.
@@ -25,6 +33,8 @@ export type GoogleMapsApi = {
   Map: any;
   InfoWindow: any;
   LatLngBounds: any;
+  /** Draws the cleaner-to-next-job trails. */
+  Polyline: any;
   AdvancedMarkerElement: any;
   /**
    * Null when the geocoding library couldn't be pulled in. Turning a dropped
@@ -36,26 +46,64 @@ export type GoogleMapsApi = {
 
 let loadPromise: Promise<GoogleMapsApi> | null = null;
 
-/** Inject the Maps JS bootstrap exactly once. */
+/**
+ * The name Google will call on `window` once the SDK is genuinely usable.
+ * A fixed name is safe because the script is only ever injected once.
+ */
+const READY_CALLBACK = "__bmcGoogleMapsReady";
+
+/**
+ * How long to wait for that callback before giving up.
+ *
+ * It never fires when the key is rejected, so without a ceiling the map area
+ * would sit on a spinner forever. Failing instead lets the page say something.
+ */
+const READY_TIMEOUT_MS = 20_000;
+
+declare global {
+  interface Window {
+    [READY_CALLBACK]?: () => void;
+  }
+}
+
+/** Inject the Maps JS bootstrap exactly once and wait until it is ready. */
 function injectScript(apiKey: string): Promise<void> {
   // Already bootstrapped (e.g. an HMR reload kept the script around).
   if (typeof window.google?.maps?.importLibrary === "function") {
     return Promise.resolve();
   }
 
-  const existing = document.getElementById(
-    "google-maps-js",
-  ) as HTMLScriptElement | null;
-  if (existing) {
-    return new Promise<void>((resolve, reject) => {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () =>
-        reject(new Error("Failed to load Google Maps")),
-      );
-    });
-  }
-
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (err) reject(err);
+      else resolve();
+    };
+
+    const timer = window.setTimeout(() => {
+      // Clear the wreckage of this attempt before failing. The tag has to go:
+      // a dead script left in the document would make every later attempt
+      // think a load was still in flight and wait on a callback that can
+      // never come, turning one slow network moment into a map that stays
+      // broken until the page is reloaded.
+      document.getElementById("google-maps-js")?.remove();
+      delete window[READY_CALLBACK];
+      finish(new Error("Google Maps did not become ready"));
+    }, READY_TIMEOUT_MS);
+
+    // Google calls this the moment `importLibrary` and friends are real. The
+    // script tag's own `load` event fires well before that and must not be
+    // mistaken for it.
+    window[READY_CALLBACK] = () => finish();
+
+    // A tag from a previous attempt is still in flight — its callback is the
+    // one we just installed, so simply wait for it.
+    if (document.getElementById("google-maps-js")) return;
+
     const script = document.createElement("script");
     script.id = "google-maps-js";
     // No `libraries` param: libraries are requested explicitly below via
@@ -64,15 +112,14 @@ function injectScript(apiKey: string): Promise<void> {
       key: apiKey,
       v: "weekly",
       loading: "async",
+      callback: READY_CALLBACK,
     });
     script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
     script.async = true;
-    script.defer = true;
-    script.addEventListener("load", () => resolve());
     script.addEventListener("error", () => {
       // Drop the tag so a later attempt can inject a fresh one.
       script.remove();
-      reject(new Error("Failed to load Google Maps"));
+      finish(new Error("Failed to load Google Maps"));
     });
     document.head.appendChild(script);
   });
@@ -88,6 +135,9 @@ function injectScript(apiKey: string): Promise<void> {
  * the global `window.gm_authFailure` callback, which the page registers.
  */
 export function loadGoogleMaps(apiKey: string): Promise<GoogleMapsApi> {
+  if (!apiKey.trim()) {
+    return Promise.reject(new Error("Google Maps API key is missing"));
+  }
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Google Maps can only load in a browser"));
   }
@@ -109,13 +159,30 @@ export function loadGoogleMaps(apiKey: string): Promise<GoogleMapsApi> {
       // Geocoding API must still get a working map.
       g.importLibrary("geocoding").catch(() => null),
     ]);
-    return {
+    const api = {
       Map: maps.Map,
       InfoWindow: maps.InfoWindow,
       LatLngBounds: core.LatLngBounds,
+      Polyline: maps.Polyline,
       AdvancedMarkerElement: marker.AdvancedMarkerElement,
       Geocoder: geocoding?.Geocoder ?? null,
     };
+    const required = [
+      ["Map", api.Map],
+      ["InfoWindow", api.InfoWindow],
+      ["LatLngBounds", api.LatLngBounds],
+      ["Polyline", api.Polyline],
+      ["AdvancedMarkerElement", api.AdvancedMarkerElement],
+    ] as const;
+    const missing = required
+      .filter(([, constructor]) => typeof constructor !== "function")
+      .map(([name]) => name);
+    if (missing.length > 0) {
+      throw new Error(
+        `Google Maps loaded without required constructors: ${missing.join(", ")}`,
+      );
+    }
+    return api;
   })();
 
   loadPromise = attempt;
@@ -155,55 +222,4 @@ export async function reverseGeocode(
   } catch {
     return null;
   }
-}
-
-/**
- * Address autocomplete, loaded separately from the map itself.
- *
- * This is the *data* API rather than Google's drop-in widget: it returns plain
- * predictions so the dropdown can be our own markup in our own theme, instead
- * of fighting a web component's shadow DOM.
- *
- * Needs "Places API (New)" enabled on the key — a separate switch from Maps
- * JavaScript API and Geocoding API. A key without it rejects the first request,
- * which is why callers must treat failure as "no suggestions" and keep the
- * plain text box working.
- */
-export type GooglePlacesApi = {
-  AutocompleteSuggestion: any;
-  AutocompleteSessionToken: any;
-};
-
-let placesPromise: Promise<GooglePlacesApi> | null = null;
-
-export function loadGooglePlaces(apiKey: string): Promise<GooglePlacesApi> {
-  if (typeof window === "undefined") {
-    return Promise.reject(
-      new Error("Google Places can only load in a browser"),
-    );
-  }
-  if (placesPromise) return placesPromise;
-
-  const attempt = (async (): Promise<GooglePlacesApi> => {
-    await injectScript(apiKey);
-    const g = window.google?.maps;
-    if (!g?.importLibrary) {
-      throw new Error("Google Maps loaded without importLibrary support");
-    }
-    const places = await g.importLibrary("places");
-    if (!places?.AutocompleteSuggestion) {
-      throw new Error("Places autocomplete is not available on this key");
-    }
-    return {
-      AutocompleteSuggestion: places.AutocompleteSuggestion,
-      AutocompleteSessionToken: places.AutocompleteSessionToken,
-    };
-  })();
-
-  placesPromise = attempt;
-  attempt.catch(() => {
-    if (placesPromise === attempt) placesPromise = null;
-  });
-
-  return attempt;
 }

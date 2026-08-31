@@ -10,6 +10,7 @@ import { decryptQuoKey } from "./secretBox";
 import { notifyOwnerQuoKeyDead, notifyOwnerQuoRestored } from "./ownerNotify";
 import { logger } from "./logger";
 import { jobberRedirectUri } from "./publicUrl";
+import { isPinnedEnvironment } from "./jobber";
 
 /**
  * The company this account works for — either because they own it or because
@@ -125,6 +126,13 @@ export async function serializeCompany(company: Company) {
     jobberAccountName: company.jobberAccountName,
     jobberNeedsReauth: company.jobberNeedsReauth,
     jobberRedirectUri: jobberRedirectUri(),
+    // Which copy of the app served this response. Dev and production share
+    // one Jobber account while Jobber rotates refresh tokens, so each copy
+    // holds its own grant — the dashboard uses this to explain that up front
+    // instead of surfacing it only as a failed sync.
+    jobberEnvironment: isPinnedEnvironment()
+      ? ("published" as const)
+      : ("dev" as const),
     quoConnected: company.quoConnected,
     quoWorkspaceName: company.quoWorkspaceName,
     quoKeyLast4: company.quoKeyLast4,
@@ -139,6 +147,9 @@ export async function serializeCompany(company: Company) {
     quoteDepositAmount: company.quoteDepositAmount,
     quoteDepositEmail: company.quoteDepositEmail,
     watchedNumbers,
+    bookingRequiredFields: company.bookingRequiredFields,
+    rosterCapacity: company.rosterCapacity,
+    recentCallWindowMinutes: company.recentCallWindowMinutes,
     isLive: company.isLive,
     setupStatus: {
       accountCreated: true,

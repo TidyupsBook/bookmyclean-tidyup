@@ -95,29 +95,54 @@ export async function notifyOwnerQuoRestored(
   });
 }
 
-/** Shared best-effort delivery over the platform Quo workspace. */
+/** Shared best-effort delivery to the owner over the platform Quo workspace. */
 async function notifyOwner(
   company: Company,
   opts: { what: string; content: string; successLog: string },
+): Promise<NotifyOutcome> {
+  return sendPlatformText(company, { to: null, ...opts });
+}
+
+/**
+ * The number "text the owner" means for this company: ring-through number
+ * first, falling back to the dedicated notification number so owners without
+ * a transfer target still hear about things.
+ */
+export function ownerNumber(company: Company): string | null {
+  return (
+    (company.ringThroughNumber ? toE164(company.ringThroughNumber) : null) ??
+    (company.notificationNumber ? toE164(company.notificationNumber) : null)
+  );
+}
+
+/**
+ * Best-effort text over the platform Quo workspace, to an explicit E.164
+ * number or (when `to` is null) to the company's owner. Never throws; the
+ * outcome tells callers whether to keep retry state (see NotifyOutcome).
+ */
+export async function sendPlatformText(
+  company: Company,
+  opts: {
+    to: string | null;
+    what: string;
+    content: string;
+    successLog?: string;
+  },
 ): Promise<NotifyOutcome> {
   try {
     const apiKey = platformQuoKey();
     if (!apiKey) {
       logger.warn(
         { companyId: company.id },
-        `Wanted to notify owner (${opts.what}) but QUO_API_KEY is not set; owner not notified`,
+        `Wanted to send a text (${opts.what}) but QUO_API_KEY is not set; not sent`,
       );
       return "skipped";
     }
-    // Ring-through number first; fall back to the dedicated notification
-    // number so owners without a transfer target still hear about outages.
-    const to =
-      (company.ringThroughNumber ? toE164(company.ringThroughNumber) : null) ??
-      (company.notificationNumber ? toE164(company.notificationNumber) : null);
+    const to = opts.to ?? ownerNumber(company);
     if (!to) {
       logger.warn(
         { companyId: company.id },
-        `Wanted to notify owner (${opts.what}) but company has no usable ring-through or notification number; owner not notified`,
+        `Wanted to send a text (${opts.what}) but there is no usable number to send it to; not sent`,
       );
       return "skipped";
     }
@@ -125,19 +150,34 @@ async function notifyOwner(
     if (!from) {
       logger.warn(
         { companyId: company.id },
-        `Wanted to notify owner (${opts.what}) but the platform Quo workspace has no phone number; owner not notified`,
+        `Wanted to send a text (${opts.what}) but the platform Quo workspace has no phone number; not sent`,
       );
       return "skipped";
     }
     await sendMessage(apiKey, { from, to, content: opts.content });
-    logger.info({ companyId: company.id }, opts.successLog);
+    logger.info(
+      { companyId: company.id },
+      opts.successLog ?? `Sent text (${opts.what})`,
+    );
     return "sent";
   } catch (err) {
     // Best-effort only — never let a notification failure break the caller.
     logger.error(
       { companyId: company.id, err },
-      `Failed to notify owner (${opts.what})`,
+      `Failed to send text (${opts.what})`,
     );
     return "failed";
   }
+}
+
+/** Absolute link to the app itself, for "sign in here" texts. */
+export function appUrl(): string {
+  const base = process.env.FRONTEND_BASE_PATH || "";
+  return `${publicBaseUrl()}${base}/`;
+}
+
+/** Absolute link to the Staff page, valid outside any HTTP request. */
+export function staffPageUrl(): string {
+  const base = process.env.FRONTEND_BASE_PATH || "";
+  return `${publicBaseUrl()}${base}/staff`;
 }

@@ -41,3 +41,15 @@ Every field added here has produced one:
 
 Test every new pattern against sentences that *contain* the trigger but aren't
 the field — that is where it fails, not on the happy path.
+
+Repeat-back (earbuds) confirmations are deliberately in the deterministic set:
+second-person confirmations count like first-person introductions, but a bare
+echo only counts with an explicit confirmation tail, and is rejected whole if
+*any* word touches detail vocabulary — echoes repeat every detail, so the
+first-word guard that protects introductions is not enough. A repeated-back
+partial phone number fills verbatim, never padded into a full one.
+
+Capture copy must stay honest about data flow: the transcript text is sent to
+the company's own server for extraction (never claim the words stay on the
+device), and the after-call write-up only fills the form when a Quo call is
+actually linked to the screen making the promise.

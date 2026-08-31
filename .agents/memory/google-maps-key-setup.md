@@ -13,6 +13,16 @@ The libraries live in different buckets, which is easy to get wrong: `LatLngBoun
 
 **How to apply:** have the loader `await importLibrary(...)` and resolve with the constructors themselves, so callers never read `window.google`. That makes the ordering bug unrepresentable rather than merely fixed. Keep the loader's unit tests stubbing a namespace that has *only* `importLibrary` — that's the shape that actually ships.
 
+## The script's `load` event is not a ready signal
+
+What `maps/api/js?...&loading=async` serves is a ~13 KB *bootstrap* that goes on to fetch the real SDK. Its `<script>` `load` event therefore fires while `google.maps.importLibrary` still does not exist — the served bootstrap contains zero occurrences of the word. A loader that resolves on `load` and then reads the namespace throws every time and the map never draws.
+
+Resolve on `&callback=<globalName>` instead: Google invokes that global only once the SDK is genuinely usable. Give the wait a ceiling (~20s) and, on timeout, **remove the injected tag** — otherwise a later attempt sees a tag in the document, concludes a load is in flight, and waits forever on a callback that already came and went.
+
+**Why:** Google changed the bootstrap with no announcement, so a page nobody had touched broke in production; the symptom was an error path ("loaded without importLibrary support"), which reads like our own bug rather than a moved contract.
+
+**How to apply:** never treat script `load` as SDK-ready for anything Google serves as a bootstrap. To verify a fix end to end, drive a real headless Chromium against the dev domain (see `browser-e2e-playwright.md`) — jsdom won't run Google's script, and `AuthenticationService.Authenticate` curls are not a valid key check either (they always return `NotLoadingAPIFromGoogleMapsError`).
+
 ## Key authorization
 
 A single `GOOGLE_MAPS_API_KEY` powers two independent things, and enabling one does not enable the other:

@@ -5,7 +5,9 @@ import {
   formatDayInTz,
   formatTimeInTz,
   isValidTimeZone,
+  isoToZonedInput,
   nextDayKey,
+  zonedInputToIso,
 } from "./format";
 
 describe("strict company-timezone handling (no device fallback)", () => {
@@ -64,6 +66,60 @@ describe("formatTimeInTz", () => {
     expect(formatTimeInTz("2026-08-05T16:00:00Z", "America/Chicago")).toBe(
       "11:00 AM",
     );
+  });
+});
+
+describe("company wall-clock conversion", () => {
+  it("keeps the company-local calendar date when rescheduling across UTC midnight", () => {
+    expect(
+      isoToZonedInput("2026-08-06T06:30:00.000Z", "America/Los_Angeles"),
+    ).toBe("2026-08-05T23:30");
+    expect(zonedInputToIso("2026-08-06T00:15", "America/Los_Angeles")).toBe(
+      "2026-08-06T07:15:00.000Z",
+    );
+  });
+
+  it("converts a valid wall clock across spring-forward and rejects the gap", () => {
+    expect(
+      isoToZonedInput("2026-03-08T06:30:00.000Z", "America/New_York"),
+    ).toBe("2026-03-08T01:30");
+    expect(zonedInputToIso("2026-03-08T03:30", "America/New_York")).toBe(
+      "2026-03-08T07:30:00.000Z",
+    );
+    expect(zonedInputToIso("2026-03-08T02:30", "America/New_York")).toBeNull();
+  });
+
+  it("resolves the repeated fall-back hour to the first (daylight) pass", () => {
+    // 2026-11-01 is fall-back in America/New_York: clocks go from 1:59:59
+    // EDT back to 1:00:00 EST, so "01:30" happens twice. We deterministically
+    // take the earlier, still-daylight-saving pass (EDT, UTC-4) rather than
+    // the later standard-time pass (EST, UTC-5) — matching the web
+    // dashboard's zonedInputToIso so a reschedule saves the same instant no
+    // matter which surface the owner used.
+    expect(zonedInputToIso("2026-11-01T01:30", "America/New_York")).toBe(
+      "2026-11-01T05:30:00.000Z",
+    );
+    // The wall clock immediately before the repeated hour (still EDT, only
+    // one occurrence) and immediately after it (already EST, only one
+    // occurrence) resolve unambiguously, bracketing the ambiguous hour.
+    expect(zonedInputToIso("2026-11-01T00:30", "America/New_York")).toBe(
+      "2026-11-01T04:30:00.000Z",
+    );
+    expect(zonedInputToIso("2026-11-01T02:30", "America/New_York")).toBe(
+      "2026-11-01T07:30:00.000Z",
+    );
+    // Every wall-clock minute in the repeated hour round-trips back to
+    // itself through isoToZonedInput, so the edit form and a reopened
+    // detail screen always agree on what was saved.
+    for (const wall of [
+      "2026-11-01T01:00",
+      "2026-11-01T01:30",
+      "2026-11-01T01:59",
+    ]) {
+      const iso = zonedInputToIso(wall, "America/New_York");
+      expect(iso).not.toBeNull();
+      expect(isoToZonedInput(iso!, "America/New_York")).toBe(wall);
+    }
   });
 });
 

@@ -314,3 +314,75 @@ describe("the on-site clock", () => {
     expect(booking.timerRunningSince).toBeNull();
   });
 });
+
+/**
+ * Opening a client from the schedule.
+ *
+ * The board carries a name and a time; everything a dispatcher actually needs
+ * mid-shift — the phone number, the full address, who's on it — comes from
+ * here. Which makes it a read worth pinning down: it must answer "not yours"
+ * and "no such booking" identically, whether the caller is a cleaner on
+ * someone else's job or another company entirely.
+ */
+describe("opening one booking", () => {
+  it("gives the dispatcher everything the panel shows", async () => {
+    const res = await call("GET", `/bookings/${assignedBookingId}`, OWNER);
+    expect(res.status).toBe(200);
+    expect(res.body.customerName).toBe("Clocked Customer");
+    expect(res.body.customerPhone).toBe("+15550001111");
+    expect(res.body.crew.map((c: any) => c.name)).toContain("Maria Clean");
+    expect(res.body.quoteHours).toBe(3);
+  });
+
+  it("gives the cleaner their own job without the money", async () => {
+    const res = await call("GET", `/bookings/${assignedBookingId}`, CLEANER);
+    expect(res.status).toBe(200);
+    expect(res.body.customerAddress ?? null).toBe(
+      res.body.customerAddress ?? null,
+    );
+    expect(res.body.quoteHours).toBeNull();
+    expect(res.body.quoteTotals).toBeNull();
+  });
+
+  it("hides a job the cleaner was never sent to", async () => {
+    const res = await call("GET", `/bookings/${unassignedBookingId}`, CLEANER);
+    expect(res.status).toBe(404);
+  });
+
+  it("hides another company's booking entirely", async () => {
+    const [other] = await db
+      .insert(companiesTable)
+      .values({
+        ownerUserId: `timer_other_owner_${runId}`,
+        name: `Other Co ${runId}`,
+        timezone: "America/Edmonton",
+      })
+      .returning();
+    const [foreign] = await db
+      .insert(bookingsTable)
+      .values({
+        companyId: other!.id,
+        callId: null,
+        customerName: "Not Your Customer",
+        customerPhone: "+15550003333",
+        service: "Deep clean",
+        scheduledFor: new Date("2030-03-03T17:00:00Z"),
+        status: "confirmed",
+      })
+      .returning();
+
+    try {
+      const res = await call("GET", `/bookings/${foreign!.id}`, OWNER);
+      expect(res.status).toBe(404);
+      expect(JSON.stringify(res.body)).not.toContain("Not Your Customer");
+    } finally {
+      await db.delete(bookingsTable).where(eq(bookingsTable.id, foreign!.id));
+      await db.delete(companiesTable).where(eq(companiesTable.id, other!.id));
+    }
+  });
+
+  it("says no such booking for an id that doesn't exist", async () => {
+    const res = await call("GET", "/bookings/99999999", OWNER);
+    expect(res.status).toBe(404);
+  });
+});

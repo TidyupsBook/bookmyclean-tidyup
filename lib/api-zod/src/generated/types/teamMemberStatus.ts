@@ -12,4 +12,5 @@ export type TeamMemberStatus = typeof TeamMemberStatus[keyof typeof TeamMemberSt
 export const TeamMemberStatus = {
   active: 'active',
   invited: 'invited',
+  pending: 'pending',
 } as const;

@@ -10,6 +10,7 @@ export type TeamMemberUpdateRole = typeof TeamMemberUpdateRole[keyof typeof Team
 
 
 export const TeamMemberUpdateRole = {
+  owner: 'owner',
   dispatcher: 'dispatcher',
   cleaner: 'cleaner',
 } as const;

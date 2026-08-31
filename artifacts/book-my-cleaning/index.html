@@ -13,11 +13,11 @@
       name="description"
       content="Professional residential and commercial cleaning in Edmonton — deep cleans, move-outs, Airbnb turnovers, and office cleaning. Insured, background-checked pros. AI-powered booking. Call (780) 718-5092."
     />
-    <link rel="canonical" href="https://www.bookmycleaning.ca/" />
+    <link rel="canonical" href="https://bookmycleaning.net/" />
 
     <!-- Open Graph (Facebook, LinkedIn, Slack, iMessage, WhatsApp) -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.bookmycleaning.ca/" />
+    <meta property="og:url" content="https://bookmycleaning.net/" />
     <meta
       property="og:title"
       content="Tidyups | Edmonton's #1 Residential &amp; Commercial Cleaning Service"
@@ -27,7 +27,7 @@
       content="Professional cleaning across Edmonton — deep cleans, move-outs, Airbnb turnovers, and office cleaning. Insured &amp; bonded. AI-powered booking. (780) 718-5092)."
     />
     <!-- og:image — add a 1200×630 jpg to /public/og-image.jpg to enable rich previews -->
-    <!-- <meta property="og:image" content="https://www.bookmycleaning.ca/og-image.jpg" /> -->
+    <!-- <meta property="og:image" content="https://bookmycleaning.net/og-image.jpg" /> -->
     <meta property="og:locale" content="en_CA" />
     <meta property="og:site_name" content="Tidyups" />
 
@@ -42,7 +42,7 @@
       content="Professional cleaning in Edmonton. Deep cleans, move-outs, Airbnb turnovers, offices. Insured &amp; bonded pros. AI-powered booking. (780) 718-5092."
     />
     <!-- twitter:image — add /public/og-image.jpg to enable Twitter card images -->
-    <!-- <meta name="twitter:image" content="https://www.bookmycleaning.ca/og-image.jpg" /> -->
+    <!-- <meta name="twitter:image" content="https://bookmycleaning.net/og-image.jpg" /> -->
 
     <!-- Additional SEO signals -->
     <meta name="robots" content="index, follow" />
@@ -96,16 +96,16 @@
         "@graph": [
           {
             "@type": "WebSite",
-            "@id": "https://bookmycleaning.ca/#website",
-            "url": "https://bookmycleaning.ca/",
+            "@id": "https://bookmycleaning.net/#website",
+            "url": "https://bookmycleaning.net/",
             "name": "Tidyups",
             "description": "AI receptionist and professional cleaning services for Edmonton"
           },
           {
             "@type": ["LocalBusiness", "HouseCleaning"],
-            "@id": "https://bookmycleaning.ca/#business",
+            "@id": "https://bookmycleaning.net/#business",
             "name": "Tidyups Cleaning Service Inc.",
-            "url": "https://bookmycleaning.ca/",
+            "url": "https://bookmycleaning.net/",
             "telephone": "+17807185092",
             "areaServed": {
               "@type": "City",
@@ -186,6 +186,16 @@
       #static-shell .nav-logo img {
         width: 32px;
         height: 32px;
+      }
+      #static-shell .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      #static-shell .nav-login {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        font-size: 0.875rem;
       }
       #static-shell .nav-cta {
         display: inline-block;
@@ -416,9 +426,39 @@
         opacity: 0.8;
       }
 
-      /* Hide the static shell once React has painted */
-      .js-loaded #static-shell {
+      /* Hide the static shell once React has actually rendered something.
+         Set by the app itself (src/lib/appShell.ts), never on a timer. */
+      .app-ready #static-shell {
         display: none;
+      }
+
+      /* Shown over the shell when the app never gets far enough to render */
+      #startup-error {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 100;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.9rem 1.25rem;
+        background: #2b0d18;
+        border-top: 1px solid rgba(236, 72, 153, 0.45);
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #ffe4ee;
+        text-align: center;
+      }
+      #startup-error .startup-error-detail {
+        color: #f0b9d1;
+      }
+      #startup-error a {
+        color: #ff8dc0;
+        text-decoration: underline;
       }
     </style>
   </head>
@@ -433,7 +473,10 @@
           <img src="/logo.svg" alt="Tidyups logo" width="32" height="32" />
           Tidyups
         </div>
-        <a href="/sign-up" class="nav-cta">Get Your Free Quote</a>
+        <div class="nav-links">
+          <a href="/sign-in" class="nav-login">Log in</a>
+          <a href="/sign-up" class="nav-cta">Get Your Free Quote</a>
+        </div>
       </nav>
 
       <main>
@@ -561,16 +604,83 @@
     <div id="root"></div>
 
     <script>
-      // Tell CSS that JS is running; hides #static-shell once React paints.
-      // Using requestAnimationFrame defers until after the first React render
-      // so there is no flash of un-styled content.
-      document.addEventListener("DOMContentLoaded", function () {
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () {
-            document.body.classList.add("js-loaded");
-          });
+      // Shell handoff. The static shell above is the only thing on this page
+      // until React paints, so it is dismissed by the app itself (via
+      // src/lib/appShell.ts) once #root actually has content in it — never on
+      // a timer. A boot that never gets that far leaves the shell up and puts
+      // a readable banner on it, so the page is never blank.
+      (function () {
+        var handedOff = false;
+
+        function ready() {
+          if (handedOff) return;
+          handedOff = true;
+          var banner = document.getElementById("startup-error");
+          if (banner && banner.parentNode)
+            banner.parentNode.removeChild(banner);
+          document.body.classList.add("app-ready");
+        }
+
+        function fail(message) {
+          // The app is already up; a later error is its problem to render.
+          if (handedOff) return;
+          var banner = document.getElementById("startup-error");
+          if (!banner) {
+            banner = document.createElement("div");
+            banner.id = "startup-error";
+            banner.setAttribute("role", "alert");
+
+            var heading = document.createElement("strong");
+            heading.textContent = "The booking app didn't load.";
+
+            var detail = document.createElement("span");
+            detail.className = "startup-error-detail";
+
+            var help = document.createElement("span");
+            help.className = "startup-error-help";
+            help.appendChild(
+              document.createTextNode("Reload the page, or call "),
+            );
+            var phone = document.createElement("a");
+            phone.href = "tel:+17807185092";
+            phone.textContent = "(780) 718-5092";
+            help.appendChild(phone);
+            help.appendChild(document.createTextNode(" to book by phone."));
+
+            banner.appendChild(heading);
+            banner.appendChild(detail);
+            banner.appendChild(help);
+            document.body.insertBefore(banner, document.body.firstChild);
+          }
+          banner.querySelector(".startup-error-detail").textContent =
+            message || "";
+        }
+
+        window.__bmcShell = { ready: ready, fail: fail };
+
+        // Capture phase, so this also sees resource errors (they don't bubble).
+        window.addEventListener(
+          "error",
+          function (event) {
+            var target = event.target;
+            if (target && target !== window && target.tagName) {
+              // Only a missing script can stop the app starting; a blocked font
+              // stylesheet or image is cosmetic.
+              if (target.tagName === "SCRIPT") {
+                fail("Part of the app failed to download.");
+              }
+              return;
+            }
+            fail(event.message);
+          },
+          true,
+        );
+
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          fail(reason && reason.message ? reason.message : String(reason));
         });
-      });
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -122,6 +122,8 @@ export function regionSettings(country: Country) {
         postalLabel: "ZIP code",
         postalPlaceholder: "90210",
         defaultRegion: "AL",
+        // No one US city is a safe guess the way Edmonton is for Alberta.
+        defaultCity: "",
       }
     : {
         regions: CA_PROVINCES,
@@ -129,5 +131,7 @@ export function regionSettings(country: Country) {
         postalLabel: "Postal code",
         postalPlaceholder: "T6R 0V4",
         defaultRegion: "AB",
+        /** Where the company actually works — a new booking starts here. */
+        defaultCity: "Edmonton",
       };
 }

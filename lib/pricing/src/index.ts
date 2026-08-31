@@ -62,6 +62,9 @@ export type QuoteTotals = {
   depositEmail: string | null;
 };
 
+export const FIXED_TAX_LABEL = "Tax";
+export const FIXED_TAX_RATE = 12.5;
+
 /**
  * Round to cents the way the printed estimates do: half away from zero.
  *
@@ -143,22 +146,22 @@ export function computeQuoteTotals(
   const lineItems = buildLineItems(rates, pricing, serviceName);
 
   // The calculator wins when it has been used; otherwise the dispatcher typed a
-  // flat subtotal. Either way tax and fees go on top, matching the estimates.
+  // flat subtotal. The fixed tax goes on top, matching every estimate and invoice.
   const subtotal = lineItems.length
     ? roundMoney(lineItems.reduce((sum, item) => sum + lineItemTotal(item), 0))
     : roundMoney(pricing.quotedAmount ?? 0);
 
-  const taxAmount = roundMoney((subtotal * rates.taxRate) / 100);
-  const feesAmount = roundMoney((subtotal * rates.feesRate) / 100);
+  const taxAmount = roundMoney((subtotal * FIXED_TAX_RATE) / 100);
+  const feesAmount = 0;
 
   return {
     lineItems,
     subtotal,
-    taxLabel: rates.taxLabel,
-    taxRate: rates.taxRate,
+    taxLabel: FIXED_TAX_LABEL,
+    taxRate: FIXED_TAX_RATE,
     taxAmount,
-    feesLabel: rates.feesLabel,
-    feesRate: rates.feesRate,
+    feesLabel: "",
+    feesRate: 0,
     feesAmount,
     total: roundMoney(subtotal + taxAmount + feesAmount),
     deposit: roundMoney(pricing.quoteDeposit ?? rates.depositAmount),

@@ -19,6 +19,7 @@ tags:
   - name: map
   - name: schedule
   - name: staff
+  - name: leads
 paths:
   /healthz:
     get:
@@ -154,6 +155,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Company"
+  /company/jobber-connections:
+    get:
+      operationId: listJobberConnections
+      tags: [company]
+      summary: List all Jobber connections for this company (owner/dispatcher)
+      responses:
+        "200":
+          description: Connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobberConnection"
+  /company/jobber-connections/{id}:
+    patch:
+      operationId: updateJobberConnection
+      tags: [company]
+      summary: Rename a Jobber connection (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobberConnectionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobberConnection"
+        "404":
+          description: Connection not found
+    delete:
+      operationId: deleteJobberConnection
+      tags: [company]
+      summary: Revoke and remove one Jobber connection (owner only)
+      description: >-
+        Calls Jobber's appDisconnect mutation best-effort, then removes the
+        connection row. Staff assigned to it are left unassigned so they fall
+        back to the remaining primary connection.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Disconnected
+        "404":
+          description: Connection not found
   /company/quo/connect:
     post:
       operationId: connectQuo
@@ -257,6 +315,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Service"
+  /services/suggested-catalog:
+    post:
+      operationId: importSuggestedServices
+      tags: [services]
+      summary: Add the suggested cleaning-service catalog without duplicating existing names
+      responses:
+        "200":
+          description: Suggested services now available to the company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestedServicesImportResult"
   /services/{id}:
     patch:
       operationId: updateService
@@ -376,6 +446,36 @@ paths:
           description: Booking not found
         "409":
           description: The clock was not running
+  /bookings/{id}/invoice:
+    post:
+      operationId: createBookingInvoice
+      tags: [bookings]
+      summary: Create a Jobber invoice from this booking's quote
+      description: >
+        Builds an unsent invoice in Jobber for the booking's client using the
+        quoted line items (or the flat quoted amount), with a credit line for
+        any deposit already paid. Idempotent — a booking that already has an
+        invoice returns unchanged rather than minting a second one. The office
+        reviews and sends the invoice from Jobber.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking with the invoice recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Jobber not connected, or this booking has no Jobber client yet
+        "404":
+          description: Booking not found
+        "409":
+          description: Jobber authorization has expired
   /team:
     get:
       operationId: listTeamMembers
@@ -411,6 +511,117 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamMember"
+  /team/join-code:
+    get:
+      operationId: getJoinCode
+      tags: [team]
+      summary: The code the crew types when signing up (owner/dispatcher)
+      description: >-
+        Generated on first use, so companies created before join codes existed
+        get one the moment somebody looks. Not a credential — it only decides
+        whose Staff page a sign-up request lands on, and nothing happens until
+        that request is approved.
+      responses:
+        "200":
+          description: Join code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinCode"
+  /team/join-code/rotate:
+    post:
+      operationId: rotateJoinCode
+      tags: [team]
+      summary: Retire the current join code and mint a new one (owner only)
+      description: >-
+        For when the code has been passed around beyond the crew. The old code
+        stops matching immediately; existing staff and outstanding join
+        requests are untouched, because the code only gates NEW requests.
+      responses:
+        "200":
+          description: The replacement code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinCode"
+  /team/join-requests:
+    post:
+      operationId: requestToJoinCompany
+      tags: [team]
+      summary: Ask to join a company using its join code
+      description: >-
+        For someone who signed up on their own rather than following an invite.
+        Creates a seat with status `pending`, which grants no access whatsoever
+        until an owner or dispatcher approves it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinRequestInput"
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRequestResult"
+    delete:
+      operationId: cancelJoinRequest
+      tags: [team]
+      summary: Withdraw your own pending request to join
+      responses:
+        "200":
+          description: Withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRequestResult"
+  /team/{id}/approve:
+    post:
+      operationId: approveTeamMember
+      tags: [team]
+      summary: Let a pending sign-up into the company
+      description: >-
+        Turns a pending request into a working seat. A dispatcher may approve
+        someone as a cleaner; only the owner can hand out a dispatcher seat.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveTeamMemberInput"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+  /team/{id}/decline:
+    post:
+      operationId: declineTeamMember
+      tags: [team]
+      summary: Turn down a pending sign-up
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRequestResult"
   /team/import:
     post:
       operationId: importTeamMembers
@@ -434,6 +645,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImportTeamMembersResult"
+  /team/jobber-members:
+    get:
+      operationId: listJobberTeamMembers
+      tags: [team]
+      summary: Jobber's active team members, with their link status here
+      description: >-
+        Owner/dispatcher only, and only when Jobber is connected. Each entry
+        says whether that Jobber user is already linked to a staff member,
+        and — when unlinked — which staff member the sync's own name matching
+        would suggest, so what the owner confirms is exactly what a sync
+        would have done. Also includes an entry (gone=true) for each roster
+        member whose stored link points at a Jobber user no longer in
+        Jobber's active list, so a deactivated Jobber account never leaves
+        a stale link invisible.
+      responses:
+        "200":
+          description: Jobber team members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobberTeamMembersResult"
+        "400":
+          description: Jobber is not connected
+        "409":
+          description: Jobber authorization has expired
+  /team/jobber-members/import:
+    post:
+      operationId: importJobberUser
+      tags: [team]
+      summary: Add a Jobber user to the roster as a new staff seat (owner only)
+      description: >-
+        For a Jobber team member who has no counterpart here. Creates a
+        roster-only cleaner seat — no email, no login — already linked to the
+        Jobber user, so their visits colour correctly from the next sync on.
+        Nothing is created without this explicit call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportJobberUserInput"
+      responses:
+        "201":
+          description: Created and linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+        "400":
+          description: Jobber is not connected
+        "404":
+          description: No active Jobber user with that id
+        "409":
+          description: That Jobber user is already linked to a staff member
+  /team/{id}/jobber-link:
+    post:
+      operationId: linkJobberUser
+      tags: [team]
+      summary: Link a staff member to a Jobber user (owner only)
+      description: >-
+        From then on assignment sync in both directions keys on the link, so
+        renaming the person on either side changes nothing. Relinking a staff
+        member to a different Jobber user replaces their old link.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkJobberUserInput"
+      responses:
+        "200":
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+        "400":
+          description: Jobber is not connected
+        "404":
+          description: Staff member not found
+        "409":
+          description: That Jobber user is already linked to someone else
+    delete:
+      operationId: unlinkJobberUser
+      tags: [team]
+      summary: Remove a staff member's Jobber link (owner only)
+      description: >-
+        The staff member stays on the roster; the sync just goes back to
+        name matching for them.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+        "404":
+          description: Staff member not found
+  /team/{id}/account:
+    delete:
+      operationId: revokeTeamMemberAccount
+      tags: [team]
+      summary: >-
+        Revoke a staff member's Clerk login without removing the seat (owner only)
+      description: >-
+        Clears the Clerk user id and invitation so the person can no longer sign
+        in. The roster seat stays — name, phone, Jobber link, and all history are
+        preserved — and the owner can invite someone new to the same seat. Does
+        NOT remove the team_members row; use DELETE /team/{id} for a full remove.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Credentials cleared, seat preserved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+        "400":
+          description: Cannot revoke access from your own seat
+        "404":
+          description: Team member not found
   /team/{id}:
     patch:
       operationId: updateTeamMember
@@ -474,6 +822,210 @@ paths:
       responses:
         "204":
           description: Removed
+  # ── Customer texting ────────────────────────────────────────────────
+  # The business line, both directions. Dispatch-only: a text thread carries
+  # prices and addresses, so the crew role is not on these routes at all.
+  /messages/threads:
+    get:
+      operationId: listMessageThreads
+      tags: [messages]
+      summary: The customer inbox, newest activity first
+      responses:
+        "200":
+          description: Threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MessageThread"
+    post:
+      operationId: startMessageThread
+      tags: [messages]
+      summary: Open (or reopen) the thread for a phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartThreadInput"
+      responses:
+        "200":
+          description: The thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageThread"
+  /messages/unread-count:
+    get:
+      operationId: getUnreadMessageCount
+      tags: [messages]
+      summary: Unread inbound texts, for the sidebar badge
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unread]
+                properties:
+                  unread: { type: integer }
+  /messages/threads/{id}:
+    get:
+      operationId: getMessageThread
+      tags: [messages]
+      summary: One conversation in full. Opening it clears the unread badge.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: The conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [thread, messages]
+                properties:
+                  thread:
+                    $ref: "#/components/schemas/MessageThread"
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ClientMessage"
+        "404":
+          description: No such conversation for this caller
+  /messages/threads/{id}/messages:
+    post:
+      operationId: sendClientMessage
+      tags: [messages]
+      summary: Reply from the business line
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageInput"
+      responses:
+        "200":
+          description: The sent message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientMessage"
+        "409":
+          description: Quo is not connected or no line is chosen
+        "502":
+          description: Quo refused the message
+  # ── Staff chat ──────────────────────────────────────────────────────
+  # Open to every role, cleaners included. Access to one conversation is
+  # decided by membership, never by role.
+  /staff-chat/conversations:
+    get:
+      operationId: listStaffConversations
+      tags: [staffChat]
+      summary: Conversations this person is in
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffConversation"
+    post:
+      operationId: startStaffConversation
+      tags: [staffChat]
+      summary: Start a direct chat or a group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartStaffConversationInput"
+      responses:
+        "200":
+          description: The conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffConversation"
+  /staff-chat/contacts:
+    get:
+      operationId: listChatContacts
+      tags: [staffChat]
+      summary: Teammates this person can message
+      responses:
+        "200":
+          description: Contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatContact"
+  /staff-chat/conversations/{id}:
+    get:
+      operationId: getStaffConversation
+      tags: [staffChat]
+      summary: One conversation in full. Opening it marks it read.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: The conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversation, messages, myMemberId]
+                properties:
+                  conversation:
+                    $ref: "#/components/schemas/StaffConversation"
+                  myMemberId: { type: integer }
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StaffMessage"
+        "404":
+          description: No such conversation for this person
+  /staff-chat/conversations/{id}/messages:
+    post:
+      operationId: sendStaffMessage
+      tags: [staffChat]
+      summary: Post a message (also texted to anyone not reading)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendStaffMessageInput"
+      responses:
+        "200":
+          description: The posted message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMessage"
+        "404":
+          description: No such conversation for this person
   /calls:
     get:
       operationId: listCalls
@@ -514,6 +1066,87 @@ paths:
                 $ref: "#/components/schemas/CallDetail"
         "404":
           description: Not found
+  /calls/{id}/notes:
+    patch:
+      operationId: updateCallNotes
+      tags: [calls]
+      summary: Save the dispatcher's notepad for a call
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCallNotesInput"
+      responses:
+        "200":
+          description: Updated call detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+        "404":
+          description: Not found
+  /calls/{id}/tag:
+    patch:
+      operationId: updateCallTag
+      tags: [calls]
+      summary: Set or clear the owner's quick verdict on a call
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagUpdateInput"
+      responses:
+        "200":
+          description: Updated call detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+        "404":
+          description: Not found
+  /calls/{id}/save-as-lead:
+    post:
+      operationId: saveCallAsLead
+      tags: [calls]
+      summary: Create a lead pre-filled with the caller's name and phone
+      description: >-
+        Offered when no lead (or booking) already exists for this caller's
+        phone number. The created lead immediately carries the Called badge
+        because its phone matches the call by construction. Returns 409 when a
+        lead with the same phone already exists for this company.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Call has no dialable phone number
+        "404":
+          description: Call not found
+        "409":
+          description: A lead with this phone number already exists
   /calls/{id}/booking-draft:
     get:
       operationId: getCallBookingDraft
@@ -604,6 +1237,24 @@ paths:
       operationId: listBookings
       tags: [bookings]
       summary: List bookings created from calls
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: >-
+            First day of the window, YYYY-MM-DD in the company's timezone.
+            Defaults to August 1, 2026 (the history floor). Pass a tighter
+            value to keep the response small when you only need recent data.
+          schema:
+            type: string
+        - name: until
+          in: query
+          required: false
+          description: >-
+            Last day of the window (inclusive), YYYY-MM-DD in the company's
+            timezone. Omit for no upper bound (all bookings to the future).
+          schema:
+            type: string
       responses:
         "200":
           description: Bookings
@@ -722,6 +1373,32 @@ paths:
                 $ref: "#/components/schemas/PublicQuote"
         "404":
           description: No such quote
+  # Public: no authentication. This is where the ad links land — a stranger
+  # fills in their details and becomes a row in the Leads inbox.
+  /request:
+    post:
+      operationId: submitPublicRequest
+      tags: [publicRequest]
+      summary: Take a cleaning request from the public website form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicRequestInput"
+      responses:
+        "201":
+          description: Request received — it is now a lead in the inbox
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRequestResult"
+        "400":
+          description: No usable phone number
+        "429":
+          description: Too many submissions from this address
+        "503":
+          description: This deployment has no company to take requests for yet
   /bookings/{id}/quote-preview:
     get:
       operationId: getQuotePreview
@@ -765,6 +1442,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Booking"
   /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: One booking in full, for the detail panel opened from the schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: No such booking for this caller
     patch:
       operationId: updateBooking
       tags: [bookings]
@@ -805,6 +1501,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Booking"
+  /bookings/{id}/reschedule-text-preview:
+    get:
+      operationId: getRescheduleTextPreview
+      tags: [bookings]
+      summary: The new-time text that would be sent to this customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RescheduleTextPreview"
   /bookings/{id}/send-reschedule-text:
     post:
       operationId: sendRescheduleText
@@ -816,6 +1530,14 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        # Optional: with no body (or no message) the server sends its own
+        # draft, so older callers keep working unchanged.
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendRescheduleTextInput"
       responses:
         "200":
           description: Sent
@@ -823,6 +1545,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Booking"
+  /bookings/{id}/approve:
+    post:
+      operationId: approveBooking
+      tags: [bookings]
+      summary: Record local approval or schedule an already-approved quote in Jobber (owner/dispatcher only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveBookingInput"
+      responses:
+        "200":
+          description: Local approval recorded or an already-approved quote scheduled. A Jobber scheduling failure is returned in jobberError.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApproveBookingResult"
+        "400":
+          description: Nothing to approve, or Jobber isn't ready to schedule it
+        "404":
+          description: No such booking
   /bookings/{id}/sync-jobber:
     post:
       operationId: syncBookingToJobber
@@ -867,6 +1617,267 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityItem"
+  /dashboard/activity/{id}/resend-text:
+    post:
+      operationId: resendGivenUpText
+      tags: [dashboard]
+      summary: Re-queue the dropped text to a confirmed phone number (owner/dispatcher only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendGivenUpTextInput"
+      responses:
+        "200":
+          description: Text re-queued (and sent immediately if possible)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResendGivenUpTextResult"
+        "400":
+          description: The phone number is not a valid E.164 number
+        "404":
+          description: No such entry, or it has no text left to resend
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List sheet-synced leads, newest first (owner/dispatcher only)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter to one review state. Omit for every lead.
+          schema:
+            type: string
+            enum: [new, converted, dismissed]
+      responses:
+        "200":
+          description: Leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+  /leads/sync:
+    post:
+      operationId: syncLeads
+      tags: [leads]
+      summary: Pull new rows from the leads Google Sheet right now
+      responses:
+        "200":
+          description: Sync finished (the error, if any, is in the payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSyncRun"
+  /leads/sync-status:
+    get:
+      operationId: getLeadSyncStatus
+      tags: [leads]
+      summary: When the leads sheet was last polled, and whether that worked
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSyncStatus"
+  /leads/sync-preview:
+    get:
+      operationId: getLeadSyncPreview
+      tags: [leads]
+      summary: Preview the lead sheet question mappings without importing rows
+      responses:
+        "200":
+          description: Current sheet headers and their import destinations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSyncPreview"
+  /leads/{id}:
+    get:
+      operationId: getLead
+      tags: [leads]
+      summary: One lead in full, for prefilling the booking form
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Lead not found
+    patch:
+      operationId: updateLeadContact
+      tags: [leads]
+      summary: Add or correct a lead's phone number or email address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadContactUpdateInput"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Phone number not dialable
+        "404":
+          description: Lead not found
+  /leads/bulk-dismiss:
+    post:
+      operationId: bulkDismissLeads
+      tags: [leads]
+      summary: Dismiss several "new" leads in one request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDismissLeadsInput"
+      responses:
+        "200":
+          description: Counts of dismissed and skipped (already-converted) leads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkDismissLeadsResult"
+        "400":
+          description: No ids provided
+  /leads/{id}/dismiss:
+    post:
+      operationId: dismissLead
+      tags: [leads]
+      summary: Drop a lead out of the "new" view (it stays filterable)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dismissed lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Lead not found
+        "409":
+          description: Already converted — a converted lead can't be dismissed
+  /leads/{id}/tag:
+    patch:
+      operationId: updateLeadTag
+      tags: [leads]
+      summary: Set or clear the owner's quick verdict on a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagUpdateInput"
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Lead not found
+  /leads/{id}/convert:
+    post:
+      operationId: convertLead
+      tags: [leads]
+      summary: Mark a lead converted and link it to the booking created from it
+      description: >-
+        Conditional on the lead not already being converted, so two dispatchers
+        (or a double click) cannot convert the same lead twice.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertLeadInput"
+      responses:
+        "200":
+          description: Converted lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Lead or booking not found
+        "409":
+          description: Already converted
+  /leads/{id}/sync-jobber:
+    post:
+      operationId: syncLeadToJobber
+      tags: [leads]
+      summary: Retry sending a website-form lead into Jobber
+      description: >-
+        Form leads push themselves to Jobber the moment they are submitted, so
+        this button is the retry after a failure. Idempotent: a client or
+        request Jobber already created for this lead is reused, never minted
+        again. Sheet leads are never pushed and are refused here.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pushed (or already in Jobber)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Not a website-form lead, or Jobber isn't connected
+        "404":
+          description: Lead not found
+        "502":
+          description: Jobber refused the push — the reason is on the lead
   /map/config:
     get:
       operationId: getMapConfig
@@ -879,6 +1890,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MapConfig"
+  /map/address-suggestions:
+    get:
+      operationId: getAddressSuggestions
+      tags: [map]
+      summary: Address suggestions for an address box, looked up server-side
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: What has been typed so far. Fewer than 3 characters returns nothing.
+          schema:
+            type: string
+        - name: lat
+          in: query
+          required: false
+          description: Bias results toward this point (the company's area).
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Address suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressSuggestions"
+  /map/geocode:
+    get:
+      operationId: geocodeMapAddress
+      tags: [map]
+      summary: Place a typed address on the map without saving anything
+      description: >-
+        Answers "where is this?" for a one-off lookup — measuring distances to a
+        customer's address, say — so the dispatcher doesn't have to save a pin
+        just to ask a question. Resolved server-side, like every other geocode,
+        so the key never reaches the browser.
+      parameters:
+        - name: address
+          in: query
+          required: true
+          description: >-
+            A postal address. Bounded because every distinct value is a paid
+            lookup at Google — no real address is anywhere near this long.
+          schema:
+            type: string
+            maxLength: 250
+        - name: lat
+          in: query
+          required: false
+          description: >-
+            Bias the answer toward the area this company works in, so a street
+            name that also exists in another province or country resolves to
+            the local one. A bias, not a fence: an address genuinely elsewhere
+            still resolves when it's the only match.
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Where that address is, or a plain "couldn't place it"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeocodedAddress"
   /map/data:
     get:
       operationId: getMapData
@@ -918,6 +2001,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MapData"
+  /map/routes:
+    get:
+      operationId: getMapRoutes
+      tags: [map]
+      summary: The trail from each live cleaner to their next job today, with ETA
+      responses:
+        "200":
+          description: >-
+            One route per cleaner whose phone is reporting and who has a
+            located, still-relevant job today. Cleaners get only their own
+            trail; dispatch sees the whole crew's.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapRoutes"
+  /map/driving-route:
+    get:
+      operationId: getMapDrivingRoute
+      tags: [map]
+      summary: Get an actual driving route between two map points
+      parameters:
+        - name: startLat
+          in: query
+          required: true
+          schema: { type: number, minimum: -90, maximum: 90 }
+        - name: startLng
+          in: query
+          required: true
+          schema: { type: number, minimum: -180, maximum: 180 }
+        - name: endLat
+          in: query
+          required: true
+          schema: { type: number, minimum: -90, maximum: 90 }
+        - name: endLng
+          in: query
+          required: true
+          schema: { type: number, minimum: -180, maximum: 180 }
+      responses:
+        "200":
+          description: The Google driving route. No straight-line fallback is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapDrivingRoute"
+        "503":
+          description: Google could not provide a driving route
   /map/pins:
     post:
       operationId: createMapPin
@@ -939,6 +2068,33 @@ paths:
         "400":
           description: Could not resolve the pin to coordinates
   /map/pins/{id}:
+    patch:
+      operationId: updateMapPin
+      tags: [map]
+      summary: Rename, re-address or move a saved map pin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePinInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPin"
+        "400":
+          description: Could not resolve the new address to coordinates
+        "404":
+          description: Pin not found
     delete:
       operationId: deleteMapPin
       tags: [map]
@@ -952,6 +2108,149 @@ paths:
       responses:
         "204":
           description: Deleted
+  /saved-routes:
+    get:
+      operationId: listSavedRoutes
+      tags: [map]
+      summary: List saved cleaner routes
+      responses:
+        "200":
+          description: Saved routes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SavedRoute" }
+    post:
+      operationId: createSavedRoute
+      tags: [map]
+      summary: Create a named route for a team member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SavedRouteInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRoute" }
+  /saved-routes/{id}:
+    get:
+      operationId: getSavedRoute
+      tags: [map]
+      summary: Get a saved route and its ordered stops
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Saved route
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRoute" }
+    patch:
+      operationId: updateSavedRoute
+      tags: [map]
+      summary: Rename or reassign a saved route
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SavedRouteUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRoute" }
+    delete:
+      operationId: deleteSavedRoute
+      tags: [map]
+      summary: Delete a saved route
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+  /saved-routes/{id}/stops:
+    post:
+      operationId: addSavedRouteStop
+      tags: [map]
+      summary: Add a stop to a saved route
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SavedRouteStopInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRouteStop" }
+  /saved-routes/{id}/stops/reorder:
+    put:
+      operationId: reorderSavedRouteStops
+      tags: [map]
+      summary: Set saved route stop order
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SavedRouteStopOrder" }
+      responses:
+        "200":
+          description: Reordered route
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRoute" }
+  /saved-routes/{routeId}/stops/{stopId}:
+    get:
+      operationId: getSavedRouteStop
+      tags: [map]
+      summary: Get one stop for booking prefill
+      parameters:
+        - { name: routeId, in: path, required: true, schema: { type: integer } }
+        - { name: stopId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Stop
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRouteStop" }
+    patch:
+      operationId: updateSavedRouteStop
+      tags: [map]
+      summary: Edit a saved route stop
+      parameters:
+        - { name: routeId, in: path, required: true, schema: { type: integer } }
+        - { name: stopId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SavedRouteStopUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedRouteStop" }
+    delete:
+      operationId: deleteSavedRouteStop
+      tags: [map]
+      summary: Delete a saved route stop
+      parameters:
+        - { name: routeId, in: path, required: true, schema: { type: integer } }
+        - { name: stopId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
   /staff/location:
     post:
       operationId: reportStaffLocation
@@ -970,6 +2269,130 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StaffLocation"
+  /staff/presence:
+    get:
+      operationId: getStaffPresence
+      tags: [staff]
+      summary: Which team members' devices reported a position in the last few minutes
+      responses:
+        "200":
+          description: Live team member ids
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffPresence"
+  /staff/devices:
+    get:
+      operationId: listStaffDevices
+      tags: [staff]
+      summary: Every device in the company, who it belongs to, and whether it's live
+      description: >-
+        The owner's tracking page. Lists each person on the roster with the
+        devices they have signed in from, their last-seen times and their
+        current positions, plus the per-person live-location switch. Owner
+        only — this is the whole company's whereabouts on one screen.
+      responses:
+        "200":
+          description: Devices grouped by the person they belong to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffDevices"
+  /staff/devices/{id}:
+    patch:
+      operationId: renameStaffDevice
+      tags: [staff]
+      summary: Rename one device
+      description: >-
+        Give a device the name it should carry on the map and the tracking
+        page — "Tidyups Location", "Richard's iPad". The owner may rename any
+        device in the company; anybody else may rename only their own. The name
+        sticks: a device reporting its position never overwrites a name that
+        was set here.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The device id being renamed.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameStaffDeviceInput"
+      responses:
+        "200":
+          description: The device as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffDeviceEntry"
+        "400":
+          description: The name was empty
+        "403":
+          description: Not your device
+        "404":
+          description: No such device in this company
+    delete:
+      operationId: deleteStaffDevice
+      tags: [staff]
+      summary: Permanently forget one device
+      description: >-
+        Owner only. Removes the device and its stored position, so it
+        disappears from the tracking page and the map. Not undoable — but the
+        person keeps their seat and their account, and the same physical
+        device simply reappears as a new device if it ever reports again.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The device id being deleted.
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No such device in this company
+  /staff/devices/{id}/office:
+    put:
+      operationId: setOfficeDevice
+      tags: [staff]
+      summary: Mark one device as the office, or unmark it
+      description: >-
+        Owner only. The office is a place, not a crew member: the flagged
+        device is drawn as a building parked on the company's stored office
+        location, and never on whatever the browser last reported. One device
+        per company — marking a new one clears the old flag. Marking requires
+        an office address the first time (it is geocoded server-side and
+        stored on the company); after that the saved spot is reused unless a
+        new address is sent.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The device id being marked or unmarked.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOfficeDeviceInput"
+      responses:
+        "200":
+          description: The device's office flag and the stored office spot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetOfficeDeviceResult"
+        "400":
+          description: No office address stored yet, or one that couldn't be placed
+        "404":
+          description: No such device in this company
   /schedule:
     get:
       operationId: getSchedule
@@ -989,14 +2412,218 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Schedule"
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: The company's client directory, A→Z (owner/dispatcher only)
+      responses:
+        "200":
+          description: Every known client for this company
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientRecord"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Add a client contact (owner/dispatcher only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientRecord"
+  /clients/{id}:
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client contact (owner/dispatcher only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientRecord"
+        "404": { description: Not found }
+  /callers:
+    get:
+      operationId: listCallers
+      tags: [calls]
+      summary: Company callers directory, most recently called first (owner/dispatcher only)
+      responses:
+        "200":
+          description: Callers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Caller" }
+  /callers/{id}/calls:
+    get:
+      operationId: listCallerCalls
+      tags: [calls]
+      summary: Calls associated with one caller (owner/dispatcher only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Calls
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Call" }
+        "404": { description: Not found }
+  /jobber-quotes:
+    get:
+      operationId: listJobberQuotes
+      tags: [jobber]
+      summary: Quotes created in Jobber, mirrored here with their status (owner/dispatcher only)
+      responses:
+        "200":
+          description: Jobber quotes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobberQuote"
+  /jobber-invoices:
+    get:
+      operationId: listJobberInvoices
+      tags: [jobber]
+      summary: Invoices created in Jobber, mirrored here with paid/pending standing (owner/dispatcher only)
+      responses:
+        "200":
+          description: Jobber invoices, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobberInvoice"
+  /customer-tags/{kind}/{id}:
+    patch:
+      operationId: updateCustomerTag
+      tags: [customers]
+      summary: Set or clear a customer's quick verdict from any dashboard surface
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [lead, call, booking, invoice, client]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagUpdateInput"
+      responses:
+        "200":
+          description: The saved verdict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerTagResult"
+        "404":
+          description: The record is not in this company
+  /search:
+    get:
+      operationId: searchDirectory
+      tags: [search]
+      summary: Find a person by name or phone across leads, bookings, clients and staff (owner/dispatcher only)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Name fragment or phone number (any format). At least 2 characters.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matches grouped by kind, best-effort limited per category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchDirectoryResult"
 components:
   schemas:
+    SearchMatch:
+      type: object
+      required: [kind, id, name]
+      properties:
+        kind:
+          type: string
+          enum: [lead, booking, client, team]
+        id: { type: integer }
+        name: { type: string }
+        phone:
+          type: string
+          nullable: true
+        # A one-line disambiguator — address, service, or role.
+        detail:
+          type: string
+          nullable: true
+        # Booking start (ISO) so the schedule hit can say when.
+        date:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+    SearchDirectoryResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchMatch"
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required: [status]
+        # A live probe of the production database, so the dashboard can warn
+        # the owner when the endpoint is paused (asleep) before a publish
+        # fails. "paused" is the SQLSTATE 28000 / "endpoint has been disabled"
+        # signature; "error" is any other database failure.
+        database:
+          type: string
+          enum: [ok, paused, error]
+      required: [status, database]
     CustomQuestion:
       type: object
       required: [question, answer]
@@ -1040,6 +2667,17 @@ components:
         quoteFeesRate: { type: number, minimum: 0, maximum: 100 }
         quoteDepositAmount: { type: number, minimum: 0, maximum: 1000000 }
         quoteDepositEmail: { type: ["string", "null"] }
+        # Which booking-form boxes must be filled before a booking saves.
+        # Empty means everything is optional except the date. The dashboard
+        # form, the Bookings dialog and the phone app all read this one list.
+        bookingRequiredFields:
+          type: array
+          maxItems: 6
+          items:
+            type: string
+            enum: [name, phone, email, address, service, time]
+        # Minutes the mobile "Take booking" shortcut stays on a finished call.
+        recentCallWindowMinutes: { type: integer, minimum: 5, maximum: 1440 }
     ConnectQuoInput:
       type: object
       required: [apiKey]
@@ -1112,9 +2750,13 @@ components:
           jobberSkipped,
           jobberNeedsReauth,
           jobberRedirectUri,
+          jobberEnvironment,
           quoConnected,
           quoNeedsReauth,
           watchedNumbers,
+          bookingRequiredFields,
+          recentCallWindowMinutes,
+          rosterCapacity,
           isLive,
           setupStatus,
           createdAt,
@@ -1152,6 +2794,11 @@ components:
         # settings so the owner registers the string we actually use, rather
         # than one that looks right and fails at the last step.
         jobberRedirectUri: { type: string }
+        # Which copy of the app served this response. Dev and production
+        # share one Jobber account while Jobber rotates refresh tokens, so
+        # each copy holds its own grant; "dev" lets the dashboard explain
+        # that the published site owns the background sync.
+        jobberEnvironment: { type: string, enum: [published, dev] }
         quoConnected: { type: boolean }
         quoWorkspaceName: { type: ["string", "null"] }
         quoKeyLast4: { type: ["string", "null"] }
@@ -1171,10 +2818,40 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WatchedNumber"
+        # Booking-form fields the owner has toggled back to required. Empty
+        # means a booking saves with whatever the desk has, date aside.
+        bookingRequiredFields:
+          type: array
+          items:
+            type: string
+            enum: [name, phone, email, address, service, time]
+        # Minutes the mobile "Take booking" shortcut stays on a finished call.
+        recentCallWindowMinutes: { type: integer }
+        # How many roster slots (filled + open) the Team page shows. Default 20.
+        rosterCapacity: { type: integer }
         isLive: { type: boolean }
         setupStatus:
           $ref: "#/components/schemas/SetupStatus"
         createdAt: { type: string }
+    JobberConnection:
+      type: object
+      required: [id, companyId, needsReauth, createdAt]
+      properties:
+        id: { type: integer }
+        companyId: { type: integer }
+        # Owner-chosen label, e.g. "Main crew" or "Night crew".
+        displayName: { type: ["string", "null"] }
+        accountId: { type: ["string", "null"] }
+        accountName: { type: ["string", "null"] }
+        needsReauth: { type: boolean }
+        createdAt: { type: string }
+    JobberConnectionUpdate:
+      type: object
+      properties:
+        # A local label only; the Jobber account name remains separate so an
+        # owner can freely call an account "North crew", "Richard's iPhone",
+        # or any other useful name without changing Jobber itself.
+        displayName: { type: ["string", "null"], maxLength: 80 }
     JobberConnectStart:
       type: object
       required: [authorizeUrl]
@@ -1195,20 +2872,20 @@ components:
       properties:
         name: { type: string }
         description: { type: string }
-        priceMin: { type: number }
-        priceMax: { type: number }
-        durationMinutes: { type: integer }
+        priceMin: { type: ["number", "null"] }
+        priceMax: { type: ["number", "null"] }
+        durationMinutes: { type: ["integer", "null"] }
     ServiceUpdate:
       type: object
       properties:
         name: { type: string }
         description: { type: string }
-        priceMin: { type: number }
-        priceMax: { type: number }
-        durationMinutes: { type: integer }
+        priceMin: { type: ["number", "null"] }
+        priceMax: { type: ["number", "null"] }
+        durationMinutes: { type: ["integer", "null"] }
     Service:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -1216,7 +2893,15 @@ components:
         priceMin: { type: ["number", "null"] }
         priceMax: { type: ["number", "null"] }
         durationMinutes: { type: ["integer", "null"] }
-        createdAt: { type: string }
+    SuggestedServicesImportResult:
+      type: object
+      required: [created, services]
+      properties:
+        created: { type: integer }
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
     TeamMemberInput:
       type: object
       # Only the name is required. Everything else is optional because staff
@@ -1238,6 +2923,10 @@ components:
         # `#rrggbb`, or null to let the app pick one from their id.
         color: { type: ["string", "null"] }
         homeAddress: { type: ["string", "null"] }
+        # A new roster-only staff member may be temporarily routed through one
+        # of the company's Jobber accounts before they receive an app login.
+        # Null means use the primary / only connection. Owner only.
+        jobberConnectionId: { type: ["integer", "null"] }
     TeamMemberUpdate:
       type: object
       # Every field optional: this is a patch, and the form saves whatever the
@@ -1246,12 +2935,28 @@ components:
         name: { type: string }
         email: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
-        role: { type: string, enum: [dispatcher, cleaner] }
+        # `owner` is offered here so the boss can promote a second seat — his
+        # own tablet or phone account — to a full owner. Only an owner may
+        # send it, and nobody may demote the very card their own access rests
+        # on; both are enforced on the server, not by leaving the value out of
+        # this list.
+        role: { type: string, enum: [owner, dispatcher, cleaner] }
         isLead: { type: boolean }
+        # The owner's own wording for the job, or null to go back to the
+        # standard "Cleaner"/"Dispatcher" wording. A label only — sending a
+        # title never changes what this person is allowed to do.
+        title: { type: ["string", "null"] }
         active: { type: boolean }
+        # Hand out (or take back) live-call booking. Owner only, and only a
+        # dispatcher card can carry it; moving a card off the dispatcher role
+        # clears it.
+        liveCallDispatching: { type: boolean }
         # `#rrggbb`, or null to go back to the automatic hue.
         color: { type: ["string", "null"] }
         homeAddress: { type: ["string", "null"] }
+        # Assign (or clear) this staff member's Jobber connection. Null means
+        # use the company's primary / only connection. Owner only.
+        jobberConnectionId: { type: ["integer", "null"] }
     ImportTeamMembersInput:
       type: object
       required: [members]
@@ -1282,11 +2987,15 @@ components:
           name,
           role,
           isLead,
+          roleLabel,
           active,
           status,
           hasLogin,
           inviteEmailSent,
           blockedByOtherCompany,
+          liveCallDispatching,
+          jobberUserId,
+          jobberConnectionId,
           createdAt,
         ]
       properties:
@@ -1300,9 +3009,21 @@ components:
         # what a cleaner sees. Kept apart from `role` so it can never widen
         # anyone's access by accident.
         isLead: { type: boolean }
+        # The owner's own wording for this job — "Site Supervisor", "Window
+        # Tech". Null means the standard wording. Like `isLead` it is a label
+        # and NOT a permission level; `role` alone decides what someone may do.
+        title: { type: ["string", "null"] }
+        # What to actually print on screen: the custom title when there is one,
+        # otherwise the standard wording for role + isLead. Computed server
+        # side so the roster, the map and the tracking page can't disagree.
+        roleLabel: { type: string }
         # On the roster. Inactive staff keep their history and their login,
         # they just stop appearing where work gets assigned.
         active: { type: boolean }
+        # Whether this seat may take a booking off a live call. Only means
+        # anything on a dispatcher card — the server requires role AND flag —
+        # and only the owner can switch it.
+        liveCallDispatching: { type: boolean }
         # The colour this person's work is drawn in, as `#rrggbb`. Null means
         # the app picks one from their id, so a card always has a colour even
         # when nobody chose it.
@@ -1310,7 +3031,9 @@ components:
         homeAddress: { type: ["string", "null"] }
         homeLat: { type: ["number", "null"] }
         homeLng: { type: ["number", "null"] }
-        status: { type: string, enum: [active, invited] }
+        # pending — they signed up with the join code and are waiting to be let
+        # in. A pending seat can reach nothing until it is approved.
+        status: { type: string, enum: [active, invited, pending] }
         # True once this person has signed up and their verified email was
         # matched to this seat, i.e. they can actually sign in.
         hasLogin: { type: boolean }
@@ -1321,7 +3044,71 @@ components:
         # attached to another company, and a login can only belong to one.
         blockedByOtherCompany: { type: boolean }
         claimedAt: { type: ["string", "null"] }
+        # The Jobber user this staff member is linked to, or null when
+        # unlinked. Identity only — assignment sync keys on it in both
+        # directions; nothing else about the person syncs through it.
+        jobberUserId: { type: ["string", "null"] }
+        # Which Jobber connection (account) this staff member is assigned to.
+        # Null means "use the company's primary / only connection". Set by the
+        # owner when the company has more than one Jobber account connected.
+        jobberConnectionId: { type: ["integer", "null"] }
         createdAt: { type: string }
+    JobberTeamMember:
+      type: object
+      required:
+        [jobberUserId, name, linkedTeamMemberId, suggestedTeamMemberId, gone]
+      properties:
+        jobberUserId: { type: string }
+        # The name as Jobber has it right now — shown so the owner can tell
+        # who this is even when the roster spells them differently. For a
+        # gone entry Jobber no longer reports a name, so this is the roster
+        # member's own name instead.
+        name: { type: string }
+        # True when this entry exists only because a roster member's stored
+        # link points at a Jobber user missing from Jobber's active list —
+        # deactivated or deleted there. Assignment sync for that seat has
+        # stopped; the owner should unlink (and relink if they return).
+        gone: { type: boolean }
+        # The staff member currently linked to this Jobber user, or null.
+        linkedTeamMemberId: { type: ["integer", "null"] }
+        # When unlinked: the staff member the calendar sync's own name
+        # matching would pick, or null when nobody matches or the name is
+        # ambiguous. Computed with the exact matcher the sync uses, so this
+        # preview can never disagree with what a sync would do.
+        suggestedTeamMemberId: { type: ["integer", "null"] }
+    JobberTeamMembersResult:
+      type: object
+      required: [members, failedConnections]
+      properties:
+        # Users returned by the connections that were reachable. When
+        # failedConnections is non-empty this is context only, not a complete
+        # roster that can be used for link changes.
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobberTeamMember"
+        # A non-empty list means the response is incomplete. Absence from the
+        # available members must not be treated as a deactivated Jobber user.
+        failedConnections:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobberConnectionFailure"
+    JobberConnectionFailure:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+    LinkJobberUserInput:
+      type: object
+      required: [jobberUserId]
+      properties:
+        jobberUserId: { type: string, minLength: 1, maxLength: 200 }
+    ImportJobberUserInput:
+      type: object
+      required: [jobberUserId]
+      properties:
+        jobberUserId: { type: string, minLength: 1, maxLength: 200 }
     CrewMember:
       type: object
       required: [id, name, role]
@@ -1339,9 +3126,38 @@ components:
           type: array
           maxItems: 20
           items: { type: integer }
+    JoinCode:
+      type: object
+      required: [joinCode]
+      properties:
+        joinCode: { type: string }
+    JoinRequestInput:
+      type: object
+      required: [joinCode, name]
+      properties:
+        joinCode: { type: string }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        # What they say they do. The approver picks the real role, so this is
+        # a hint on the request card and never an access decision.
+        role: { type: string, enum: [dispatcher, cleaner] }
+    JoinRequestResult:
+      type: object
+      required: [ok, companyName]
+      properties:
+        ok: { type: boolean }
+        # Empty when there is nothing left to wait for.
+        companyName: { type: string }
+    ApproveTeamMemberInput:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [dispatcher, cleaner] }
+        isLead: { type: boolean }
     CurrentUser:
       type: object
-      required: [role, name, email, companyName]
+      required:
+        [role, name, email, companyName, canCreateCompany, canTakeLiveCalls]
       properties:
         # Which seat the signed-in account holds. Drives what the dashboard
         # shows and what the API will let them do.
@@ -1352,6 +3168,20 @@ components:
         name: { type: string }
         email: { type: string }
         companyName: { type: string }
+        # Set when this account has asked to join a company and is waiting to
+        # be approved. Empty otherwise. While it is set the account holds no
+        # access at all, so the app shows a waiting screen rather than the
+        # "create your company" wizard.
+        pendingCompanyName: { type: string }
+        # False on a site that has been closed to new companies — one
+        # company's own address, where a stranger may only join with a code.
+        # Staff signup is unaffected; this hides the create-a-company wizard.
+        canCreateCompany: { type: boolean }
+        # Whether this account may take a booking off a live call — the
+        # incoming-call alert, the microphone panel, and the two routes that
+        # fill the booking form. True for the owner, and for a dispatcher
+        # whose staff card has the live-call dispatching switch on.
+        canTakeLiveCalls: { type: boolean }
     TranscriptSegment:
       type: object
       required: [speaker, text, offsetSeconds]
@@ -1392,6 +3222,10 @@ components:
         summary: { type: ["string", "null"] }
         quoCallId: { type: ["string", "null"] }
         recordingUrl: { type: ["string", "null"] }
+        # The owner's quick verdict after the call. Null until tagged.
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
     CallDetail:
       type: object
       required:
@@ -1421,6 +3255,11 @@ components:
         summary: { type: ["string", "null"] }
         quoCallId: { type: ["string", "null"] }
         recordingUrl: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        # The owner's quick verdict after the call. Null until tagged.
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
         transcript:
           type: array
           items:
@@ -1436,6 +3275,22 @@ components:
         # Capped because this is a running microphone transcript, and a
         # forgotten open mic would otherwise post an ever-growing body.
         text: { type: string, minLength: 1, maxLength: 20000 }
+    UpdateCallNotesInput:
+      type: object
+      required: [notes]
+      properties:
+        # Empty string clears the pad. Capped so a stray paste can't balloon
+        # the row.
+        notes: { type: string, maxLength: 20000 }
+    TagUpdateInput:
+      type: object
+      required: [tag]
+      properties:
+        # The owner's quick verdict; null clears the tag. One tag at a time —
+        # this is a fast triage marker, not a labeling system.
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
     BookingDraft:
       type: object
       # A suggestion, never a saved booking. Every field is nullable because
@@ -1449,6 +3304,7 @@ components:
         customerName: { type: ["string", "null"] }
         customerPhone: { type: ["string", "null"] }
         customerAddress: { type: ["string", "null"] }
+        addressLine2: { type: ["string", "null"], maxLength: 120 }
         addressCity: { type: ["string", "null"] }
         addressProvince: { type: ["string", "null"] }
         addressPostal: { type: ["string", "null"] }
@@ -1465,6 +3321,107 @@ components:
         filledFields:
           type: array
           items: { type: string }
+    StartStaffConversationInput:
+      type: object
+      required: [memberIds]
+      properties:
+        memberIds:
+          type: array
+          items: { type: integer }
+        # Groups only; a direct chat is titled by the other person's name.
+        # Capped because the title rides along in every notification text.
+        title: { type: ["string", "null"], maxLength: 60 }
+    SendStaffMessageInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    StaffConversation:
+      type: object
+      required:
+        [id, kind, title, memberNames, members, lastMessageAt, unreadCount]
+      properties:
+        id: { type: integer }
+        kind: { type: string, enum: [direct, group] }
+        title: { type: string }
+        memberNames:
+          type: array
+          items: { type: string }
+        # The other people in the thread, with whether each one is out working
+        # right now — their phone reported a position in the last few minutes,
+        # the same signal that draws a bright car on the map.
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffChatMember"
+        lastMessageAt: { type: string }
+        lastMessagePreview: { type: ["string", "null"] }
+        unreadCount: { type: integer }
+    StaffChatMember:
+      type: object
+      required: [id, name, isLive]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        isLive: { type: boolean }
+    StaffMessage:
+      type: object
+      required: [id, memberId, authorName, body, createdAt]
+      properties:
+        id: { type: integer }
+        # The staff card that wrote it, so the app can tell "mine" from theirs.
+        memberId: { type: integer }
+        authorName: { type: string }
+        body: { type: string }
+        createdAt: { type: string }
+    ChatContact:
+      type: object
+      required: [id, name, role, isLead, isLive]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        role: { type: string }
+        isLead: { type: boolean }
+        # Out working right now — phone reported a position in the last few
+        # minutes, same rule as the map's bright cars.
+        isLive: { type: boolean }
+    StartThreadInput:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+        name: { type: ["string", "null"] }
+    SendMessageInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 1600 }
+    MessageThread:
+      type: object
+      required: [id, customerPhone, customerName, lastMessageAt, unreadCount]
+      properties:
+        id: { type: integer }
+        customerPhone: { type: string }
+        # Copied from a booking or call when known; null for a stranger, which
+        # the inbox shows as the number rather than inventing a name.
+        customerName: { type: ["string", "null"] }
+        lastMessageAt: { type: string }
+        lastMessagePreview: { type: ["string", "null"] }
+        lastDirection: { type: ["string", "null"] }
+        unreadCount: { type: integer }
+    ClientMessage:
+      type: object
+      required: [id, direction, body, status, createdAt]
+      properties:
+        id: { type: integer }
+        direction: { type: string, enum: [inbound, outbound] }
+        body: { type: string }
+        status: { type: string, enum: [received, sent, failed] }
+        # Why a send failed, in words a dispatcher can act on.
+        errorText: { type: ["string", "null"] }
+        # Who on the team sent it; null for inbound and automatic texts.
+        sentByName: { type: ["string", "null"] }
+        createdAt: { type: string }
     Booking:
       type: object
       required:
@@ -1477,6 +3434,10 @@ components:
           status,
           quoteTotals,
           jobberSynced,
+          jobberAutomaticRetryStatus,
+          jobberAutomaticRetriesRemaining,
+          jobberNextRetryAt,
+          jobberRetryUsesBookingConnection,
           needsTimeReview,
           createdAt,
         ]
@@ -1485,11 +3446,15 @@ components:
         callId: { type: ["integer", "null"] }
         customerName: { type: string }
         customerPhone: { type: string }
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
         customerEmail: { type: ["string", "null"] }
         # Street line only — city/province/postal are separate, because the
         # booking desk types them into separate boxes and Jobber wants them
         # apart. Older bookings have the whole address in this one field.
         customerAddress: { type: ["string", "null"] }
+        addressLine2: { type: ["string", "null"], maxLength: 120 }
         addressCity: { type: ["string", "null"] }
         addressProvince: { type: ["string", "null"] }
         addressPostal: { type: ["string", "null"] }
@@ -1526,7 +3491,14 @@ components:
         quoteSentAt: { type: ["string", "null"] }
         # Where the customer views their quote. Null until a quote is sent.
         quoteUrl: { type: ["string", "null"] }
+        # The customer's own tap on their quote link.
         quoteApprovedAt: { type: ["string", "null"] }
+        # The office recording that the client said yes — usually on the phone.
+        # Either of these two means the client confirmed; the booking's status
+        # says "Confirmed" for no other reason.
+        clientApprovedAt: { type: ["string", "null"] }
+        # Who recorded it, kept as a name so it survives them leaving.
+        clientApprovedBy: { type: ["string", "null"] }
         depositPaidAt: { type: ["string", "null"] }
         depositPaidAmount: { type: ["number", "null"] }
         # Derived from those inputs and the company's rates, never stored, so a
@@ -1552,13 +3524,61 @@ components:
         jobberJobId: { type: ["string", "null"] }
         jobberClientId: { type: ["string", "null"] }
         jobberWebUri: { type: ["string", "null"] }
+        # Set once the owner has created a Jobber invoice from this booking.
+        # Presence means "already invoiced".
+        jobberInvoiceId: { type: ["string", "null"] }
+        jobberInvoiceNumber: { type: ["string", "null"] }
+        # Jobber's own page for that invoice, captured when it was created.
+        # Null for invoices made before this was stored — the app then falls
+        # back to the booking's job page.
+        jobberInvoiceWebUri: { type: ["string", "null"] }
         jobberSyncError: { type: ["string", "null"] }
         jobberSyncErrorAt: { type: ["string", "null"] }
+        # Derived from the persisted sync error, attempt count, and the same
+        # backoff used by the automatic retry worker. Null for cleaners.
+        jobberAutomaticRetryStatus:
+          type: ["string", "null"]
+          enum: [none, pending, exhausted, manual, null]
+        jobberAutomaticRetriesRemaining: { type: ["integer", "null"] }
+        jobberNextRetryAt: { type: ["string", "null"] }
+        # True when this booking's retry belongs to a specific secondary
+        # Jobber account rather than the company's primary account.
+        # Null for cleaners.
+        jobberRetryUsesBookingConnection: { type: ["boolean", "null"] }
+        # The Jobber property the request was filed under. Plumbing for the
+        # push; surfaced so a support eye can spot a wrong-property mixup.
+        jobberPropertyId: { type: ["string", "null"] }
+        # Set once a quote raised here was pushed into Jobber. The number and
+        # web link are what the office actually clicks; null for bookings
+        # synced before quotes went over, or when no quote was sent.
+        jobberQuoteId: { type: ["string", "null"] }
+        jobberQuoteNumber: { type: ["string", "null"] }
+        jobberQuoteWebUri: { type: ["string", "null"] }
+        # Jobber's last mirrored status for this quote. This is deliberately
+        # separate from clientApprovedAt/quoteApprovedAt: approval may have
+        # happened in Jobber rather than in Book My Cleaning.
+        jobberQuoteStatus: { type: ["string", "null"] }
+        # Set when this booking was imported from a Jobber request (pull sync).
+        # Null for bookings created here or imported from a Jobber quote.
+        jobberSyncedRequestId: { type: ["string", "null"] }
+        # Set when this booking was imported from a Jobber quote (pull sync).
+        # Null for bookings created here or imported from a Jobber request.
+        jobberSyncedQuoteId: { type: ["string", "null"] }
+        # The job this app scheduled into Jobber from the approved quote, and
+        # Jobber's own page for it. Null until explicit scheduling is used —
+        # a booking imported *from* Jobber has these empty, because Jobber
+        # made that job, not us.
+        jobberCreatedJobId: { type: ["string", "null"] }
+        jobberJobWebUri: { type: ["string", "null"] }
         # Geocoded position of the job's address, for the live dispatch map.
         # Null until the address is resolved.
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
         geocodedAt: { type: ["string", "null"] }
+        # True only after the background geocoder tried this address and got
+        # no result. False/omitted means the address is still pending or
+        # already has a usable pin.
+        geocodingFailed: { type: boolean }
         # Expected job length in minutes, for laying it out on the schedule.
         durationMinutes: { type: ["integer", "null"] }
         # The cleaners working this job. Empty until a crew is assigned.
@@ -1598,14 +3618,18 @@ components:
         status:
           { type: string, enum: [pending, confirmed, completed, canceled] }
         scheduledFor: { type: string }
-        customerName: { type: string, minLength: 1 }
-        customerPhone: { type: string, minLength: 1 }
+        # Blank allowed on all three: the owner can make fields optional, so
+        # an edit must be able to save what a lighter form sent. Displays
+        # fall back to the phone number or "No name".
+        customerName: { type: string }
+        customerPhone: { type: string }
         customerEmail: { type: ["string", "null"] }
         customerAddress: { type: ["string", "null"] }
+        addressLine2: { type: ["string", "null"], maxLength: 120 }
         addressCity: { type: ["string", "null"], maxLength: 120 }
         addressProvince: { type: ["string", "null"], maxLength: 60 }
         addressPostal: { type: ["string", "null"], maxLength: 20 }
-        service: { type: string, minLength: 1 }
+        service: { type: string }
         bedrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
         bathrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
         extras:
@@ -1636,16 +3660,29 @@ components:
         quoteNotes: { type: ["string", "null"] }
     BookingCreate:
       type: object
-      required: [customerName, customerPhone, service, scheduledFor]
+      # A time, and that is all the contract demands. The booking desk takes
+      # these while the customer is still talking, and a caller who hangs up
+      # after leaving only a phone number still has to end up in here — a
+      # booking with a gap in it beats a booking on a sticky note. Which
+      # fields beyond the date are mandatory is the owner's call, enforced by
+      # the route against the company's bookingRequiredFields setting.
+      required: [scheduledFor]
       properties:
-        customerName: { type: string, minLength: 1 }
-        customerPhone: { type: string, minLength: 1 }
+        # May be blank: everything that shows a booking falls back to the
+        # phone number, or a plain "No name".
+        customerName: { type: string }
+        # May be blank: someone calling from a blocked number, or a walk-in.
+        # Anything that needs to text them checks for a real number first.
+        customerPhone: { type: string }
         customerEmail: { type: ["string", "null"] }
         customerAddress: { type: ["string", "null"] }
+        addressLine2: { type: ["string", "null"], maxLength: 120 }
         addressCity: { type: ["string", "null"], maxLength: 120 }
         addressProvince: { type: ["string", "null"], maxLength: 60 }
         addressPostal: { type: ["string", "null"], maxLength: 20 }
-        service: { type: string, minLength: 1 }
+        # May be blank while the caller is still deciding. Everything that
+        # prints or sends the service falls back to a plain "Cleaning".
+        service: { type: string }
         bedrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
         bathrooms: { type: ["integer", "null"], minimum: 0, maximum: 50 }
         extras:
@@ -1660,6 +3697,15 @@ components:
               enum: [one_time, weekly, biweekly, monthly]
             - type: "null"
         internalNotes: { type: ["string", "null"], maxLength: 4000 }
+        # The lead this booking was worked from, when the desk opened it out of
+        # the Leads inbox. Sent at creation rather than left to the follow-up
+        # convert call, because the booking is on its way to Jobber before that
+        # call lands — and a lead has to reach Jobber as a new client, never
+        # matched onto an existing one. Must be a lead in this company's inbox.
+        leadId: { type: ["integer", "null"] }
+        # When created from a saved-route stop, the booking inherits that
+        # route's cleaner. The route and stop must belong to this company.
+        routeStopId: { type: ["integer", "null"] }
         # Who should work it, chosen while the customer is still on the phone.
         # Same rule as the crew picker: this company's active people only.
         teamMemberIds:
@@ -1669,8 +3715,8 @@ components:
               maxItems: 20
             - type: "null"
         scheduledFor: { type: string }
-        status:
-          { type: string, enum: [pending, confirmed, completed, canceled] }
+        # No status here on purpose. A new booking is always pending:
+        # "confirmed" means the client said yes, and nobody can type that in.
         quoteHours: { type: ["number", "null"], minimum: 0, maximum: 24 }
         quoteCrewLabel: { type: ["string", "null"], maxLength: 60 }
         quoteHourlyRate:
@@ -1683,6 +3729,30 @@ components:
         quotedAmount: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
         quoteDeposit: { type: ["number", "null"], minimum: 0, maximum: 1000000 }
         quoteNotes: { type: ["string", "null"] }
+    ApproveBookingInput:
+      type: object
+      properties:
+        # False records local approval without contacting Jobber. True only
+        # schedules a quote already approved locally, through the public quote
+        # link, or in mirrored Jobber status; it never records approval.
+        schedule: { type: boolean, default: false }
+    ApproveBookingResult:
+      type: object
+      required: [booking, recorded, scheduledInJobber, unmatchedCrew]
+      properties:
+        booking: { $ref: "#/components/schemas/Booking" }
+        # True only when this request created a local Book My Cleaning approval
+        # record. False for scheduling and for an approval already on record.
+        recorded: { type: boolean }
+        scheduledInJobber: { type: boolean }
+        # Cleaners with no confident Jobber user. The visit went out without
+        # them; saying so is the point.
+        unmatchedCrew:
+          type: array
+          items: { type: string }
+        # What Jobber refused, if anything. The pre-existing approval and its
+        # original provenance are unchanged.
+        jobberError: { type: ["string", "null"] }
     QuoteLineItem:
       type: object
       required: [name, quantity, unitPrice]
@@ -1768,6 +3838,21 @@ components:
         blockedReason: { type: ["string", "null"] }
         fromNumber: { type: ["string", "null"] }
         totals: { $ref: "#/components/schemas/QuoteTotals" }
+    RescheduleTextPreview:
+      type: object
+      required: [message, canSend]
+      properties:
+        message: { type: string }
+        # False when the customer's number can't be texted, or the company
+        # has no Quo line / key to send from.
+        canSend: { type: boolean }
+        blockedReason: { type: ["string", "null"] }
+    SendRescheduleTextInput:
+      type: object
+      properties:
+        # The dispatcher's edited copy of the draft. Omitted or blank means
+        # "send the server's own draft".
+        message: { type: string, minLength: 1, maxLength: 1600 }
     SendQuoteInput:
       type: object
       required: [message]
@@ -1794,6 +3879,13 @@ components:
           avgCallSeconds,
           pendingBookings,
           jobberSyncedCount,
+          upcomingBookings,
+          completedThisMonth,
+          totalBookings,
+          bookingsThisMonth,
+          canceledBookings,
+          revenueThisMonth,
+          newLeads,
         ]
       properties:
         callsToday: { type: integer }
@@ -1803,6 +3895,280 @@ components:
         avgCallSeconds: { type: integer }
         pendingBookings: { type: integer }
         jobberSyncedCount: { type: integer }
+        # Jobs still ahead of us: scheduled from now on, pending or confirmed.
+        upcomingBookings: { type: integer }
+        # Jobs marked done whose visit fell in the current calendar month
+        # (company timezone).
+        completedThisMonth: { type: integer }
+        totalBookings: { type: integer }
+        # Bookings created this calendar month (company timezone) — same
+        # "created" semantics as bookingsThisWeek.
+        bookingsThisMonth: { type: integer }
+        canceledBookings: { type: integer }
+        # Sum of quoted totals for jobs completed this month, in dollars.
+        # Null for cleaners: crew see counts, never money.
+        revenueThisMonth: { type: number, nullable: true }
+        # Sheet-synced leads still waiting for review on the Leads page.
+        newLeads: { type: integer }
+    Lead:
+      type: object
+      required:
+        [
+          id,
+          externalId,
+          source,
+          sourceTab,
+          status,
+          name,
+          phoneDisplay,
+          jobberSynced,
+          hasCalled,
+          createdAt,
+        ]
+      properties:
+        id: { type: integer }
+        # The id that makes imports idempotent, per source: the sheet's own
+        # unique lead id for sheet rows, a random token for form submissions.
+        externalId: { type: string }
+        # Where the lead came from: the ad-sheet sync, our own request form,
+        # a request submitted on the company's Jobber form, or saved from a
+        # phone call by the dispatcher with one tap.
+        source: { type: string, enum: [sheet, form, jobber, call] }
+        # Which sheet tab the row came from, or a fixed label for form and
+        # Jobber leads.
+        sourceTab: { type: string }
+        # new | converted | dismissed — the dispatcher's review state.
+        status: { type: string, enum: [new, converted, dismissed] }
+        # First + last name joined; empty string when the sheet had neither.
+        name: { type: string }
+        # The raw phone as typed into the ad, for display.
+        phoneDisplay: { type: string }
+        # Normalized E.164 for dialing/matching; null when undialable.
+        phoneE164: { type: string, nullable: true }
+        # True when at least one call in the company's history came from this
+        # lead's phone number (both sides normalized to E.164). The server
+        # decides this so web and mobile can never disagree; a lead with no
+        # dialable number is always false.
+        hasCalled: { type: boolean }
+        # When the most recent matching call happened (ISO). Null when
+        # hasCalled is false.
+        lastCallAt: { type: string, nullable: true }
+        # The id of the most recent matching call (for navigating straight to
+        # its transcript/recording). Null when hasCalled is false.
+        lastCallId: { type: integer, nullable: true }
+        firstName: { type: string, nullable: true }
+        lastName: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        # All raw sheet text, verbatim — including free-text answers like
+        # "1 or 2" bedrooms and a requested date that is NOT a parsed date.
+        service: { type: string, nullable: true }
+        bedrooms: { type: string, nullable: true }
+        bathrooms: { type: string, nullable: true }
+        dateOfServiceRequested: { type: string, nullable: true }
+        streetAddress: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        province: { type: string, nullable: true }
+        postCode: { type: string, nullable: true }
+        platform: { type: string, nullable: true }
+        campaignName: { type: string, nullable: true }
+        adName: { type: string, nullable: true }
+        formName: { type: string, nullable: true }
+        inboxUrl: { type: string, nullable: true }
+        # The sheet's own lead_status column, raw (never written back).
+        sheetLeadStatus: { type: string, nullable: true }
+        # "How did you hear about us?" — form leads only, verbatim.
+        heardAbout: { type: string, nullable: true }
+        # The customer's own message from a Jobber request, verbatim — their
+        # words, never parsed into a scheduled time.
+        message: { type: string, nullable: true }
+        # When the lead was submitted, as the sheet recorded it (raw text).
+        createdTime: { type: string, nullable: true }
+        # Map pin, resolved from the raw sheet address by the background
+        # geocoder. Null while still locating or when the address is unusable.
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        # True only after the background geocoder tried this address and got
+        # no result. False/omitted means the address is still pending or
+        # already has a usable pin.
+        geocodingFailed: { type: boolean }
+        # The booking this lead became, once converted.
+        convertedBookingId: { type: integer, nullable: true }
+        convertedAt: { type: string, nullable: true }
+        # ---- The Jobber records tied to this lead. ----
+        # Direction is told by `source`, never by these fields: a "jobber"
+        # lead links to the request it was imported from, a "form" lead to
+        # the client + work request OUR push created. jobberSynced is true
+        # only for pushed form leads; sheet leads always carry false.
+        jobberSynced: { type: boolean }
+        # Jobber's own page for the lead's work request, whichever way it
+        # travelled. Null for sheet leads and unpushed form leads.
+        jobberWebUri: { type: string, nullable: true }
+        # Why the last push failed, verbatim; null after a clean push.
+        jobberPushError: { type: string, nullable: true }
+        jobberPushErrorAt: { type: string, nullable: true }
+        # When the sync imported the row (ISO).
+        createdAt: { type: string }
+        # The call that was saved as this lead (save-as-lead flow). Set only
+        # for leads with source="call"; null for every other source. Lets the
+        # card link straight to the original transcript/recording without
+        # relying on the phone-number match that powers lastCallId.
+        callId: { type: integer, nullable: true }
+        # The owner's quick verdict: client | good_lead | bad_lead | spam.
+        # Null until tagged; independent of the review `status`.
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
+    BulkDismissLeadsInput:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items: { type: integer }
+          minItems: 1
+    BulkDismissLeadsResult:
+      type: object
+      required: [dismissed, skipped]
+      properties:
+        # How many leads were moved to "dismissed".
+        dismissed: { type: integer }
+        # How many were skipped because they were already converted.
+        skipped: { type: integer }
+    ConvertLeadInput:
+      type: object
+      required: [bookingId]
+      properties:
+        # The booking created from this lead.
+        bookingId: { type: integer }
+    LeadContactUpdateInput:
+      type: object
+      properties:
+        # Raw phone as typed; server normalizes to E.164.
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+    PublicRequestInput:
+      type: object
+      required: [phone]
+      properties:
+        # Stored verbatim: whatever the customer types is what the office
+        # sees. The only derived value is the normalized E.164 phone, and the
+        # preferred date is free text that is never parsed into a real time.
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        # The one genuinely required field — a lead the office can't call
+        # back isn't a lead.
+        phone: { type: string, minLength: 1, maxLength: 40 }
+        email: { type: string, maxLength: 200 }
+        streetAddress: { type: string, maxLength: 200 }
+        city: { type: string, maxLength: 100 }
+        province: { type: string, maxLength: 100 }
+        postCode: { type: string, maxLength: 20 }
+        service: { type: string, maxLength: 200 }
+        bedrooms: { type: string, maxLength: 50 }
+        bathrooms: { type: string, maxLength: 50 }
+        dateOfServiceRequested: { type: string, maxLength: 200 }
+        heardAbout: { type: string, maxLength: 200 }
+        # Honeypot. The real form renders this hidden and never fills it;
+        # bots that fill every field out themselves.
+        website: { type: string, maxLength: 200 }
+    PublicRequestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+    LeadSyncRun:
+      type: object
+      required: [imported, error, tabStatuses]
+      properties:
+        # New rows inserted by this run (both tabs).
+        imported: { type: integer }
+        # Null when the sheet was read cleanly.
+        error: { type: string, nullable: true }
+        tabStatuses:
+          type: array
+          items: { $ref: "#/components/schemas/LeadSyncTabStatus" }
+    LeadSyncTabStatus:
+      type: object
+      required: [name, status]
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [read, failed] }
+        error: { type: string }
+        rowsSeen: { type: integer, minimum: 0 }
+        eligibleRows: { type: integer, minimum: 0 }
+        importedRows: { type: integer, minimum: 0 }
+        duplicateRows: { type: integer, minimum: 0 }
+        skippedRows: { type: integer, minimum: 0 }
+        eligibilityWarning:
+          type: string
+          description: Explains why a readable tab had non-empty rows but no qualifying leads.
+    LeadSyncStatus:
+      type: object
+      required:
+        [
+          configured,
+          lastSyncAt,
+          lastSuccessAt,
+          lastError,
+          warning,
+          tabStatuses,
+          stale,
+        ]
+      properties:
+        configured:
+          type: boolean
+          description: True only when the shared Google Sheet lead feed is configured for the current company.
+        lastSyncAt: { type: string, nullable: true }
+        lastSuccessAt: { type: string, nullable: true }
+        # Null when the last poll worked — the Leads page shows this verbatim.
+        lastError: { type: string, nullable: true }
+        # Non-fatal: set when the sheet carries a non-empty header the import
+        # doesn't map to any stored field (hand-managed headers rename), so
+        # the owner learns within a sync cycle instead of noticing blanks.
+        warning: { type: string, nullable: true }
+        # Results for every tab discovered during the latest pass. Empty when
+        # the connector failed before tabs could be listed.
+        tabStatuses:
+          type: array
+          items: { $ref: "#/components/schemas/LeadSyncTabStatus" }
+        stale:
+          type: boolean
+          description: True when the automatic poller has missed three expected sync windows.
+    LeadHeaderMapping:
+      type: object
+      required: [header, destination]
+      properties:
+        header: { type: string }
+        destination:
+          type: string
+          enum: [service, bedrooms, bathrooms, dateOfServiceRequested]
+        exampleAnswer:
+          type: string
+          description: A short example answer from the first data row, when present.
+    LeadSyncPreviewTab:
+      type: object
+      required:
+        [name, status, questionMappings, metadataHeaders, unmappedHeaders]
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [read, failed] }
+        error: { type: string }
+        questionMappings:
+          type: array
+          items: { $ref: "#/components/schemas/LeadHeaderMapping" }
+        metadataHeaders:
+          type: array
+          items: { type: string }
+        unmappedHeaders:
+          type: array
+          items: { type: string }
+    LeadSyncPreview:
+      type: object
+      required: [tabs]
+      properties:
+        tabs:
+          type: array
+          items: { $ref: "#/components/schemas/LeadSyncPreviewTab" }
     ActivityItem:
       type: object
       required: [id, type, message, occurredAt]
@@ -1822,14 +4188,49 @@ components:
                 deposit_paid,
                 test_call,
                 team_invited,
+                join_code_changed,
                 crew_assigned,
                 reschedule_texted,
+                text_given_up,
                 job_started,
                 job_finished,
+                cleaner_running_late,
+                cleaner_back_on_time,
+                lead_converted,
+                lead_request_received,
               ],
           }
         message: { type: string }
         occurredAt: { type: string }
+        # True only for owner/dispatcher-visible "text_given_up" entries that
+        # still carry the dropped text's payload.
+        canResendText: { type: boolean }
+        # The original E.164 target, shown in the resend confirmation form.
+        # It is omitted for cleaners and for older owner-targeted rows whose
+        # recipient was resolved at send time.
+        resendPhone: { type: string }
+        # For call-related entries (call_answered, test_call): the id of the
+        # call this entry describes, so clients can link straight to its
+        # detail screen. Absent on older rows and non-call entries.
+        callId: { type: integer }
+        # For booking-related entries (booking_created, crew_assigned,
+        # job_started, job_finished): the id of the booking this entry
+        # describes, so clients can link straight to its detail screen.
+        # Absent on older rows and non-booking entries.
+        bookingId: { type: integer }
+    ResendGivenUpTextInput:
+      type: object
+      required: [toPhone]
+      properties:
+        toPhone:
+          type: string
+          pattern: "^\\+[1-9][0-9]{1,14}$"
+          description: Recipient in E.164 format, for example +15551234567.
+    ResendGivenUpTextResult:
+      type: object
+      required: [queued]
+      properties:
+        queued: { type: boolean }
     MapConfig:
       type: object
       required: [apiKey, configured]
@@ -1838,18 +4239,78 @@ components:
         # never has to be baked into the client bundle. Empty when unconfigured.
         apiKey: { type: string }
         configured: { type: boolean }
+    AddressSuggestion:
+      type: object
+      required: [id, primary, secondary, full]
+      properties:
+        id: { type: string }
+        # Street line, shown in bold.
+        primary: { type: string }
+        # City/region line. May be empty.
+        secondary: { type: string }
+        # The whole address — what goes in the box when this one is picked.
+        full: { type: string }
+    AddressSuggestions:
+      type: object
+      required: [suggestions, available]
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddressSuggestion"
+        # False when Google refuses the request for this key, so the box can say
+        # suggestions are off rather than looking broken.
+        available: { type: boolean }
+    GeocodedAddress:
+      type: object
+      required: [found]
+      properties:
+        # False both for "no such place" and for a key that can't geocode; the
+        # message says which, so the page never blames the typed address for a
+        # configuration problem.
+        found: { type: boolean }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        message: { type: ["string", "null"] }
     MapCleaner:
       type: object
-      required: [teamMemberId, name, lat, lng, updatedAt]
+      required: [teamMemberId, deviceId, isOwner, name, lat, lng, updatedAt]
       properties:
         teamMemberId: { type: integer }
+        # One entry per DEVICE, not per person: somebody signed in on a phone
+        # and a tablet is two pins, because a single pin would jump between
+        # them. Group by teamMemberId to get back to the person.
+        #
+        # Null only for a fix stored before this device existed — such a row
+        # still gets a pin (a crew member must never silently vanish from the
+        # map), it just can't be named.
+        deviceId: { type: ["integer", "null"] }
+        # "Boss PC", "Richard's iPad" — shown on the marker whenever a person
+        # has more than one device, so two pins are never anonymous.
+        deviceLabel: { type: ["string", "null"] }
+        platform: { type: ["string", "null"] }
         name: { type: string }
         # Their chosen colour, or null when the app should pick from their id.
         color: { type: ["string", "null"] }
+        # True for the company owner's own seat. The map forces a
+        # high-visibility yellow for these regardless of the stored colour, so
+        # the boss is unmistakable among the crew.
+        isOwner: { type: boolean }
         lat: { type: number }
         lng: { type: number }
         accuracy: { type: ["number", "null"] }
         updatedAt: { type: string }
+    LivePositionAccess:
+      type: object
+      required: [allowed, reason]
+      properties:
+        # False when the server deliberately withheld live positions — the
+        # payload really is empty, it is not a client-side filter. Dispatchers
+        # may watch only inside working hours (company timezone); the owner
+        # may watch at any hour.
+        allowed: { type: boolean }
+        # Why they were withheld, ready to render. Null when allowed.
+        reason: { type: ["string", "null"] }
     MapJobAssignee:
       type: object
       required: [teamMemberId, name]
@@ -1860,6 +4321,77 @@ components:
         # Carried on the assignee so the calendar and the map can colour work
         # without a second call the crew view isn't allowed to make.
         color: { type: ["string", "null"] }
+    SavedRouteStop:
+      type: object
+      required:
+        [
+          id,
+          routeId,
+          position,
+          name,
+          address,
+          lat,
+          lng,
+          linkedBookingId,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: integer }
+        routeId: { type: integer }
+        position: { type: integer }
+        name: { type: string }
+        address: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        linkedBookingId: { type: ["integer", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    SavedRoute:
+      type: object
+      required: [id, name, teamMemberId, createdAt, updatedAt, stops]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        teamMemberId: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        stops:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/SavedRouteStop" },
+          }
+    SavedRouteInput:
+      type: object
+      required: [name, teamMemberId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        teamMemberId: { type: integer }
+    SavedRouteUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        teamMemberId: { type: integer }
+    SavedRouteStopInput:
+      type: object
+      required: [name, lat, lng]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        address: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+    SavedRouteStopUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        address: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+    SavedRouteStopOrder:
+      type: object
+      required: [stopIds]
+      properties:
+        stopIds: { type: array, items: { type: integer }, minItems: 0 }
     MapJob:
       type: object
       required:
@@ -1905,14 +4437,60 @@ components:
         lat: { type: number }
         lng: { type: number }
         active: { type: boolean }
+    StaffWithoutHome:
+      type: object
+      required: [teamMemberId, name, roleLabel, active, reason]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+        roleLabel: { type: string }
+        active: { type: boolean }
+        # Whether there is no address on their card at all, or one that we
+        # couldn't place on the map — those need different fixes.
+        reason:
+          type: string
+          enum: [missing, unplaceable]
+        address: { type: ["string", "null"] }
+    MapOffice:
+      type: object
+      required: [deviceId, label, address, lat, lng]
+      properties:
+        deviceId: { type: integer }
+        # The device's given name — "Tidyups Location".
+        label: { type: string }
+        address: { type: ["string", "null"] }
+        # ALWAYS the stored company office location, never a reported browser
+        # fix — the office cannot drift.
+        lat: { type: number }
+        lng: { type: number }
     MapData:
       type: object
-      required: [cleaners, jobs, pins, staffHomes]
+      required:
+        [
+          cleaners,
+          jobs,
+          pins,
+          staffHomes,
+          staffWithoutHome,
+          office,
+          livePositions,
+        ]
       properties:
+        # The shop itself, drawn as a building parked on the stored company
+        # location. Null until the owner marks a device as the office. A place
+        # like the pins, so it is NOT withheld outside watching hours.
+        office:
+          oneOf:
+            - $ref: "#/components/schemas/MapOffice"
+            - type: "null"
+        # One entry per reporting DEVICE. Empty (and `livePositions.allowed`
+        # false) when the caller may not watch right now.
         cleaners:
           type: array
           items:
             $ref: "#/components/schemas/MapCleaner"
+        livePositions:
+          $ref: "#/components/schemas/LivePositionAccess"
         # Where each staff member lives. Home addresses are a colleague's
         # personal information, so dispatch sees the whole crew's and a cleaner
         # sees only their own.
@@ -1920,6 +4498,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StaffHome"
+        # The rest of the crew — everyone who has no pin because their card has
+        # no home address, or one that couldn't be placed. Named rather than
+        # silently absent: "who is closest" is unanswerable for these people,
+        # and the office can only fix that if it knows who they are.
+        staffWithoutHome:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffWithoutHome"
         jobs:
           type: array
           items:
@@ -1928,6 +4514,76 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MapPin"
+    MapRoutePoint:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+    MapDrivingRoute:
+      type: object
+      required: [distanceMeters, durationSeconds, path]
+      properties:
+        distanceMeters: { type: integer, minimum: 0 }
+        durationSeconds: { type: integer, minimum: 0 }
+        # Actual Google route geometry. This endpoint never substitutes a
+        # straight line when routing is unavailable.
+        path:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/MapRoutePoint"
+    MapRouteLeg:
+      type: object
+      required:
+        [
+          teamMemberId,
+          name,
+          bookingId,
+          customerName,
+          destLat,
+          destLng,
+          scheduledFor,
+          etaSeconds,
+          distanceMeters,
+          source,
+          path,
+        ]
+      properties:
+        teamMemberId: { type: integer }
+        name: { type: string }
+        # Their chosen colour, or null when the app should pick from their id.
+        color: { type: ["string", "null"] }
+        bookingId: { type: integer }
+        customerName: { type: string }
+        customerAddress: { type: ["string", "null"] }
+        destLat: { type: number }
+        destLng: { type: number }
+        # When the job is booked for — the dashboard compares it with the ETA
+        # to say "on time" or "running late".
+        scheduledFor: { type: string }
+        etaSeconds: { type: integer }
+        distanceMeters: { type: integer }
+        # `google` is a real driving route; `estimate` is the straight-line
+        # arithmetic fallback and is drawn dashed and labelled "est.".
+        source: { type: string, enum: [google, estimate] }
+        # The line to draw, in order from the cleaner to the job.
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapRoutePoint"
+    MapRoutes:
+      type: object
+      required: [routes, livePositions]
+      properties:
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapRouteLeg"
+        # A trail starts at somebody's current position, so it is withheld on
+        # exactly the same rule as the cars themselves.
+        livePositions:
+          $ref: "#/components/schemas/LivePositionAccess"
     JobberCalendarSync:
       type: object
       required:
@@ -1985,26 +4641,157 @@ components:
             $ref: "#/components/schemas/BookingRangeItem"
     StaffLocationInput:
       type: object
-      required: [lat, lng]
+      required: []
       properties:
-        lat: { type: number, minimum: -90, maximum: 90 }
-        lng: { type: number, minimum: -180, maximum: 180 }
+        lat: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        lng: { type: ["number", "null"], minimum: -180, maximum: 180 }
         accuracy: { type: ["number", "null"], minimum: 0 }
+        # Which of this person's devices is reporting. Generated by the client
+        # and kept locally so the same browser or handset keeps its pin across
+        # sessions. The PERSON is always taken from the session — a device key
+        # only ever selects among the caller's own devices, never somebody
+        # else's. Omitted by clients that predate devices; those fold onto a
+        # single legacy device for that person, exactly as before.
+        deviceKey: { type: ["string", "null"], maxLength: 120 }
+        # Does not contain coordinates or account identifiers. Used only to
+        # associate a health-only reset report with the old device row.
+        recoveryKey: { type: ["string", "null"], maxLength: 256 }
+        # What to call this device on the map. Sent with every report so
+        # renaming it is just the next report.
+        deviceLabel: { type: ["string", "null"], maxLength: 60 }
+        platform:
+          type: ["string", "null"]
+          enum: [web, ios, android, other, null]
+        # Health-only reports carry no coordinates when permission is blocked.
+        locationHealth:
+          {
+            type: string,
+            enum: [unknown, granted, permission-denied, storage-cleared],
+          }
     StaffLocation:
       type: object
-      required: [teamMemberId, lat, lng, updatedAt]
+      required: [status, teamMemberId]
+      properties:
+        # `recorded` — stored and now on the map.
+        # A report is accepted only after the signed-in device has consented.
+        status: { type: string, enum: [recorded] }
+        teamMemberId: { type: integer }
+        deviceId: { type: ["integer", "null"] }
+        deviceLabel: { type: ["string", "null"] }
+        platform: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        updatedAt: { type: ["string", "null"] }
+        # Plain-language explanation when nothing was stored.
+        message: { type: ["string", "null"] }
+        recoveryMatched: { type: boolean }
+    StaffPresence:
+      type: object
+      required: [liveMemberIds, livePositions]
+      properties:
+        # Seats with at least one device that reported in the last few minutes
+        # — the dashboard paints these with a green "live" dot on the
+        # schedule. One entry per person however many devices they carry.
+        liveMemberIds:
+          type: array
+          items: { type: integer }
+        livePositions:
+          $ref: "#/components/schemas/LivePositionAccess"
+    StaffDeviceEntry:
+      type: object
+      required: [id, label, platform, live, isOffice]
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        platform: { type: string }
+        locationHealth:
+          {
+            type: string,
+            enum: [unknown, granted, permission-denied, storage-cleared],
+          }
+        # This device IS the office: drawn as a building on the stored company
+        # location, never on its reported position. At most one per company.
+        isOffice: { type: boolean }
+        # Null when this device has been registered but never reported.
+        lastSeenAt: { type: ["string", "null"] }
+        # Reported inside the shared five-minute window.
+        live: { type: boolean }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+    StaffTrackedPerson:
+      type: object
+      required:
+        [
+          teamMemberId,
+          name,
+          roleLabel,
+          isOwner,
+          sharingEnabled,
+          canChangeSharing,
+          devices,
+        ]
       properties:
         teamMemberId: { type: integer }
-        lat: { type: number }
-        lng: { type: number }
-        accuracy: { type: ["number", "null"] }
-        updatedAt: { type: string }
+        name: { type: string }
+        roleLabel: { type: string }
+        color: { type: ["string", "null"] }
+        # The owner's own seat: always tracked, always yellow on the map.
+        isOwner: { type: boolean }
+        sharingEnabled: { type: boolean }
+        # False for the owner's own seat — their devices can't be switched off.
+        canChangeSharing: { type: boolean }
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffDeviceEntry"
+    StaffDevices:
+      type: object
+      required: [people, livePositions]
+      properties:
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffTrackedPerson"
+        livePositions:
+          $ref: "#/components/schemas/LivePositionAccess"
+    RenameStaffDeviceInput:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 60 }
+    SetOfficeDeviceInput:
+      type: object
+      required: [office]
+      properties:
+        # True to make this device the office (clearing any previous one),
+        # false to put it back to normal live tracking.
+        office: { type: boolean }
+        # Where the office is. Required the first time a company marks an
+        # office; afterwards the stored address is reused when omitted.
+        # Geocoded server-side — the browser never sees the geocoding key.
+        address: { type: ["string", "null"], maxLength: 300 }
+    SetOfficeDeviceResult:
+      type: object
+      required: [deviceId, isOffice, address, lat, lng]
+      properties:
+        deviceId: { type: integer }
+        isOffice: { type: boolean }
+        # The company's stored office spot as it now stands (null only when
+        # nothing has ever been stored).
+        address: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
     ScheduleJob:
       type: object
       required: [bookingId, customerName, scheduledFor, durationMinutes, status]
       properties:
         bookingId: { type: integer }
         customerName: { type: string }
+        # The crew standing outside a locked door needs to call the customer,
+        # so this rides along on the day board rather than one tap deeper.
+        customerPhone: { type: ["string", "null"] }
         customerAddress: { type: ["string", "null"] }
         scheduledFor: { type: string }
         # Falls back to the service's duration, else 120 minutes.
@@ -2012,6 +4799,25 @@ components:
         status:
           { type: string, enum: [pending, confirmed, completed, canceled] }
         price: { type: ["number", "null"] }
+        # How far (and roughly how long) the drive is from the previous stop —
+        # home for the first job of the day, the prior job after that. Null
+        # when either end has no coordinates, or in the unassigned column.
+        travel:
+          anyOf:
+            - $ref: "#/components/schemas/TravelLeg"
+            - type: "null"
+    TravelLeg:
+      type: object
+      required: [fromHome, fromLabel, distanceKm, driveMinutes]
+      properties:
+        # True when the leg starts at the cleaner's home address.
+        fromHome: { type: boolean }
+        # "home", or the previous job's customer name.
+        fromLabel: { type: string }
+        # Straight-line kilometres, one decimal.
+        distanceKm: { type: number }
+        # Rough city-driving estimate derived from the distance.
+        driveMinutes: { type: integer }
     ScheduleCleaner:
       type: object
       required: [teamMemberId, name, jobs]
@@ -2045,3 +4851,141 @@ components:
         address: { type: ["string", "null"] }
         lat: { type: ["number", "null"], minimum: -90, maximum: 90 }
         lng: { type: ["number", "null"], minimum: -180, maximum: 180 }
+    UpdatePinInput:
+      type: object
+      description:
+        All fields optional — send only what changed. A new address without
+        coordinates is geocoded server-side; explicit coordinates win.
+      properties:
+        name: { type: string, minLength: 1 }
+        address: { type: ["string", "null"] }
+        lat: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        lng: { type: ["number", "null"], minimum: -180, maximum: 180 }
+    ClientRecord:
+      type: object
+      required: [id, name, source, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        # As typed/received; may be blank for a Jobber client with no number.
+        phone: { type: ["string", "null"] }
+        # Normalized +E.164 when the number was dialable, for digit search.
+        phoneE164: { type: ["string", "null"] }
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
+        email: { type: ["string", "null"] }
+        streetAddress: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        province: { type: ["string", "null"] }
+        postalCode: { type: ["string", "null"] }
+        # Set once the customer exists in Jobber too.
+        jobberClientId: { type: ["string", "null"] }
+        # Where this customer was first seen: booking | jobber | lead.
+        source: { type: string }
+        createdAt: { type: string, format: date-time }
+    ClientInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        streetAddress: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        province: { type: ["string", "null"] }
+        postalCode: { type: ["string", "null"] }
+    ClientUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        streetAddress: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        province: { type: ["string", "null"] }
+        postalCode: { type: ["string", "null"] }
+    Caller:
+      type: object
+      required:
+        [
+          id,
+          phone,
+          phoneE164,
+          bestName,
+          firstCallAt,
+          latestCallAt,
+          callCount,
+          knownClient,
+        ]
+      properties:
+        id: { type: integer }
+        phone: { type: string }
+        phoneE164: { type: string }
+        bestName: { type: string }
+        firstCallAt: { type: string, format: date-time }
+        latestCallAt: { type: string, format: date-time }
+        callCount: { type: integer }
+        clientId: { type: ["integer", "null"] }
+        knownClient: { type: boolean }
+        quoContactId: { type: ["string", "null"] }
+    JobberQuote:
+      type: object
+      required: [id, jobberQuoteId, status, lastSyncedAt]
+      properties:
+        id: { type: integer }
+        jobberQuoteId: { type: string }
+        quoteNumber: { type: ["integer", "null"] }
+        title: { type: ["string", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientPhone: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        # Jobber's status verbatim (draft, awaiting_response, changes_requested,
+        # approved, converted, archived). Deliberately NOT an enum: a status
+        # Jobber adds later must not make the whole list fail validation.
+        status: { type: string }
+        totalCents: { type: ["integer", "null"] }
+        # Deep link to the quote inside Jobber.
+        jobberWebUri: { type: ["string", "null"] }
+        jobberCreatedAt: { type: ["string", "null"], format: date-time }
+        sentAt: { type: ["string", "null"], format: date-time }
+        transitionedAt: { type: ["string", "null"], format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+    JobberInvoice:
+      type: object
+      required: [id, jobberInvoiceId, status, lastSyncedAt]
+      properties:
+        id: { type: integer }
+        jobberInvoiceId: { type: string }
+        # Jobber's invoice number is a string in their API (may carry prefixes).
+        invoiceNumber: { type: ["string", "null"] }
+        subject: { type: ["string", "null"] }
+        clientName: { type: ["string", "null"] }
+        clientPhone: { type: ["string", "null"] }
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]
+        propertyAddress: { type: ["string", "null"] }
+        # Jobber's status verbatim (draft, awaiting_payment, paid, past_due,
+        # bad_debt, sent_not_due). Deliberately NOT an enum: a status Jobber
+        # adds later must not make the whole list fail validation.
+        status: { type: string }
+        totalCents: { type: ["integer", "null"] }
+        # What is still owing; zero once paid.
+        balanceCents: { type: ["integer", "null"] }
+        # Deep link to the invoice inside Jobber.
+        jobberWebUri: { type: ["string", "null"] }
+        issuedAt: { type: ["string", "null"], format: date-time }
+        dueAt: { type: ["string", "null"], format: date-time }
+        jobberCreatedAt: { type: ["string", "null"], format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+    CustomerTagResult:
+      type: object
+      required: [kind, id, tag]
+      properties:
+        kind: { type: string, enum: [lead, call, booking, invoice, client] }
+        id: { type: integer }
+        tag:
+          type: ["string", "null"]
+          enum: [client, good_lead, bad_lead, spam, null]

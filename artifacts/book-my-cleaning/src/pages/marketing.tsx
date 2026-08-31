@@ -359,6 +359,15 @@ export function MarketingPage() {
             Tidyups
           </span>
         </div>
+        <p className="mb-3">
+          <Link href="/privacy" className="hover:text-white transition-colors">
+            Privacy
+          </Link>
+          <span className="mx-3 text-white/20">·</span>
+          <Link href="/support" className="hover:text-white transition-colors">
+            Support
+          </Link>
+        </p>
         <p>
           &copy; {new Date().getFullYear()} Tidyups Cleaning Service Inc. All
           rights reserved.

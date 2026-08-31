@@ -209,7 +209,6 @@ describe("taking a booking on the phone", () => {
         extras: ["Oven", "Windows"],
         frequency: "biweekly",
         internalNotes: "Key under the mat. Dog in the yard.",
-        status: "confirmed",
       }),
     );
     expect(res.status).toBe(201);
@@ -225,7 +224,9 @@ describe("taking a booking on the phone", () => {
     expect(booking.extras).toEqual(["Oven", "Windows"]);
     expect(booking.frequency).toBe("biweekly");
     expect(booking.internalNotes).toContain("Key under the mat");
-    expect(booking.status).toBe("confirmed");
+    // A booking taken on the phone starts pending, always: "confirmed" means
+    // the client approved, and nobody can type that in at intake.
+    expect(booking.status).toBe("pending");
   });
 
   it("still saves a booking with none of the extra detail", async () => {

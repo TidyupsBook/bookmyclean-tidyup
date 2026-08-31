@@ -29,10 +29,10 @@ export function companyQuoteRates(company: Company): QuoteRates {
     rateSolo: company.quoteRateSolo,
     rateTeam: company.quoteRateTeam,
     fuelSurcharge: company.quoteFuelSurcharge,
-    taxLabel: company.quoteTaxLabel,
-    taxRate: company.quoteTaxRate,
-    feesLabel: company.quoteFeesLabel,
-    feesRate: company.quoteFeesRate,
+    taxLabel: "Tax",
+    taxRate: 12.5,
+    feesLabel: "",
+    feesRate: 0,
     depositAmount: company.quoteDepositAmount,
     depositEmail: company.quoteDepositEmail,
   };
@@ -84,7 +84,7 @@ export function formatAppointment(when: Date, timeZone: string): string {
 /**
  * The text the customer receives.
  *
- * Deliberately short. The full estimate — line items, tax, fees, the service
+ * Deliberately short. The full estimate — line items, tax, the service
  * description, the appointment — lives on the linked page, which is a far
  * better place to read a breakdown than a wall of SMS. The text's only jobs are
  * to say who it's from, say what's owed up front, and get them to tap.

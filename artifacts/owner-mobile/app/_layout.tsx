@@ -3,9 +3,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ClerkLoaded, ClerkProvider } from "@clerk/expo";
+import { ClerkLoaded, ClerkLoading, ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
+import { ApiAuthBridge } from "@/components/ApiAuthBridge";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import {
+  AuthLoadingScreen,
+  AuthUnavailableScreen,
+} from "@/components/ConnectionScreens";
+import { useClerkStatus } from "@/lib/clerk-status";
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -43,8 +49,24 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="booking/[id]" />
+      <Stack.Screen name="booking-form-settings" />
+      <Stack.Screen name="calls" />
+      <Stack.Screen name="leads" />
+      <Stack.Screen name="call/[id]" />
+      <Stack.Screen name="messages/[id]" />
+      <Stack.Screen name="team-chat/[id]" />
     </Stack>
   );
+}
+
+/**
+ * What the user looks at while Clerk starts. If Clerk can't start at all
+ * (offline at launch, its servers unreachable) waiting forever helps nobody,
+ * so say what to do instead of spinning.
+ */
+function BootScreen() {
+  const status = useClerkStatus();
+  return status === "error" ? <AuthUnavailableScreen /> : <AuthLoadingScreen />;
 }
 
 export default function RootLayout() {
@@ -69,6 +91,17 @@ export default function RootLayout() {
       tokenCache={tokenCache}
       proxyUrl={proxyUrl}
     >
+      {/*
+        The session is kept in expo-secure-store and read back asynchronously
+        on launch. Show the brand while that read happens: rendering nothing
+        lets the first frame look signed out, and anything that routes off
+        `isSignedIn` would bounce a returning user to the password screen.
+      */}
+      <ClerkLoading>
+        <SafeAreaProvider>
+          <BootScreen />
+        </SafeAreaProvider>
+      </ClerkLoading>
       <ClerkLoaded>
         <SafeAreaProvider>
           <ErrorBoundary>
@@ -76,7 +109,9 @@ export default function RootLayout() {
               <GestureHandlerRootView>
                 <KeyboardProvider>
                   <StatusBar style="light" />
-                  <RootLayoutNav />
+                  <ApiAuthBridge>
+                    <RootLayoutNav />
+                  </ApiAuthBridge>
                 </KeyboardProvider>
               </GestureHandlerRootView>
             </QueryClientProvider>

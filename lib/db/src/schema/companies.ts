@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   serial,
+  integer,
   boolean,
   timestamp,
   jsonb,
@@ -44,6 +45,22 @@ export const companiesTable = pgTable("companies", {
   name: text("name").notNull(),
   greeting: text("greeting").notNull().default(""),
   collectFields: text("collect_fields").array().notNull().default([]),
+  // Which booking-form boxes must be filled before a booking can be saved,
+  // by field key (name, phone, email, address, service, time). Empty — the
+  // default — means everything is optional except the date: the owner asked
+  // to save a booking with whatever they have, and a booking still has to
+  // land somewhere on the calendar. The dashboard, the Bookings dialog and
+  // the phone app all read this one list, so the three forms can't disagree.
+  bookingRequiredFields: text("booking_required_fields")
+    .array()
+    .notNull()
+    .default([]),
+  // How many minutes after a call ends the mobile "Take booking" shortcut
+  // stays on completed/missed rows. Busier receptions raise it, tidier ones
+  // lower it; 30 matches the old hardcoded window.
+  recentCallWindowMinutes: integer("recent_call_window_minutes")
+    .notNull()
+    .default(30),
   customQuestions: jsonb("custom_questions")
     .$type<CustomQuestion[]>()
     .notNull()
@@ -63,6 +80,13 @@ export const companiesTable = pgTable("companies", {
   // IANA zone used when writing appointment times into customer-facing text.
   // Without this a quote would quote UTC and promise the wrong hour.
   timezone: text("timezone").notNull().default("America/Edmonton"),
+  // Short code the crew types when signing up, so they land as a request to
+  // join THIS company instead of creating an empty one of their own. It is not
+  // a credential: it only decides which owner sees the request, and nothing
+  // happens until that owner (or a dispatcher) approves it. Generated the
+  // first time the Staff page asks for it, so existing companies get one
+  // without a backfill.
+  joinCode: text("join_code").unique(),
   // Quote maths. Jobs are priced by the hour, at a rate that depends on how
   // many cleaners are sent. Defaults are Tidyups' real numbers.
   quoteRateSolo: doublePrecision("quote_rate_solo").notNull().default(52.5),
@@ -99,10 +123,77 @@ export const companiesTable = pgTable("companies", {
     withTimezone: true,
   }),
   jobberOauth: jsonb("jobber_oauth").$type<JobberOauthState | null>(),
+  // Quote-pull cursor: quotes updated up to this instant have all been
+  // mirrored into jobber_quotes. Advances only when a pull read every page
+  // Jobber offered — never derived from mirrored rows, because a capped pull
+  // also writes rows and would silently advance a row-derived watermark past
+  // updates on the pages it never saw.
+  jobberQuotesSyncedThrough: timestamp("jobber_quotes_synced_through", {
+    withTimezone: true,
+  }),
+  // Set on the first backfill run (whenever no watermark exists and this
+  // marker is null) so that a completing backfill can set the watermark back
+  // to this point in time — covering the entire multi-run backfill window,
+  // not just the last hour. Cleared when the backfill completes.
+  jobberQuotesBackfillStartedAt: timestamp(
+    "jobber_quotes_backfill_started_at",
+    { withTimezone: true },
+  ),
+  // Persists the Jobber pagination endCursor from the last capped backfill
+  // run. The next run resumes from this cursor so a tie group of quotes
+  // sharing one createdAt second can span multiple runs without looping
+  // forever on the same filter floor. Cleared when the backfill completes.
+  jobberQuotesBackfillEndCursor: text("jobber_quotes_backfill_end_cursor"),
+  // The exact createdAt filter floor that was active when backfillEndCursor
+  // was saved. Jobber pagination cursors are query-scoped: a cursor issued
+  // against { createdAt > "2024-01-01" } is only valid for subsequent pages
+  // of that exact query. Storing the floor alongside the cursor guarantees
+  // the resuming run submits the identical filter. Cleared with the cursor.
+  jobberQuotesBackfillFilterFloor: text("jobber_quotes_backfill_filter_floor"),
+  // Request-pull cursor, same contract as the quote cursor above: advances
+  // only on a complete pull, never derived from imported rows.
+  jobberRequestsSyncedThrough: timestamp("jobber_requests_synced_through", {
+    withTimezone: true,
+  }),
+  // Resumable request backfill, the same three-marker contract as the quote
+  // backfill above. Requests need the saved-cursor form outright: the pull
+  // sorts by REQUESTED_AT while filtering on updatedAt, and imported requests
+  // become bookings rather than mirror rows, so no row-derived floor can ever
+  // resume a capped run — only Jobber's own pagination cursor can.
+  jobberRequestsBackfillStartedAt: timestamp(
+    "jobber_requests_backfill_started_at",
+    { withTimezone: true },
+  ),
+  jobberRequestsBackfillEndCursor: text("jobber_requests_backfill_end_cursor"),
+  jobberRequestsBackfillFilterFloor: text(
+    "jobber_requests_backfill_filter_floor",
+  ),
+  // Invoice-pull cursor, same contract again: advances only on a complete
+  // pull, never derived from mirrored rows.
+  jobberInvoicesSyncedThrough: timestamp("jobber_invoices_synced_through", {
+    withTimezone: true,
+  }),
+  // One-time calendar history catch-up (see jobberHistoryCatchup.ts): visits
+  // from the pinned history floor (Aug 2026) up to the rolling window's back
+  // edge, for companies connecting after the window has moved past the floor.
+  // `syncedTo` is the YYYY-MM-DD day imported through so far — a resume
+  // cursor that advances only on a complete slice pull. `backfilledAt` marks
+  // the catch-up finished; once set it never runs again.
+  jobberHistorySyncedTo: text("jobber_history_synced_to"),
+  jobberHistoryBackfilledAt: timestamp("jobber_history_backfilled_at", {
+    withTimezone: true,
+  }),
   // Set when we learn the stored tokens are dead (refresh rejected, or Jobber
   // told us the app was disconnected) so the UI can prompt a reconnect instead
   // of offering a sync that is guaranteed to fail.
   jobberNeedsReauth: boolean("jobber_needs_reauth").notNull().default(false),
+  /**
+   * How many roster slots — filled staff cards plus "Open seat" placeholders —
+   * the Team page shows. Owners can raise it beyond the default of 20.
+   * The default of 20 fits the "15 Jobber staff + 5 open slots" model most
+   * single-crew companies start with.
+   */
+  rosterCapacity: integer("roster_capacity").notNull().default(20),
   // Quo integration — company brings their own Quo workspace key
   quoConnected: boolean("quo_connected").notNull().default(false),
   quoWorkspaceName: text("quo_workspace_name"),
@@ -125,6 +216,12 @@ export const companiesTable = pgTable("companies", {
   // immediately even while a failed text is being retried by the hourly
   // health check.
   quoNotifyPending: text("quo_notify_pending"),
+  // The shop's own spot on the map. Set when the owner marks a device as the
+  // office: the office marker is ALWAYS drawn here, never at whatever the
+  // browser's geolocation last claimed, so a bad reading can't move the shop.
+  officeAddress: text("office_address"),
+  officeLat: doublePrecision("office_lat"),
+  officeLng: doublePrecision("office_lng"),
   receptionistConfigured: boolean("receptionist_configured")
     .notNull()
     .default(false),

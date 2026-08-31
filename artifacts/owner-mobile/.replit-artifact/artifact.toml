@@ -9,7 +9,7 @@ router = "expo-domain"
 [[services]]
 name = "expo"
 ensurePreviewReachable = "/status"
-paths = [ "/owner-mobile/" ]
+paths = [ "/owner-mobile" ]
 localPort = 24174
 
 [services.development]

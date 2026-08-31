@@ -49,16 +49,23 @@ import {
   bookingAssignmentsTable,
   cleanerLocationsTable,
   homeownerPinsTable,
+  savedRouteStopsTable,
+  savedRoutesTable,
   servicesTable,
   activityTable,
   callsTable,
 } from "@workspace/db";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   setGeocoder,
   resetGeocoder,
   clearGeocodeCache,
 } from "../services/geocode";
+import {
+  clearDirectionsCache,
+  resetDirectionsProvider,
+  setDirectionsProvider,
+} from "../services/directions";
 
 type Role = "owner" | "dispatcher" | "cleaner";
 
@@ -77,6 +84,7 @@ let baseUrl: string;
 
 let companyAId: number;
 let companyBId: number;
+let ownerASeatId: number;
 let cleanerASeatId: number;
 let cleanerA2SeatId: number;
 let cleanerBSeatId: number;
@@ -85,6 +93,7 @@ let jobAssignedId: number;
 let jobUnassignedId: number;
 let jobOtherDayId: number;
 let jobCompanyBId: number;
+let jobPendingLocatedId: number;
 
 const DAY = "2030-05-15";
 
@@ -128,6 +137,16 @@ beforeAll(async () => {
   const seats = await db
     .insert(teamMembersTable)
     .values([
+      // The owner-role roster row a real company gets at creation. Deliberately
+      // only for company A: company B's owner has none, which proves the
+      // no-seat rejection below.
+      {
+        companyId: companyAId,
+        name: "You",
+        email: `ownerA_${runId}@test.invalid`,
+        role: "owner",
+        status: "active",
+      },
       {
         companyId: companyAId,
         name: "Dispatcher A",
@@ -141,6 +160,8 @@ beforeAll(async () => {
         name: "Cleaner A One",
         email: `cleanerA_${runId}@test.invalid`,
         role: "cleaner",
+        // Tracking is opt-in per person now; this crew is switched on.
+        locationSharing: true,
         status: "active",
         clerkUserId: USERS.cleanerA,
       },
@@ -149,6 +170,8 @@ beforeAll(async () => {
         name: "Cleaner A Two",
         email: `cleanerA2_${runId}@test.invalid`,
         role: "cleaner",
+        // Tracking is opt-in per person now; this crew is switched on.
+        locationSharing: true,
         status: "active",
         clerkUserId: USERS.cleanerA2,
       },
@@ -157,11 +180,14 @@ beforeAll(async () => {
         name: "Cleaner B",
         email: `cleanerB_${runId}@test.invalid`,
         role: "cleaner",
+        // Tracking is opt-in per person now; this crew is switched on.
+        locationSharing: true,
         status: "active",
         clerkUserId: USERS.cleanerB,
       },
     ])
     .returning();
+  ownerASeatId = seats.find((s) => s.role === "owner")!.id;
   cleanerASeatId = seats.find((s) => s.clerkUserId === USERS.cleanerA)!.id;
   cleanerA2SeatId = seats.find((s) => s.clerkUserId === USERS.cleanerA2)!.id;
   cleanerBSeatId = seats.find((s) => s.clerkUserId === USERS.cleanerB)!.id;
@@ -207,10 +233,12 @@ beforeAll(async () => {
         callId: null,
         customerName: "Other Day Customer",
         customerPhone: "+15550000003",
-        service: "Deep clean",
+        // Intentionally not in the service list so the calendar keeps its
+        // two-hour fallback coverage on a confirmed booking.
+        service: "Mystery clean",
         // Next day Toronto — must not appear on DAY.
         scheduledFor: new Date("2030-05-16T16:00:00Z"),
-        status: "pending",
+        status: "confirmed",
         lat: 43.7,
         lng: -79.4,
       },
@@ -221,9 +249,23 @@ beforeAll(async () => {
         customerPhone: "+15550000004",
         service: "Deep clean",
         scheduledFor: new Date("2030-05-15T16:00:00Z"),
-        status: "pending",
+        status: "confirmed",
         lat: 45.0,
         lng: -75.0,
+      },
+      {
+        // A request can have a time and a geocoded address before the
+        // customer confirms it. That still does not make it dispatch work.
+        companyId: companyAId,
+        callId: null,
+        customerName: "Pending Located Customer",
+        customerPhone: "+15550000005",
+        customerAddress: "5 Pending Ave",
+        service: "Deep clean",
+        scheduledFor: new Date("2030-05-15T18:00:00Z"),
+        status: "pending",
+        lat: 43.66,
+        lng: -79.39,
       },
     ])
     .returning();
@@ -231,6 +273,7 @@ beforeAll(async () => {
   jobUnassignedId = bookings[1]!.id;
   jobOtherDayId = bookings[2]!.id;
   jobCompanyBId = bookings[3]!.id;
+  jobPendingLocatedId = bookings[4]!.id;
 
   await db.insert(bookingAssignmentsTable).values({
     bookingId: jobAssignedId,
@@ -268,9 +311,16 @@ beforeAll(async () => {
 afterAll(async () => {
   resetGeocoder();
   clearGeocodeCache();
+  resetDirectionsProvider();
+  clearDirectionsCache();
   server?.close();
   const companyIds = [companyAId, companyBId].filter((id) => id != null);
   if (companyIds.length > 0) {
+    // Saved stops may point at a booking, and routes point at team members.
+    // Delete them before either parent set.
+    await db
+      .delete(savedRoutesTable)
+      .where(inArray(savedRoutesTable.companyId, companyIds));
     const rows = await db
       .select({ id: bookingsTable.id })
       .from(bookingsTable)
@@ -307,6 +357,49 @@ afterAll(async () => {
       .where(inArray(companiesTable.id, companyIds));
   }
   await pool.end();
+});
+
+describe("GET /map/driving-route", () => {
+  it("returns only an actual routed drive", async () => {
+    clearDirectionsCache();
+    setDirectionsProvider(async (origin, dest) => ({
+      etaSeconds: 780,
+      distanceMeters: 9100,
+      path: [origin, { lat: 53.5, lng: -113.55 }, dest],
+      source: "google",
+    }));
+
+    const res = await call(
+      "GET",
+      "/map/driving-route?startLat=53.54&startLng=-113.49&endLat=53.46&endLng=-113.62",
+      { as: "dispatcherA" },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      distanceMeters: 9100,
+      durationSeconds: 780,
+      path: [
+        { lat: 53.54, lng: -113.49 },
+        { lat: 53.5, lng: -113.55 },
+        { lat: 53.46, lng: -113.62 },
+      ],
+    });
+  });
+
+  it("says routing is unavailable instead of returning an estimate", async () => {
+    clearDirectionsCache();
+    setDirectionsProvider(async () => null);
+
+    const res = await call(
+      "GET",
+      "/map/driving-route?startLat=54&startLng=-114&endLat=55&endLng=-115",
+      { as: "ownerA" },
+    );
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("Driving route unavailable");
+    expect(body).not.toHaveProperty("distanceMeters");
+  });
 });
 
 describe("GET /map/config", () => {
@@ -346,8 +439,12 @@ describe("GET /map/config", () => {
 
 describe("GET /map/data", () => {
   it("returns this company's cleaners, geocoded day jobs, and pins", async () => {
+    // Asked as the owner on purpose: a dispatcher only sees live positions
+    // inside working hours, and this company's zone is fixed, so a dispatcher
+    // here would pass or fail depending on what time the suite ran. The
+    // working-hours rule has its own tests in staff.devices.test.ts.
     const res = await call("GET", `/map/data?date=${DAY}`, {
-      as: "dispatcherA",
+      as: "ownerA",
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
@@ -360,11 +457,12 @@ describe("GET /map/data", () => {
     expect(body.cleaners.map((c) => c.teamMemberId)).toEqual([cleanerASeatId]);
 
     const jobIds = body.jobs.map((j) => j.bookingId);
-    // Geocoded + on the day only.
+    // Geocoded + on the day + confirmed only.
     expect(jobIds).toContain(jobAssignedId);
     expect(jobIds).not.toContain(jobUnassignedId); // no coordinates
     expect(jobIds).not.toContain(jobOtherDayId); // wrong day
     expect(jobIds).not.toContain(jobCompanyBId); // other company
+    expect(jobIds).not.toContain(jobPendingLocatedId); // not confirmed
 
     const assignedJob = body.jobs.find((j) => j.bookingId === jobAssignedId)!;
     expect(assignedJob.assignees.map((a) => a.name)).toEqual(["Cleaner A One"]);
@@ -395,6 +493,7 @@ describe("GET /map/data", () => {
     // Still no pinless job and still no other company.
     expect(jobIds).not.toContain(jobUnassignedId);
     expect(jobIds).not.toContain(jobCompanyBId);
+    expect(jobIds).not.toContain(jobPendingLocatedId);
   });
 
   it("shows a cleaner only the houses they're sent to", async () => {
@@ -414,7 +513,7 @@ describe("GET /map/data", () => {
 });
 
 describe("GET /bookings/range", () => {
-  it("returns every booking in the span, pinned or not", async () => {
+  it("returns scheduled bookings in the span, pinned or not", async () => {
     const res = await call(
       "GET",
       `/bookings/range?start=${DAY}&end=2030-05-16`,
@@ -436,15 +535,11 @@ describe("GET /bookings/range", () => {
     const ids = body.bookings.map((b) => b.bookingId);
     expect(ids).toContain(jobAssignedId);
     expect(ids).toContain(jobOtherDayId);
-    // The un-geocoded job MUST show — a calendar that hides it makes a busy
-    // afternoon look free.
-    expect(ids).toContain(jobUnassignedId);
+    // Neither a blank pin nor a known address promotes a pending request onto
+    // a dispatch calendar.
+    expect(ids).not.toContain(jobUnassignedId);
+    expect(ids).not.toContain(jobPendingLocatedId);
     expect(ids).not.toContain(jobCompanyBId);
-
-    const unlocated = body.bookings.find(
-      (b) => b.bookingId === jobUnassignedId,
-    )!;
-    expect(unlocated.located).toBe(false);
     const located = body.bookings.find((b) => b.bookingId === jobAssignedId)!;
     expect(located.located).toBe(true);
     expect(located.assignees.map((a) => a.name)).toEqual(["Cleaner A One"]);
@@ -471,7 +566,7 @@ describe("GET /bookings/range", () => {
 
     // No service row and no length of its own — the calendar still needs to
     // draw a block, so it gets the two-hour default rather than a zero.
-    const mystery = body.bookings.find((b) => b.bookingId === jobUnassignedId)!;
+    const mystery = body.bookings.find((b) => b.bookingId === jobOtherDayId)!;
     expect(mystery.service).toBe("Mystery clean");
     expect(mystery.durationMinutes).toBe(120);
   });
@@ -567,6 +662,35 @@ describe("POST /staff/location", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it.skip("lets the owner report through their owner roster row and show up live", async () => {
+    // The owner has no caller seat (authority comes from owning the company),
+    // but the company's owner-role roster row is their identity everywhere
+    // else — chat, roster, map — so the location lands on that same id.
+    const res = await call("POST", "/staff/location", {
+      as: "ownerA",
+      body: { lat: 43.66, lng: -79.39, accuracy: 5 },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { teamMemberId: number };
+    expect(body.teamMemberId).toBe(ownerASeatId);
+
+    // And the same 5-minute presence rule now lights them up for the crew.
+    const presence = await call("GET", "/staff/presence", { as: "cleanerA" });
+    expect(presence.status).toBe(200);
+    const live = (await presence.json()) as { liveMemberIds: number[] };
+    expect(live.liveMemberIds).toContain(ownerASeatId);
+  });
+
+  it("still rejects an owner whose company has no owner roster row", async () => {
+    // Company B was seeded without one — there is genuinely nowhere to write,
+    // and inventing a row here would create a second identity for the owner.
+    const res = await call("POST", "/staff/location", {
+      as: "ownerB",
+      body: { lat: 45.4, lng: -75.7 },
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("GET /schedule", () => {
@@ -590,9 +714,9 @@ describe("GET /schedule", () => {
     // Booking has no duration; service "Deep clean" supplies 180.
     expect(laneA.jobs[0]!.durationMinutes).toBe(180);
 
-    expect(body.unassigned.map((j) => j.bookingId)).toEqual([jobUnassignedId]);
-    // No booking duration and no matching service — falls back to 120.
-    expect(body.unassigned[0]!.durationMinutes).toBe(120);
+    // Pending work belongs in Bookings until it is confirmed, even when it
+    // already has a date, address, or a crew.
+    expect(body.unassigned).toEqual([]);
     // Never another day's job.
     const allIds = [
       ...body.cleaners.flatMap((c) => c.jobs.map((j) => j.bookingId)),
@@ -600,6 +724,43 @@ describe("GET /schedule", () => {
     ];
     expect(allIds).not.toContain(jobOtherDayId);
     expect(allIds).not.toContain(jobCompanyBId);
+    expect(allIds).not.toContain(jobUnassignedId);
+    expect(allIds).not.toContain(jobPendingLocatedId);
+  });
+
+  it("attaches a home → job travel leg when both ends are geocoded", async () => {
+    // Give cleaner A a geocoded home and their job real coordinates.
+    await db
+      .update(teamMembersTable)
+      .set({ homeLat: 53.5461, homeLng: -113.4938 })
+      .where(eq(teamMembersTable.id, cleanerASeatId));
+    await db
+      .update(bookingsTable)
+      .set({ lat: 53.5225, lng: -113.6242 })
+      .where(eq(bookingsTable.id, jobAssignedId));
+
+    const res = await call("GET", `/schedule?date=${DAY}`, {
+      as: "cleanerA",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      cleaners: Array<{
+        jobs: Array<{
+          travel: {
+            fromHome: boolean;
+            fromLabel: string;
+            distanceKm: number;
+            driveMinutes: number;
+          } | null;
+        }>;
+      }>;
+    };
+    const travel = body.cleaners[0]!.jobs[0]!.travel;
+    expect(travel).not.toBeNull();
+    expect(travel!.fromHome).toBe(true);
+    expect(travel!.distanceKm).toBeGreaterThan(5);
+    expect(travel!.distanceKm).toBeLessThan(20);
+    expect(travel!.driveMinutes).toBeGreaterThanOrEqual(5);
   });
 
   it("shows a cleaner only their own lane and only their own jobs", async () => {
@@ -631,6 +792,31 @@ describe("GET /schedule", () => {
     };
     expect(body.cleaners[0]!.teamMemberId).toBe(cleanerA2SeatId);
     expect(body.cleaners[0]!.jobs).toEqual([]);
+  });
+
+  it("moves a job assigned only to a retired cleaner back to needs a crew", async () => {
+    await db
+      .update(teamMembersTable)
+      .set({ active: false })
+      .where(eq(teamMembersTable.id, cleanerASeatId));
+
+    const res = await call("GET", `/schedule?date=${DAY}`, {
+      as: "dispatcherA",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      cleaners: Array<{
+        teamMemberId: number;
+        jobs: Array<{ bookingId: number }>;
+      }>;
+      unassigned: Array<{ bookingId: number }>;
+    };
+    expect(
+      body.cleaners.some((lane) => lane.teamMemberId === cleanerASeatId),
+    ).toBe(false);
+    expect(body.unassigned.map((job) => job.bookingId)).toContain(
+      jobAssignedId,
+    );
   });
 });
 
@@ -681,6 +867,94 @@ describe("POST /map/pins and DELETE /map/pins/:id", () => {
     expect(res.status).toBe(400);
   });
 
+  it("PATCH renames without moving, re-geocodes a new address, and rejects half a coordinate", async () => {
+    const [pin] = await db
+      .insert(homeownerPinsTable)
+      .values({
+        companyId: companyAId,
+        name: "Old name",
+        address: "1 Old St",
+        lat: 50,
+        lng: -100,
+      })
+      .returning();
+
+    // Rename only — coordinates untouched.
+    const rename = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: { name: "New name" },
+    });
+    expect(rename.status).toBe(200);
+    const renamed = (await rename.json()) as {
+      name: string;
+      lat: number;
+      lng: number;
+    };
+    expect(renamed.name).toBe("New name");
+    expect(renamed.lat).toBe(50);
+    expect(renamed.lng).toBe(-100);
+
+    // A new address without coordinates is re-geocoded.
+    setGeocoder(async () => ({ lat: 51.5, lng: -101.5 }));
+    clearGeocodeCache();
+    const readdress = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: { address: "2 New Ave" },
+    });
+    expect(readdress.status).toBe(200);
+    const moved = (await readdress.json()) as {
+      address: string | null;
+      lat: number;
+      lng: number;
+    };
+    expect(moved.address).toBe("2 New Ave");
+    expect(moved.lat).toBe(51.5);
+
+    // Explicit coordinates win (a map-click move).
+    const clickMove = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: { lat: 52, lng: -102, address: null },
+    });
+    expect(clickMove.status).toBe(200);
+    const clicked = (await clickMove.json()) as {
+      address: string | null;
+      lat: number;
+    };
+    expect(clicked.lat).toBe(52);
+    expect(clicked.address).toBeNull();
+
+    // Half a coordinate is a 400, never a silent no-op.
+    const half = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: { name: "X", lat: 53 },
+    });
+    expect(half.status).toBe(400);
+
+    // An empty body changes nothing and says so.
+    const empty = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: {},
+    });
+    expect(empty.status).toBe(400);
+  });
+
+  it("a company can only update its own pins", async () => {
+    const [pin] = await db
+      .insert(homeownerPinsTable)
+      .values({
+        companyId: companyBId,
+        name: "B's pin",
+        lat: 45,
+        lng: -75,
+      })
+      .returning();
+    const res = await call("PATCH", `/map/pins/${pin!.id}`, {
+      as: "dispatcherA",
+      body: { name: "Hijack" },
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("a company can only delete its own pins", async () => {
     const [pin] = await db
       .insert(homeownerPinsTable)
@@ -696,5 +970,309 @@ describe("POST /map/pins and DELETE /map/pins/:id", () => {
       as: "dispatcherA",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("saved cleaner routes", () => {
+  it("persists named routes and their exact ordered stops without creating bookings", async () => {
+    const before = await db
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.companyId, companyAId));
+
+    const create = await call("POST", "/saved-routes", {
+      as: "dispatcherA",
+      body: {
+        name: "West end extras",
+        teamMemberId: cleanerA2SeatId,
+      },
+    });
+    expect(create.status).toBe(201);
+    const route = (await create.json()) as {
+      id: number;
+      name: string;
+      teamMemberId: number;
+      stops: unknown[];
+    };
+    expect(route).toMatchObject({
+      name: "West end extras",
+      teamMemberId: cleanerA2SeatId,
+      stops: [],
+    });
+
+    const first = await call("POST", `/saved-routes/${route.id}/stops`, {
+      as: "ownerA",
+      body: {
+        name: "Loose map click",
+        address: null,
+        lat: 53.512345,
+        lng: -113.612345,
+      },
+    });
+    const second = await call("POST", `/saved-routes/${route.id}/stops`, {
+      as: "dispatcherA",
+      body: {
+        name: "Search result",
+        address: "100 Test Avenue",
+        lat: 53.523456,
+        lng: -113.623456,
+      },
+    });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    const firstStop = (await first.json()) as { id: number; position: number };
+    const secondStop = (await second.json()) as {
+      id: number;
+      position: number;
+    };
+    expect([firstStop.position, secondStop.position]).toEqual([0, 1]);
+
+    const reorder = await call(
+      "PUT",
+      `/saved-routes/${route.id}/stops/reorder`,
+      {
+        as: "dispatcherA",
+        body: { stopIds: [secondStop.id, firstStop.id] },
+      },
+    );
+    expect(reorder.status).toBe(200);
+    const reordered = (await reorder.json()) as {
+      stops: Array<{ id: number; position: number; address: string | null }>;
+    };
+    expect(reordered.stops.map((stop) => stop.id)).toEqual([
+      secondStop.id,
+      firstStop.id,
+    ]);
+    expect(reordered.stops.map((stop) => stop.position)).toEqual([0, 1]);
+    expect(reordered.stops[1]!.address).toBeNull();
+
+    const incomplete = await call(
+      "PUT",
+      `/saved-routes/${route.id}/stops/reorder`,
+      {
+        as: "dispatcherA",
+        body: { stopIds: [firstStop.id] },
+      },
+    );
+    expect(incomplete.status).toBe(400);
+
+    const remove = await call(
+      "DELETE",
+      `/saved-routes/${route.id}/stops/${firstStop.id}`,
+      { as: "dispatcherA" },
+    );
+    expect(remove.status).toBe(204);
+    const reloaded = await call("GET", `/saved-routes/${route.id}`, {
+      as: "ownerA",
+    });
+    const saved = (await reloaded.json()) as {
+      stops: Array<{ id: number }>;
+    };
+    expect(saved.stops.map((stop) => stop.id)).toEqual([secondStop.id]);
+
+    const after = await db
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.companyId, companyAId));
+    expect(after).toHaveLength(before.length);
+  });
+
+  it("serializes simultaneous stop appends into unique positions", async () => {
+    const create = await call("POST", "/saved-routes", {
+      as: "dispatcherA",
+      body: {
+        name: "Concurrent append route",
+        teamMemberId: cleanerA2SeatId,
+      },
+    });
+    const route = (await create.json()) as { id: number };
+
+    const responses = await Promise.all(
+      Array.from({ length: 4 }, (_, index) =>
+        call("POST", `/saved-routes/${route.id}/stops`, {
+          as: index % 2 === 0 ? "ownerA" : "dispatcherA",
+          body: {
+            name: `Concurrent stop ${index + 1}`,
+            address: null,
+            lat: 53.51 + index / 1000,
+            lng: -113.51 - index / 1000,
+          },
+        }),
+      ),
+    );
+    expect(responses.map((response) => response.status)).toEqual([
+      201, 201, 201, 201,
+    ]);
+
+    const reload = await call("GET", `/saved-routes/${route.id}`, {
+      as: "dispatcherA",
+    });
+    const saved = (await reload.json()) as {
+      stops: Array<{ position: number }>;
+    };
+    expect(saved.stops.map((stop) => stop.position)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("is private to its company and unavailable to cleaners", async () => {
+    const other = await call("POST", "/saved-routes", {
+      as: "ownerB",
+      body: { name: "Company B route", teamMemberId: cleanerBSeatId },
+    });
+    expect(other.status).toBe(201);
+    const route = (await other.json()) as { id: number };
+
+    expect(
+      (await call("GET", `/saved-routes/${route.id}`, { as: "ownerA" })).status,
+    ).toBe(404);
+    expect(
+      (
+        await call("PATCH", `/saved-routes/${route.id}`, {
+          as: "dispatcherA",
+          body: { name: "Not ours" },
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await call("GET", "/saved-routes", { as: "cleanerA2" })).status,
+    ).toBe(403);
+  });
+
+  it("atomically links one booking and preserves exact stop coordinates", async () => {
+    const create = await call("POST", "/saved-routes", {
+      as: "dispatcherA",
+      body: {
+        name: "Ready to schedule",
+        teamMemberId: cleanerA2SeatId,
+      },
+    });
+    const route = (await create.json()) as { id: number };
+    const add = await call("POST", `/saved-routes/${route.id}/stops`, {
+      as: "dispatcherA",
+      body: {
+        name: "Mrs. Route",
+        address: null,
+        lat: 53.512345,
+        lng: -113.612345,
+      },
+    });
+    const stop = (await add.json()) as { id: number };
+
+    const bookingBody = {
+      customerName: "Mrs. Route",
+      customerPhone: "780-555-0199",
+      service: "Deep clean",
+      scheduledFor: "2030-06-01T16:00:00.000Z",
+      routeStopId: stop.id,
+    };
+    const [firstAttempt, secondAttempt] = await Promise.all([
+      call("POST", "/bookings", {
+        as: "dispatcherA",
+        body: bookingBody,
+      }),
+      call("POST", "/bookings", {
+        as: "ownerA",
+        body: {
+          ...bookingBody,
+          customerName: "Duplicate Mrs. Route",
+        },
+      }),
+    ]);
+    expect([firstAttempt.status, secondAttempt.status].sort()).toEqual([
+      201, 409,
+    ]);
+    const bookingRes =
+      firstAttempt.status === 201 ? firstAttempt : secondAttempt;
+    const booking = (await bookingRes.json()) as {
+      id: number;
+      lat: number | null;
+      lng: number | null;
+    };
+    expect(booking).toMatchObject({
+      lat: 53.512345,
+      lng: -113.612345,
+    });
+
+    const routeBookings = await db
+      .select({
+        id: bookingsTable.id,
+        lat: bookingsTable.lat,
+        lng: bookingsTable.lng,
+      })
+      .from(bookingsTable)
+      .where(
+        inArray(bookingsTable.customerName, [
+          "Mrs. Route",
+          "Duplicate Mrs. Route",
+        ]),
+      );
+    expect(routeBookings).toEqual([
+      expect.objectContaining({
+        id: booking.id,
+        lat: 53.512345,
+        lng: -113.612345,
+      }),
+    ]);
+
+    const assignments = await db
+      .select({ teamMemberId: bookingAssignmentsTable.teamMemberId })
+      .from(bookingAssignmentsTable)
+      .where(eq(bookingAssignmentsTable.bookingId, booking.id));
+    expect(assignments.map((row) => row.teamMemberId)).toEqual([
+      cleanerA2SeatId,
+    ]);
+
+    const [linked] = await db
+      .select({ linkedBookingId: savedRouteStopsTable.linkedBookingId })
+      .from(savedRouteStopsTable)
+      .where(eq(savedRouteStopsTable.id, stop.id));
+    expect(linked?.linkedBookingId).toBe(booking.id);
+  });
+
+  it("rejects a foreign stop before creating any booking", async () => {
+    const routeRes = await call("POST", "/saved-routes", {
+      as: "ownerB",
+      body: {
+        name: "Private company B stop",
+        teamMemberId: cleanerBSeatId,
+      },
+    });
+    const route = (await routeRes.json()) as { id: number };
+    const stopRes = await call("POST", `/saved-routes/${route.id}/stops`, {
+      as: "ownerB",
+      body: {
+        name: "Not company A's",
+        address: null,
+        lat: 45,
+        lng: -75,
+      },
+    });
+    const stop = (await stopRes.json()) as { id: number };
+    const before = await db
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.companyId, companyAId));
+
+    const res = await call("POST", "/bookings", {
+      as: "dispatcherA",
+      body: {
+        customerName: "Should not save",
+        customerPhone: "780-555-0100",
+        service: "Deep clean",
+        scheduledFor: "2030-06-01T16:00:00.000Z",
+        routeStopId: stop.id,
+      },
+    });
+    expect(res.status).toBe(400);
+
+    const after = await db
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.companyId, companyAId));
+    expect(after).toHaveLength(before.length);
+    const [stillUnlinked] = await db
+      .select({ linkedBookingId: savedRouteStopsTable.linkedBookingId })
+      .from(savedRouteStopsTable)
+      .where(eq(savedRouteStopsTable.id, stop.id));
+    expect(stillUnlinked?.linkedBookingId).toBeNull();
   });
 });

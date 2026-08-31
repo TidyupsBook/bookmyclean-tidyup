@@ -18,6 +18,7 @@ import {
   RefreshPublicQuotePaymentParams,
 } from "@workspace/api-zod";
 import { computeQuoteTotals, formatAppointment } from "../lib/quotes";
+import { customerLabel, depositPaidMessage } from "../lib/bookingFormat";
 import { publicBaseUrl } from "../lib/publicUrl";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { logger } from "../lib/logger";
@@ -127,14 +128,10 @@ async function claimDepositPaid(
   if (!claimed) return booking;
 
   try {
-    const amount =
-      amountTotalCents != null
-        ? `$${(amountTotalCents / 100).toFixed(2)}`
-        : "their deposit";
     await db.insert(activityTable).values({
       companyId: company.id,
       type: "deposit_paid",
-      message: `${booking.customerName} paid ${amount} toward ${booking.service}.`,
+      message: depositPaidMessage(booking, booking.service, amountTotalCents),
     });
   } catch (err) {
     // The money is recorded; a missing feed entry must not undo that.
@@ -205,7 +202,9 @@ async function buildPublicQuote(company: Company, booking: Booking) {
 
   return {
     companyName: company.name,
-    customerName: booking.customerName,
+    // The customer page addresses its reader; a nameless quote shows the
+    // phone number it was sent to rather than an empty heading.
+    customerName: customerLabel(booking),
     customerAddress: booking.customerAddress,
     service: booking.service,
     serviceDescription: service?.description ?? null,
@@ -324,7 +323,7 @@ router.post("/quote/:token/pay", async (req, res): Promise<void> => {
       metadata: {
         bookingId: String(booking.id),
         companyId: String(company.id),
-        customerName: booking.customerName,
+        customerName: customerLabel(booking),
       },
     });
 
@@ -447,7 +446,7 @@ router.post("/quote/:token/approve", async (req, res): Promise<void> => {
     await db.insert(activityTable).values({
       companyId: company.id,
       type: "quote_approved",
-      message: `${booking.customerName} approved their quote.`,
+      message: `${customerLabel(booking)} approved their quote.`,
     });
   } catch (err) {
     // The approval itself is recorded; a missing feed entry must not make the

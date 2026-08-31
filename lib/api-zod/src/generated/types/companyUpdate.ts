@@ -5,6 +5,7 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { CompanyUpdateBookingRequiredFieldsItem } from './companyUpdateBookingRequiredFieldsItem';
 import type { CustomQuestion } from './customQuestion';
 
 export interface CompanyUpdate {
@@ -52,4 +53,11 @@ export interface CompanyUpdate {
   quoteDepositAmount?: number;
   /** @nullable */
   quoteDepositEmail?: string | null;
+  /** @maxItems 6 */
+  bookingRequiredFields?: CompanyUpdateBookingRequiredFieldsItem[];
+  /**
+     * @minimum 5
+     * @maximum 1440
+     */
+  recentCallWindowMinutes?: number;
 }

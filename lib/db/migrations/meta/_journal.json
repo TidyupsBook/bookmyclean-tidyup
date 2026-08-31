@@ -204,6 +204,419 @@
       "when": 1786151000000,
       "tag": "0028_jobber_time_entry_id",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786161000000,
+      "tag": "0029_company_join_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786165000000,
+      "tag": "0030_pending_texts",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786180000000,
+      "tag": "0031_client_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1786185000000,
+      "tag": "0032_staff_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1786185100000,
+      "tag": "0033_activity_text_payload",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1786185200000,
+      "tag": "0034_staff_message_quo_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1786467000000,
+      "tag": "0035_booking_jobber_invoice",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786520000000,
+      "tag": "0036_booking_jobber_visit",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1786522000000,
+      "tag": "0037_booking_visit_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1786566000000,
+      "tag": "0038_call_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1786652400000,
+      "tag": "0039_booking_invoice_web_uri",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1786738800000,
+      "tag": "0040_activity_call_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1786825200000,
+      "tag": "0041_activity_booking_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1786911600000,
+      "tag": "0042_staff_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1786998000000,
+      "tag": "0043_team_member_title",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1787084400000,
+      "tag": "0044_booking_jobber_property_quote",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1787170800000,
+      "tag": "0045_live_call_dispatching",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1787257200000,
+      "tag": "0046_booking_client_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1787343600000,
+      "tag": "0047_office_device",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1787343700000,
+      "tag": "0048_one_office_per_company",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1787343800000,
+      "tag": "0049_leads",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1787343900000,
+      "tag": "0050_lead_coordinates",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1787344000000,
+      "tag": "0051_drop_google_sample_lead",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1787344100000,
+      "tag": "0052_lead_sync_warning",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1787344200000,
+      "tag": "0053_booking_lead_origin",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1787344300000,
+      "tag": "0054_team_jobber_user_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1787344400000,
+      "tag": "0055_clients_and_jobber_quotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1787344500000,
+      "tag": "0056_booking_required_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1787344600000,
+      "tag": "0057_jobber_pending_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1787344700000,
+      "tag": "0058_jobber_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1787344800000,
+      "tag": "0059_lead_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1787344900000,
+      "tag": "0060_jobber_request_leads",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1787345000000,
+      "tag": "0061_jobber_delivery_completion",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1787345100000,
+      "tag": "0062_lead_jobber_push",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1787345200000,
+      "tag": "0063_jobber_quotes_backfill_cursor",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1787345300000,
+      "tag": "0064_jobber_quotes_backfill_end_cursor",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1787345400000,
+      "tag": "0065_jobber_quotes_backfill_filter_floor",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1787345400001,
+      "tag": "0066_lead_call_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1787345400002,
+      "tag": "0067_tag_check_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1787345400003,
+      "tag": "0068_recent_call_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1787345400004,
+      "tag": "0069_jobber_history_floor",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1787345400005,
+      "tag": "0070_jobber_requests_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1787345400006,
+      "tag": "0071_history_scale_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1787345400007,
+      "tag": "0072_lead_call_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1787345400008,
+      "tag": "0073_jobber_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1787345400009,
+      "tag": "0074_jobber_connections_primary",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1787345400010,
+      "tag": "0075_booking_jobber_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787345400011,
+      "tag": "0076_repair_booking_jobber_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787345400012,
+      "tag": "0077_staff_device_location_health",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787345400013,
+      "tag": "0079_sheet_lead_jobber_push_pending",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787345400014,
+      "tag": "0080_booking_address_line_2",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1787345400015,
+      "tag": "0081_lead_sync_tab_statuses",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1787345400016,
+      "tag": "0082_customer_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1787345400017,
+      "tag": "0083_lead_jobber_push_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1787345400018,
+      "tag": "0084_saved_routes",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1787345400019,
+      "tag": "0085_callers_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1787345400020,
+      "tag": "0086_client_quo_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1787345400021,
+      "tag": "0087_company_repair_audits",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1787345400022,
+      "tag": "0088_booking_jobber_sync_retries",
+      "breakpoints": true
     }
   ]
 }

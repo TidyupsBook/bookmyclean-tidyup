@@ -1,5 +1,7 @@
 # Book My Cleaning (by Tidyups)
 
+> **Canonical app repository:** this is the codebase deployed to [bookmycleaning.net](https://bookmycleaning.net).
+
 A multi-company SaaS AI phone receptionist for residential cleaning companies.
 
 Companies sign up, connect their own Quo (formerly OpenPhone) workspace and choose which
@@ -9,6 +11,17 @@ bookings. Jobber is a convenience, not a requirement — companies without it qu
 schedule and book entirely inside the app.
 
 Live at **https://bookmycleaning.net**.
+
+## Repository identity
+
+This is the canonical Book My Cleaning project for **bookmycleaning.net**.
+
+- GitHub: `tidyups-booking/BookMy_Cleaning_Day1`
+- Branch: `book-my-cleaning`
+- Publish workflow: push changes here, then publish the pushed version from Replit
+
+If the repository or branch above does not match the VS Code checkout, stop and
+switch to the correct project before making changes.
 
 ## How it works
 

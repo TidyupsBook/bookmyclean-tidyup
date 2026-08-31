@@ -18,7 +18,7 @@ import {
 } from "../lib/company";
 import { encryptQuoKey } from "../lib/secretBox";
 import * as quo from "../lib/quo";
-import { publicWebhookUrl } from "../lib/publicUrl";
+import { ownsWebhookHost, publicWebhookUrl } from "../lib/publicUrl";
 
 const router: IRouter = Router();
 
@@ -99,6 +99,15 @@ router.post(
       .where(eq(quoWebhooksTable.companyId, company.id));
     if (apiKey) {
       for (const hook of hooks) {
+        // Rows cloned from the other environment describe ITS live hooks;
+        // deleting those ids on Quo's side would sever its ingestion.
+        if (!ownsWebhookHost(hook.url)) {
+          req.log.warn(
+            { id: hook.quoWebhookId, url: hook.url },
+            "Left another environment's Quo webhook alive; removed only its local row",
+          );
+          continue;
+        }
         try {
           await quo.deleteWebhook(apiKey, hook.quoWebhookId);
         } catch (err) {
@@ -242,6 +251,7 @@ router.post(
             numberIds,
             `${label}-summaries`,
           ),
+          quo.createMessageWebhook(apiKey, url, numberIds, `${label}-messages`),
         ]);
       } catch (err) {
         req.log.error(
@@ -289,6 +299,15 @@ router.post(
     // Old hooks are only removed once the new ones are committed. A failure here
     // leaves a harmless duplicate on Quo's side rather than a gap in coverage.
     for (const hook of previous) {
+      // Never delete a registration that belongs to the other environment —
+      // cloned database rows are how its ids end up in this table.
+      if (!ownsWebhookHost(hook.url)) {
+        req.log.warn(
+          { id: hook.quoWebhookId, url: hook.url },
+          "Left another environment's Quo webhook alive; removed only its local row",
+        );
+        continue;
+      }
       try {
         await quo.deleteWebhook(apiKey, hook.quoWebhookId);
       } catch (err) {

@@ -10,7 +10,7 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { BookingRangeItem } from "@workspace/api-client-react";
-import { colorForTeamMember } from "@/lib/mapMarkers";
+import { colorForTeamMember, firstName, inkFor } from "@/lib/mapMarkers";
 import {
   GRID_START_HOUR,
   GRID_END_HOUR,
@@ -21,7 +21,7 @@ import {
   zonedHour,
 } from "@/lib/mapCalendar";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOUR_PX = 52;
 
 /** Bookings keyed by their company-local YYYY-MM-DD. */
@@ -272,10 +272,13 @@ export function ColumnCalendar({
                 );
                 const top = (clamped - GRID_START_HOUR) * HOUR_PX;
                 const color = blockColor(b);
+                // Ink from the fill, not assumed white: half the roster
+                // palette is pastel, and white text vanishes on those blocks.
+                const ink = inkFor(color);
                 return (
                   <div
                     key={b.bookingId}
-                    className="absolute rounded-md px-1.5 py-1 text-[11px] leading-tight text-white overflow-hidden shadow-sm"
+                    className="absolute rounded-md px-1.5 py-1 text-[11px] leading-tight overflow-hidden shadow-sm"
                     style={{
                       top: top + 1,
                       height: HOUR_PX - 4,
@@ -284,18 +287,54 @@ export function ColumnCalendar({
                       left: 3 + index * 4,
                       right: 3,
                       background: color,
+                      color: ink,
                       opacity: b.status === "canceled" ? 0.45 : 1,
                       textDecoration:
                         b.status === "canceled" ? "line-through" : undefined,
                     }}
-                    title={`${b.customerName} · ${zonedClock(b.scheduledFor, timeZone)}${
-                      b.located ? "" : " · no map pin yet"
-                    }`}
+                    title={`${b.customerName} · ${zonedClock(b.scheduledFor, timeZone)} · ${
+                      b.assignees.length > 0
+                        ? b.assignees.map((a) => a.name).join(", ")
+                        : "Unassigned"
+                    }${b.located ? "" : " · no map pin yet"}`}
+                    data-testid={`calendar-chip-${b.bookingId}`}
                   >
                     <div className="font-semibold truncate">
                       {zonedClock(b.scheduledFor, timeZone)}
                     </div>
                     <div className="truncate opacity-90">{b.customerName}</div>
+                    {/* Who's on it — the block's colour already belongs to the
+                        first cleaner, but a colour is only readable once you've
+                        memorised the crew; the names make it explicit. */}
+                    <div className="flex items-center gap-1.5 text-[10px] opacity-90 overflow-hidden">
+                      {b.assignees.length === 0 ? (
+                        <span className="italic">Unassigned</span>
+                      ) : (
+                        b.assignees.map((a) => (
+                          <span
+                            key={a.teamMemberId}
+                            className="inline-flex items-center gap-0.5 min-w-0"
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0 border"
+                              style={{
+                                background: colorForTeamMember(
+                                  a.teamMemberId,
+                                  a.color,
+                                ),
+                                // The chip's own ink, so the dot keeps an
+                                // edge on light and dark fills alike.
+                                borderColor: "currentColor",
+                              }}
+                              aria-hidden
+                            />
+                            <span className="truncate">
+                              {firstName(a.name)}
+                            </span>
+                          </span>
+                        ))
+                      )}
+                    </div>
                   </div>
                 );
               })}

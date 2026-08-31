@@ -197,12 +197,6 @@ export default function QuotePage() {
                   value={formatMoney(t.taxAmount)}
                 />
               )}
-              {t.feesRate > 0 && (
-                <TotalRow
-                  label={`${t.feesLabel} (${formatRate(t.feesRate)})`}
-                  value={formatMoney(t.feesAmount)}
-                />
-              )}
               <div className="flex justify-between items-baseline pt-3 mt-1 border-t border-border">
                 <span className="font-serif font-bold text-lg">Total</span>
                 <span className="font-bold text-2xl tabular-nums">

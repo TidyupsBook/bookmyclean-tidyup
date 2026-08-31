@@ -72,6 +72,21 @@ export type QuoCall = {
   userId?: string | null;
 };
 
+export type QuoContact = {
+  id: string;
+  externalId?: string | null;
+  source?: string | null;
+};
+
+export type QuoContactInput = {
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  email?: string | null;
+  externalId: string;
+  source: string;
+};
+
 export type QuoTranscriptDialogue = {
   content: string;
   start: number;
@@ -128,6 +143,67 @@ export async function getCall(
     if (err instanceof QuoError && err.status === 404) return null;
     throw err;
   }
+}
+
+export async function listContacts(
+  apiKey: string,
+  externalIds: string[],
+  sources: string[] = [],
+): Promise<QuoContact[]> {
+  // Quo caps contact pages at 50. We only query stable external ids here,
+  // so one page is enough and asking for 100 is rejected before filtering.
+  const params = new URLSearchParams({ maxResults: "50" });
+  for (const externalId of externalIds)
+    params.append("externalIds", externalId);
+  for (const source of sources) params.append("sources", source);
+  const query = `?${params.toString()}`;
+  const res = await quoRequest<{ data: QuoContact[] }>(
+    apiKey,
+    `/contacts${query}`,
+  );
+  return res.data ?? [];
+}
+
+function contactPayload(contact: QuoContactInput) {
+  return {
+    defaultFields: {
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      emails: contact.email ? [{ name: "email", value: contact.email }] : [],
+      phoneNumbers: contact.phone
+        ? [{ name: "phone", value: contact.phone }]
+        : [],
+    },
+    externalId: contact.externalId,
+    source: contact.source,
+  };
+}
+
+export async function createContact(
+  apiKey: string,
+  contact: QuoContactInput,
+): Promise<QuoContact> {
+  const res = await quoRequest<{ data: QuoContact }>(apiKey, "/contacts", {
+    method: "POST",
+    body: JSON.stringify(contactPayload(contact)),
+  });
+  return res.data;
+}
+
+export async function updateContact(
+  apiKey: string,
+  contactId: string,
+  contact: QuoContactInput,
+): Promise<QuoContact> {
+  const res = await quoRequest<{ data: QuoContact }>(
+    apiKey,
+    `/contacts/${contactId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(contactPayload(contact)),
+    },
+  );
+  return res.data;
 }
 
 export async function getTranscript(
@@ -208,6 +284,34 @@ export async function listCallsWithParticipant(
     `/calls?${params.toString()}`,
   );
   return res.data ?? [];
+}
+
+/**
+ * Inbound texts from customers. Registered alongside the call hooks so a
+ * company that connects a line gets both halves of the conversation without a
+ * second setup step.
+ */
+export async function createMessageWebhook(
+  apiKey: string,
+  url: string,
+  resourceIds: string[],
+  label: string,
+): Promise<QuoWebhookRecord> {
+  const res = await quoRequest<{ data: QuoWebhookRecord }>(
+    apiKey,
+    "/webhooks/messages",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        url,
+        label,
+        resourceIds,
+        status: "enabled",
+        events: ["message.received"],
+      }),
+    },
+  );
+  return res.data;
 }
 
 export async function listWebhooks(

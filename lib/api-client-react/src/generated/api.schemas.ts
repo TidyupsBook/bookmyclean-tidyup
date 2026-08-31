@@ -5,8 +5,42 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+export type SearchMatchKind = typeof SearchMatchKind[keyof typeof SearchMatchKind];
+
+
+export const SearchMatchKind = {
+  lead: 'lead',
+  booking: 'booking',
+  client: 'client',
+  team: 'team',
+} as const;
+
+export interface SearchMatch {
+  kind: SearchMatchKind;
+  id: number;
+  name: string;
+  phone?: string | null;
+  detail?: string | null;
+  date?: string | null;
+  status?: string | null;
+}
+
+export interface SearchDirectoryResult {
+  results: SearchMatch[];
+}
+
+export type HealthStatusDatabase = typeof HealthStatusDatabase[keyof typeof HealthStatusDatabase];
+
+
+export const HealthStatusDatabase = {
+  ok: 'ok',
+  paused: 'paused',
+  error: 'error',
+} as const;
+
 export interface HealthStatus {
   status: string;
+  database: HealthStatusDatabase;
 }
 
 export interface CustomQuestion {
@@ -22,6 +56,18 @@ export interface CompanyInput {
      */
   timezone?: string;
 }
+
+export type CompanyUpdateBookingRequiredFieldsItem = typeof CompanyUpdateBookingRequiredFieldsItem[keyof typeof CompanyUpdateBookingRequiredFieldsItem];
+
+
+export const CompanyUpdateBookingRequiredFieldsItem = {
+  name: 'name',
+  phone: 'phone',
+  email: 'email',
+  address: 'address',
+  service: 'service',
+  time: 'time',
+} as const;
 
 export interface CompanyUpdate {
   name?: string;
@@ -68,6 +114,13 @@ export interface CompanyUpdate {
   quoteDepositAmount?: number;
   /** @nullable */
   quoteDepositEmail?: string | null;
+  /** @maxItems 6 */
+  bookingRequiredFields?: CompanyUpdateBookingRequiredFieldsItem[];
+  /**
+     * @minimum 5
+     * @maximum 1440
+     */
+  recentCallWindowMinutes?: number;
 }
 
 export interface ConnectQuoInput {
@@ -107,6 +160,26 @@ export interface SetupStatus {
   totalSteps: number;
 }
 
+export type CompanyJobberEnvironment = typeof CompanyJobberEnvironment[keyof typeof CompanyJobberEnvironment];
+
+
+export const CompanyJobberEnvironment = {
+  published: 'published',
+  dev: 'dev',
+} as const;
+
+export type CompanyBookingRequiredFieldsItem = typeof CompanyBookingRequiredFieldsItem[keyof typeof CompanyBookingRequiredFieldsItem];
+
+
+export const CompanyBookingRequiredFieldsItem = {
+  name: 'name',
+  phone: 'phone',
+  email: 'email',
+  address: 'address',
+  service: 'service',
+  time: 'time',
+} as const;
+
 export interface Company {
   id: number;
   name: string;
@@ -131,6 +204,7 @@ export interface Company {
   jobberAccountName?: string | null;
   jobberNeedsReauth: boolean;
   jobberRedirectUri: string;
+  jobberEnvironment: CompanyJobberEnvironment;
   quoConnected: boolean;
   /** @nullable */
   quoWorkspaceName?: string | null;
@@ -148,9 +222,33 @@ export interface Company {
   /** @nullable */
   quoteDepositEmail?: string | null;
   watchedNumbers: WatchedNumber[];
+  bookingRequiredFields: CompanyBookingRequiredFieldsItem[];
+  recentCallWindowMinutes: number;
+  rosterCapacity: number;
   isLive: boolean;
   setupStatus: SetupStatus;
   createdAt: string;
+}
+
+export interface JobberConnection {
+  id: number;
+  companyId: number;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  accountId?: string | null;
+  /** @nullable */
+  accountName?: string | null;
+  needsReauth: boolean;
+  createdAt: string;
+}
+
+export interface JobberConnectionUpdate {
+  /**
+     * @maxLength 80
+     * @nullable
+     */
+  displayName?: string | null;
 }
 
 export interface JobberConnectStart {
@@ -166,17 +264,23 @@ export interface SyncResult {
 export interface ServiceInput {
   name: string;
   description?: string;
-  priceMin?: number;
-  priceMax?: number;
-  durationMinutes?: number;
+  /** @nullable */
+  priceMin?: number | null;
+  /** @nullable */
+  priceMax?: number | null;
+  /** @nullable */
+  durationMinutes?: number | null;
 }
 
 export interface ServiceUpdate {
   name?: string;
   description?: string;
-  priceMin?: number;
-  priceMax?: number;
-  durationMinutes?: number;
+  /** @nullable */
+  priceMin?: number | null;
+  /** @nullable */
+  priceMax?: number | null;
+  /** @nullable */
+  durationMinutes?: number | null;
 }
 
 export interface Service {
@@ -190,7 +294,11 @@ export interface Service {
   priceMax?: number | null;
   /** @nullable */
   durationMinutes?: number | null;
-  createdAt: string;
+}
+
+export interface SuggestedServicesImportResult {
+  created: number;
+  services: Service[];
 }
 
 export type TeamMemberInputRole = typeof TeamMemberInputRole[keyof typeof TeamMemberInputRole];
@@ -214,12 +322,15 @@ export interface TeamMemberInput {
   color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
+  /** @nullable */
+  jobberConnectionId?: number | null;
 }
 
 export type TeamMemberUpdateRole = typeof TeamMemberUpdateRole[keyof typeof TeamMemberUpdateRole];
 
 
 export const TeamMemberUpdateRole = {
+  owner: 'owner',
   dispatcher: 'dispatcher',
   cleaner: 'cleaner',
 } as const;
@@ -232,11 +343,16 @@ export interface TeamMemberUpdate {
   phone?: string | null;
   role?: TeamMemberUpdateRole;
   isLead?: boolean;
+  /** @nullable */
+  title?: string | null;
   active?: boolean;
+  liveCallDispatching?: boolean;
   /** @nullable */
   color?: string | null;
   /** @nullable */
   homeAddress?: string | null;
+  /** @nullable */
+  jobberConnectionId?: number | null;
 }
 
 export interface ImportTeamMembersInput {
@@ -265,6 +381,7 @@ export type TeamMemberStatus = typeof TeamMemberStatus[keyof typeof TeamMemberSt
 export const TeamMemberStatus = {
   active: 'active',
   invited: 'invited',
+  pending: 'pending',
 } as const;
 
 export interface TeamMember {
@@ -276,7 +393,11 @@ export interface TeamMember {
   phone?: string | null;
   role: TeamMemberRole;
   isLead: boolean;
+  /** @nullable */
+  title?: string | null;
+  roleLabel: string;
   active: boolean;
+  liveCallDispatching: boolean;
   /** @nullable */
   color?: string | null;
   /** @nullable */
@@ -291,7 +412,47 @@ export interface TeamMember {
   blockedByOtherCompany: boolean;
   /** @nullable */
   claimedAt?: string | null;
+  /** @nullable */
+  jobberUserId: string | null;
+  /** @nullable */
+  jobberConnectionId: number | null;
   createdAt: string;
+}
+
+export interface JobberTeamMember {
+  jobberUserId: string;
+  name: string;
+  gone: boolean;
+  /** @nullable */
+  linkedTeamMemberId: number | null;
+  /** @nullable */
+  suggestedTeamMemberId: number | null;
+}
+
+export interface JobberConnectionFailure {
+  id: number;
+  name: string;
+}
+
+export interface JobberTeamMembersResult {
+  members: JobberTeamMember[];
+  failedConnections: JobberConnectionFailure[];
+}
+
+export interface LinkJobberUserInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  jobberUserId: string;
+}
+
+export interface ImportJobberUserInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  jobberUserId: string;
 }
 
 export type CrewMemberRole = typeof CrewMemberRole[keyof typeof CrewMemberRole];
@@ -314,6 +475,44 @@ export interface SetBookingCrewInput {
   teamMemberIds: number[];
 }
 
+export interface JoinCode {
+  joinCode: string;
+}
+
+export type JoinRequestInputRole = typeof JoinRequestInputRole[keyof typeof JoinRequestInputRole];
+
+
+export const JoinRequestInputRole = {
+  dispatcher: 'dispatcher',
+  cleaner: 'cleaner',
+} as const;
+
+export interface JoinRequestInput {
+  joinCode: string;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  role?: JoinRequestInputRole;
+}
+
+export interface JoinRequestResult {
+  ok: boolean;
+  companyName: string;
+}
+
+export type ApproveTeamMemberInputRole = typeof ApproveTeamMemberInputRole[keyof typeof ApproveTeamMemberInputRole];
+
+
+export const ApproveTeamMemberInputRole = {
+  dispatcher: 'dispatcher',
+  cleaner: 'cleaner',
+} as const;
+
+export interface ApproveTeamMemberInput {
+  role: ApproveTeamMemberInputRole;
+  isLead?: boolean;
+}
+
 export type CurrentUserRole = typeof CurrentUserRole[keyof typeof CurrentUserRole];
 
 
@@ -330,6 +529,9 @@ export interface CurrentUser {
   name: string;
   email: string;
   companyName: string;
+  pendingCompanyName?: string;
+  canCreateCompany: boolean;
+  canTakeLiveCalls: boolean;
 }
 
 export type TranscriptSegmentSpeaker = typeof TranscriptSegmentSpeaker[keyof typeof TranscriptSegmentSpeaker];
@@ -361,6 +563,19 @@ export const CallStatus = {
   booked: 'booked',
 } as const;
 
+/**
+ * @nullable
+ */
+export type CallTag = typeof CallTag[keyof typeof CallTag] | null;
+
+
+export const CallTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
 export interface Call {
   id: number;
   callerName: string;
@@ -383,6 +598,8 @@ export interface Call {
   quoCallId?: string | null;
   /** @nullable */
   recordingUrl?: string | null;
+  /** @nullable */
+  tag?: CallTag;
 }
 
 export type CallDetailStatus = typeof CallDetailStatus[keyof typeof CallDetailStatus];
@@ -393,6 +610,19 @@ export const CallDetailStatus = {
   completed: 'completed',
   missed: 'missed',
   booked: 'booked',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CallDetailTag = typeof CallDetailTag[keyof typeof CallDetailTag] | null;
+
+
+export const CallDetailTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
 } as const;
 
 export interface CallDetail {
@@ -417,6 +647,10 @@ export interface CallDetail {
   quoCallId?: string | null;
   /** @nullable */
   recordingUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  tag?: CallDetailTag;
   transcript: TranscriptSegment[];
   extractedAnswers: ExtractedAnswer[];
 }
@@ -429,6 +663,29 @@ export interface DraftBookingFromTextInput {
   text: string;
 }
 
+export interface UpdateCallNotesInput {
+  /** @maxLength 20000 */
+  notes: string;
+}
+
+/**
+ * @nullable
+ */
+export type TagUpdateInputTag = typeof TagUpdateInputTag[keyof typeof TagUpdateInputTag] | null;
+
+
+export const TagUpdateInputTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
+export interface TagUpdateInput {
+  /** @nullable */
+  tag: TagUpdateInputTag;
+}
+
 export interface BookingDraft {
   /** @nullable */
   callId: number | null;
@@ -438,6 +695,11 @@ export interface BookingDraft {
   customerPhone?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /** @nullable */
   addressCity?: string | null;
   /** @nullable */
@@ -457,6 +719,134 @@ export interface BookingDraft {
   filledFields: string[];
 }
 
+export interface StartStaffConversationInput {
+  memberIds: number[];
+  /**
+     * @maxLength 60
+     * @nullable
+     */
+  title?: string | null;
+}
+
+export interface SendStaffMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  body: string;
+}
+
+export type StaffConversationKind = typeof StaffConversationKind[keyof typeof StaffConversationKind];
+
+
+export const StaffConversationKind = {
+  direct: 'direct',
+  group: 'group',
+} as const;
+
+export interface StaffChatMember {
+  id: number;
+  name: string;
+  isLive: boolean;
+}
+
+export interface StaffConversation {
+  id: number;
+  kind: StaffConversationKind;
+  title: string;
+  memberNames: string[];
+  members: StaffChatMember[];
+  lastMessageAt: string;
+  /** @nullable */
+  lastMessagePreview?: string | null;
+  unreadCount: number;
+}
+
+export interface StaffMessage {
+  id: number;
+  memberId: number;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface ChatContact {
+  id: number;
+  name: string;
+  role: string;
+  isLead: boolean;
+  isLive: boolean;
+}
+
+export interface StartThreadInput {
+  phone: string;
+  /** @nullable */
+  name?: string | null;
+}
+
+export interface SendMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 1600
+     */
+  body: string;
+}
+
+export interface MessageThread {
+  id: number;
+  customerPhone: string;
+  /** @nullable */
+  customerName: string | null;
+  lastMessageAt: string;
+  /** @nullable */
+  lastMessagePreview?: string | null;
+  /** @nullable */
+  lastDirection?: string | null;
+  unreadCount: number;
+}
+
+export type ClientMessageDirection = typeof ClientMessageDirection[keyof typeof ClientMessageDirection];
+
+
+export const ClientMessageDirection = {
+  inbound: 'inbound',
+  outbound: 'outbound',
+} as const;
+
+export type ClientMessageStatus = typeof ClientMessageStatus[keyof typeof ClientMessageStatus];
+
+
+export const ClientMessageStatus = {
+  received: 'received',
+  sent: 'sent',
+  failed: 'failed',
+} as const;
+
+export interface ClientMessage {
+  id: number;
+  direction: ClientMessageDirection;
+  body: string;
+  status: ClientMessageStatus;
+  /** @nullable */
+  errorText?: string | null;
+  /** @nullable */
+  sentByName?: string | null;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type BookingTag = typeof BookingTag[keyof typeof BookingTag] | null;
+
+
+export const BookingTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
 export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus];
 
 
@@ -465,6 +855,19 @@ export const BookingStatus = {
   confirmed: 'confirmed',
   completed: 'completed',
   canceled: 'canceled',
+} as const;
+
+/**
+ * @nullable
+ */
+export type BookingJobberAutomaticRetryStatus = typeof BookingJobberAutomaticRetryStatus[keyof typeof BookingJobberAutomaticRetryStatus] | null;
+
+
+export const BookingJobberAutomaticRetryStatus = {
+  none: 'none',
+  pending: 'pending',
+  exhausted: 'exhausted',
+  manual: 'manual',
 } as const;
 
 export interface QuoteLineItem {
@@ -516,9 +919,16 @@ export interface Booking {
   customerName: string;
   customerPhone: string;
   /** @nullable */
+  tag?: BookingTag;
+  /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /** @nullable */
   addressCity?: string | null;
   /** @nullable */
@@ -564,6 +974,10 @@ export interface Booking {
   /** @nullable */
   quoteApprovedAt?: string | null;
   /** @nullable */
+  clientApprovedAt?: string | null;
+  /** @nullable */
+  clientApprovedBy?: string | null;
+  /** @nullable */
   depositPaidAt?: string | null;
   /** @nullable */
   depositPaidAmount?: number | null;
@@ -580,15 +994,48 @@ export interface Booking {
   /** @nullable */
   jobberWebUri?: string | null;
   /** @nullable */
+  jobberInvoiceId?: string | null;
+  /** @nullable */
+  jobberInvoiceNumber?: string | null;
+  /** @nullable */
+  jobberInvoiceWebUri?: string | null;
+  /** @nullable */
   jobberSyncError?: string | null;
   /** @nullable */
   jobberSyncErrorAt?: string | null;
+  /** @nullable */
+  jobberAutomaticRetryStatus: BookingJobberAutomaticRetryStatus;
+  /** @nullable */
+  jobberAutomaticRetriesRemaining: number | null;
+  /** @nullable */
+  jobberNextRetryAt: string | null;
+  /** @nullable */
+  jobberRetryUsesBookingConnection: boolean | null;
+  /** @nullable */
+  jobberPropertyId?: string | null;
+  /** @nullable */
+  jobberQuoteId?: string | null;
+  /** @nullable */
+  jobberQuoteNumber?: string | null;
+  /** @nullable */
+  jobberQuoteWebUri?: string | null;
+  /** @nullable */
+  jobberQuoteStatus?: string | null;
+  /** @nullable */
+  jobberSyncedRequestId?: string | null;
+  /** @nullable */
+  jobberSyncedQuoteId?: string | null;
+  /** @nullable */
+  jobberCreatedJobId?: string | null;
+  /** @nullable */
+  jobberJobWebUri?: string | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
   /** @nullable */
   geocodedAt?: string | null;
+  geocodingFailed?: boolean;
   /** @nullable */
   durationMinutes?: number | null;
   crew?: CrewMember[];
@@ -622,14 +1069,17 @@ export const BookingUpdateFrequency = {
 export interface BookingUpdate {
   status?: BookingUpdateStatus;
   scheduledFor?: string;
-  /** @minLength 1 */
   customerName?: string;
-  /** @minLength 1 */
   customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -645,7 +1095,6 @@ export interface BookingUpdate {
      * @nullable
      */
   addressPostal?: string | null;
-  /** @minLength 1 */
   service?: string;
   /**
      * @minimum 0
@@ -726,25 +1175,18 @@ export const BookingCreateFrequency = {
   monthly: 'monthly',
 } as const;
 
-export type BookingCreateStatus = typeof BookingCreateStatus[keyof typeof BookingCreateStatus];
-
-
-export const BookingCreateStatus = {
-  pending: 'pending',
-  confirmed: 'confirmed',
-  completed: 'completed',
-  canceled: 'canceled',
-} as const;
-
 export interface BookingCreate {
-  /** @minLength 1 */
-  customerName: string;
-  /** @minLength 1 */
-  customerPhone: string;
+  customerName?: string;
+  customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -760,8 +1202,7 @@ export interface BookingCreate {
      * @nullable
      */
   addressPostal?: string | null;
-  /** @minLength 1 */
-  service: string;
+  service?: string;
   /**
      * @minimum 0
      * @maximum 50
@@ -781,9 +1222,12 @@ export interface BookingCreate {
      * @nullable
      */
   internalNotes?: string | null;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  routeStopId?: number | null;
   teamMemberIds?: number[] | null;
   scheduledFor: string;
-  status?: BookingCreateStatus;
   /**
      * @minimum 0
      * @maximum 24
@@ -834,6 +1278,19 @@ export interface BookingCreate {
   quoteNotes?: string | null;
 }
 
+export interface ApproveBookingInput {
+  schedule?: boolean;
+}
+
+export interface ApproveBookingResult {
+  booking: Booking;
+  recorded: boolean;
+  scheduledInJobber: boolean;
+  unmatchedCrew: string[];
+  /** @nullable */
+  jobberError?: string | null;
+}
+
 export interface PublicQuote {
   companyName: string;
   customerName: string;
@@ -870,6 +1327,21 @@ export interface QuotePreview {
   totals?: QuoteTotals;
 }
 
+export interface RescheduleTextPreview {
+  message: string;
+  canSend: boolean;
+  /** @nullable */
+  blockedReason?: string | null;
+}
+
+export interface SendRescheduleTextInput {
+  /**
+     * @minLength 1
+     * @maxLength 1600
+     */
+  message?: string;
+}
+
 export interface SendQuoteInput {
   /**
      * @minLength 1
@@ -891,6 +1363,231 @@ export interface DashboardSummary {
   avgCallSeconds: number;
   pendingBookings: number;
   jobberSyncedCount: number;
+  upcomingBookings: number;
+  completedThisMonth: number;
+  totalBookings: number;
+  bookingsThisMonth: number;
+  canceledBookings: number;
+  revenueThisMonth: number | null;
+  newLeads: number;
+}
+
+export type LeadSource = typeof LeadSource[keyof typeof LeadSource];
+
+
+export const LeadSource = {
+  sheet: 'sheet',
+  form: 'form',
+  jobber: 'jobber',
+  call: 'call',
+} as const;
+
+export type LeadStatus = typeof LeadStatus[keyof typeof LeadStatus];
+
+
+export const LeadStatus = {
+  new: 'new',
+  converted: 'converted',
+  dismissed: 'dismissed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type LeadTag = typeof LeadTag[keyof typeof LeadTag] | null;
+
+
+export const LeadTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
+export interface Lead {
+  id: number;
+  externalId: string;
+  source: LeadSource;
+  sourceTab: string;
+  status: LeadStatus;
+  name: string;
+  phoneDisplay: string;
+  phoneE164?: string | null;
+  hasCalled: boolean;
+  lastCallAt?: string | null;
+  lastCallId?: number | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  service?: string | null;
+  bedrooms?: string | null;
+  bathrooms?: string | null;
+  dateOfServiceRequested?: string | null;
+  streetAddress?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postCode?: string | null;
+  platform?: string | null;
+  campaignName?: string | null;
+  adName?: string | null;
+  formName?: string | null;
+  inboxUrl?: string | null;
+  sheetLeadStatus?: string | null;
+  heardAbout?: string | null;
+  message?: string | null;
+  createdTime?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  geocodingFailed?: boolean;
+  convertedBookingId?: number | null;
+  convertedAt?: string | null;
+  jobberSynced: boolean;
+  jobberWebUri?: string | null;
+  jobberPushError?: string | null;
+  jobberPushErrorAt?: string | null;
+  createdAt: string;
+  callId?: number | null;
+  /** @nullable */
+  tag?: LeadTag;
+}
+
+export interface BulkDismissLeadsInput {
+  /** @minItems 1 */
+  ids: number[];
+}
+
+export interface BulkDismissLeadsResult {
+  dismissed: number;
+  skipped: number;
+}
+
+export interface ConvertLeadInput {
+  bookingId: number;
+}
+
+export interface LeadContactUpdateInput {
+  phone?: string | null;
+  email?: string | null;
+}
+
+export interface PublicRequestInput {
+  /** @maxLength 100 */
+  firstName?: string;
+  /** @maxLength 100 */
+  lastName?: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  phone: string;
+  /** @maxLength 200 */
+  email?: string;
+  /** @maxLength 200 */
+  streetAddress?: string;
+  /** @maxLength 100 */
+  city?: string;
+  /** @maxLength 100 */
+  province?: string;
+  /** @maxLength 20 */
+  postCode?: string;
+  /** @maxLength 200 */
+  service?: string;
+  /** @maxLength 50 */
+  bedrooms?: string;
+  /** @maxLength 50 */
+  bathrooms?: string;
+  /** @maxLength 200 */
+  dateOfServiceRequested?: string;
+  /** @maxLength 200 */
+  heardAbout?: string;
+  /** @maxLength 200 */
+  website?: string;
+}
+
+export interface PublicRequestResult {
+  ok: boolean;
+}
+
+export type LeadSyncTabStatusStatus = typeof LeadSyncTabStatusStatus[keyof typeof LeadSyncTabStatusStatus];
+
+
+export const LeadSyncTabStatusStatus = {
+  read: 'read',
+  failed: 'failed',
+} as const;
+
+export interface LeadSyncTabStatus {
+  name: string;
+  status: LeadSyncTabStatusStatus;
+  error?: string;
+  /** @minimum 0 */
+  rowsSeen?: number;
+  /** @minimum 0 */
+  eligibleRows?: number;
+  /** @minimum 0 */
+  importedRows?: number;
+  /** @minimum 0 */
+  duplicateRows?: number;
+  /** @minimum 0 */
+  skippedRows?: number;
+  /** Explains why a readable tab had non-empty rows but no qualifying leads. */
+  eligibilityWarning?: string;
+}
+
+export interface LeadSyncRun {
+  imported: number;
+  error: string | null;
+  tabStatuses: LeadSyncTabStatus[];
+}
+
+export interface LeadSyncStatus {
+  /** True only when the shared Google Sheet lead feed is configured for the current company. */
+  configured: boolean;
+  lastSyncAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  warning: string | null;
+  tabStatuses: LeadSyncTabStatus[];
+  /** True when the automatic poller has missed three expected sync windows. */
+  stale: boolean;
+}
+
+export type LeadHeaderMappingDestination = typeof LeadHeaderMappingDestination[keyof typeof LeadHeaderMappingDestination];
+
+
+export const LeadHeaderMappingDestination = {
+  service: 'service',
+  bedrooms: 'bedrooms',
+  bathrooms: 'bathrooms',
+  dateOfServiceRequested: 'dateOfServiceRequested',
+} as const;
+
+export interface LeadHeaderMapping {
+  header: string;
+  destination: LeadHeaderMappingDestination;
+  /** A short example answer from the first data row, when present. */
+  exampleAnswer?: string;
+}
+
+export type LeadSyncPreviewTabStatus = typeof LeadSyncPreviewTabStatus[keyof typeof LeadSyncPreviewTabStatus];
+
+
+export const LeadSyncPreviewTabStatus = {
+  read: 'read',
+  failed: 'failed',
+} as const;
+
+export interface LeadSyncPreviewTab {
+  name: string;
+  status: LeadSyncPreviewTabStatus;
+  error?: string;
+  questionMappings: LeadHeaderMapping[];
+  metadataHeaders: string[];
+  unmappedHeaders: string[];
+}
+
+export interface LeadSyncPreview {
+  tabs: LeadSyncPreviewTab[];
 }
 
 export type ActivityItemType = typeof ActivityItemType[keyof typeof ActivityItemType];
@@ -906,10 +1603,16 @@ export const ActivityItemType = {
   deposit_paid: 'deposit_paid',
   test_call: 'test_call',
   team_invited: 'team_invited',
+  join_code_changed: 'join_code_changed',
   crew_assigned: 'crew_assigned',
   reschedule_texted: 'reschedule_texted',
+  text_given_up: 'text_given_up',
   job_started: 'job_started',
   job_finished: 'job_finished',
+  cleaner_running_late: 'cleaner_running_late',
+  cleaner_back_on_time: 'cleaner_back_on_time',
+  lead_converted: 'lead_converted',
+  lead_request_received: 'lead_request_received',
 } as const;
 
 export interface ActivityItem {
@@ -917,6 +1620,22 @@ export interface ActivityItem {
   type: ActivityItemType;
   message: string;
   occurredAt: string;
+  canResendText?: boolean;
+  resendPhone?: string;
+  callId?: number;
+  bookingId?: number;
+}
+
+export interface ResendGivenUpTextInput {
+  /**
+     * Recipient in E.164 format, for example +15551234567.
+     * @pattern ^\+[1-9][0-9]{1,14}$
+     */
+  toPhone: string;
+}
+
+export interface ResendGivenUpTextResult {
+  queued: boolean;
 }
 
 export interface MapConfig {
@@ -924,11 +1643,40 @@ export interface MapConfig {
   configured: boolean;
 }
 
+export interface AddressSuggestion {
+  id: string;
+  primary: string;
+  secondary: string;
+  full: string;
+}
+
+export interface AddressSuggestions {
+  suggestions: AddressSuggestion[];
+  available: boolean;
+}
+
+export interface GeocodedAddress {
+  found: boolean;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  message?: string | null;
+}
+
 export interface MapCleaner {
   teamMemberId: number;
+  /** @nullable */
+  deviceId: number | null;
+  /** @nullable */
+  deviceLabel?: string | null;
+  /** @nullable */
+  platform?: string | null;
   name: string;
   /** @nullable */
   color?: string | null;
+  isOwner: boolean;
   lat: number;
   lng: number;
   /** @nullable */
@@ -936,11 +1684,88 @@ export interface MapCleaner {
   updatedAt: string;
 }
 
+export interface LivePositionAccess {
+  allowed: boolean;
+  /** @nullable */
+  reason: string | null;
+}
+
 export interface MapJobAssignee {
   teamMemberId: number;
   name: string;
   /** @nullable */
   color?: string | null;
+}
+
+export interface SavedRouteStop {
+  id: number;
+  routeId: number;
+  position: number;
+  name: string;
+  /** @nullable */
+  address: string | null;
+  lat: number;
+  lng: number;
+  /** @nullable */
+  linkedBookingId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedRoute {
+  id: number;
+  name: string;
+  teamMemberId: number;
+  createdAt: string;
+  updatedAt: string;
+  stops: SavedRouteStop[];
+}
+
+export interface SavedRouteInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  teamMemberId: number;
+}
+
+export interface SavedRouteUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  teamMemberId?: number;
+}
+
+export interface SavedRouteStopInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /** @nullable */
+  address?: string | null;
+  lat: number;
+  lng: number;
+}
+
+export interface SavedRouteStopUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  /** @nullable */
+  address?: string | null;
+  lat?: number;
+  lng?: number;
+}
+
+export interface SavedRouteStopOrder {
+  /** @minItems 0 */
+  stopIds: number[];
 }
 
 export type MapJobStatus = typeof MapJobStatus[keyof typeof MapJobStatus];
@@ -988,11 +1813,86 @@ export interface StaffHome {
   active: boolean;
 }
 
+export type StaffWithoutHomeReason = typeof StaffWithoutHomeReason[keyof typeof StaffWithoutHomeReason];
+
+
+export const StaffWithoutHomeReason = {
+  missing: 'missing',
+  unplaceable: 'unplaceable',
+} as const;
+
+export interface StaffWithoutHome {
+  teamMemberId: number;
+  name: string;
+  roleLabel: string;
+  active: boolean;
+  reason: StaffWithoutHomeReason;
+  /** @nullable */
+  address?: string | null;
+}
+
+export interface MapOffice {
+  deviceId: number;
+  label: string;
+  /** @nullable */
+  address: string | null;
+  lat: number;
+  lng: number;
+}
+
 export interface MapData {
+  office: MapOffice | null;
   cleaners: MapCleaner[];
+  livePositions: LivePositionAccess;
   staffHomes: StaffHome[];
+  staffWithoutHome: StaffWithoutHome[];
   jobs: MapJob[];
   pins: MapPin[];
+}
+
+export interface MapRoutePoint {
+  lat: number;
+  lng: number;
+}
+
+export interface MapDrivingRoute {
+  /** @minimum 0 */
+  distanceMeters: number;
+  /** @minimum 0 */
+  durationSeconds: number;
+  /** @minItems 2 */
+  path: MapRoutePoint[];
+}
+
+export type MapRouteLegSource = typeof MapRouteLegSource[keyof typeof MapRouteLegSource];
+
+
+export const MapRouteLegSource = {
+  google: 'google',
+  estimate: 'estimate',
+} as const;
+
+export interface MapRouteLeg {
+  teamMemberId: number;
+  name: string;
+  /** @nullable */
+  color?: string | null;
+  bookingId: number;
+  customerName: string;
+  /** @nullable */
+  customerAddress?: string | null;
+  destLat: number;
+  destLng: number;
+  scheduledFor: string;
+  etaSeconds: number;
+  distanceMeters: number;
+  source: MapRouteLegSource;
+  path: MapRoutePoint[];
+}
+
+export interface MapRoutes {
+  routes: MapRouteLeg[];
+  livePositions: LivePositionAccess;
 }
 
 export interface JobberCalendarSync {
@@ -1031,31 +1931,171 @@ export interface BookingRange {
   bookings: BookingRangeItem[];
 }
 
+/**
+ * @nullable
+ */
+export type StaffLocationInputPlatform = typeof StaffLocationInputPlatform[keyof typeof StaffLocationInputPlatform] | null;
+
+
+export const StaffLocationInputPlatform = {
+  web: 'web',
+  ios: 'ios',
+  android: 'android',
+  other: 'other',
+} as const;
+
+export type StaffLocationInputLocationHealth = typeof StaffLocationInputLocationHealth[keyof typeof StaffLocationInputLocationHealth];
+
+
+export const StaffLocationInputLocationHealth = {
+  unknown: 'unknown',
+  granted: 'granted',
+  'permission-denied': 'permission-denied',
+  'storage-cleared': 'storage-cleared',
+} as const;
+
 export interface StaffLocationInput {
   /**
      * @minimum -90
      * @maximum 90
+     * @nullable
      */
-  lat: number;
+  lat?: number | null;
   /**
      * @minimum -180
      * @maximum 180
+     * @nullable
      */
-  lng: number;
+  lng?: number | null;
   /**
      * @minimum 0
      * @nullable
      */
   accuracy?: number | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  deviceKey?: string | null;
+  /**
+     * @maxLength 256
+     * @nullable
+     */
+  recoveryKey?: string | null;
+  /**
+     * @maxLength 60
+     * @nullable
+     */
+  deviceLabel?: string | null;
+  /** @nullable */
+  platform?: StaffLocationInputPlatform;
+  locationHealth?: StaffLocationInputLocationHealth;
 }
 
+export type StaffLocationStatus = typeof StaffLocationStatus[keyof typeof StaffLocationStatus];
+
+
+export const StaffLocationStatus = {
+  recorded: 'recorded',
+} as const;
+
 export interface StaffLocation {
+  status: StaffLocationStatus;
   teamMemberId: number;
-  lat: number;
-  lng: number;
+  /** @nullable */
+  deviceId?: number | null;
+  /** @nullable */
+  deviceLabel?: string | null;
+  /** @nullable */
+  platform?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
   /** @nullable */
   accuracy?: number | null;
-  updatedAt: string;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  message?: string | null;
+  recoveryMatched?: boolean;
+}
+
+export interface StaffPresence {
+  liveMemberIds: number[];
+  livePositions: LivePositionAccess;
+}
+
+export type StaffDeviceEntryLocationHealth = typeof StaffDeviceEntryLocationHealth[keyof typeof StaffDeviceEntryLocationHealth];
+
+
+export const StaffDeviceEntryLocationHealth = {
+  unknown: 'unknown',
+  granted: 'granted',
+  'permission-denied': 'permission-denied',
+  'storage-cleared': 'storage-cleared',
+} as const;
+
+export interface StaffDeviceEntry {
+  id: number;
+  label: string;
+  platform: string;
+  locationHealth?: StaffDeviceEntryLocationHealth;
+  isOffice: boolean;
+  /** @nullable */
+  lastSeenAt?: string | null;
+  live: boolean;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+}
+
+export interface StaffTrackedPerson {
+  teamMemberId: number;
+  name: string;
+  roleLabel: string;
+  /** @nullable */
+  color?: string | null;
+  isOwner: boolean;
+  sharingEnabled: boolean;
+  canChangeSharing: boolean;
+  devices: StaffDeviceEntry[];
+}
+
+export interface StaffDevices {
+  people: StaffTrackedPerson[];
+  livePositions: LivePositionAccess;
+}
+
+export interface RenameStaffDeviceInput {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  label: string;
+}
+
+export interface SetOfficeDeviceInput {
+  office: boolean;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  address?: string | null;
+}
+
+export interface SetOfficeDeviceResult {
+  deviceId: number;
+  isOffice: boolean;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  lat: number | null;
+  /** @nullable */
+  lng: number | null;
 }
 
 export type ScheduleJobStatus = typeof ScheduleJobStatus[keyof typeof ScheduleJobStatus];
@@ -1068,9 +2108,18 @@ export const ScheduleJobStatus = {
   canceled: 'canceled',
 } as const;
 
+export interface TravelLeg {
+  fromHome: boolean;
+  fromLabel: string;
+  distanceKm: number;
+  driveMinutes: number;
+}
+
 export interface ScheduleJob {
   bookingId: number;
   customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
   /** @nullable */
   customerAddress?: string | null;
   scheduledFor: string;
@@ -1078,6 +2127,7 @@ export interface ScheduleJob {
   status: ScheduleJobStatus;
   /** @nullable */
   price?: number | null;
+  travel?: TravelLeg | null;
 }
 
 export interface ScheduleCleaner {
@@ -1113,6 +2163,232 @@ export interface CreatePinInput {
   lng?: number | null;
 }
 
+/**
+ * All fields optional — send only what changed. A new address without coordinates is geocoded server-side; explicit coordinates win.
+ */
+export interface UpdatePinInput {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  address?: string | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  lat?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  lng?: number | null;
+}
+
+/**
+ * @nullable
+ */
+export type ClientRecordTag = typeof ClientRecordTag[keyof typeof ClientRecordTag] | null;
+
+
+export const ClientRecordTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
+export interface ClientRecord {
+  id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  phoneE164?: string | null;
+  /** @nullable */
+  tag?: ClientRecordTag;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  streetAddress?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  province?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+  /** @nullable */
+  jobberClientId?: string | null;
+  source: string;
+  createdAt: string;
+}
+
+export interface ClientInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  streetAddress?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  province?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+}
+
+export interface ClientUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  streetAddress?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  province?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+}
+
+export interface Caller {
+  id: number;
+  phone: string;
+  phoneE164: string;
+  bestName: string;
+  firstCallAt: string;
+  latestCallAt: string;
+  callCount: number;
+  /** @nullable */
+  clientId?: number | null;
+  knownClient: boolean;
+  /** @nullable */
+  quoContactId?: string | null;
+}
+
+export interface JobberQuote {
+  id: number;
+  jobberQuoteId: string;
+  /** @nullable */
+  quoteNumber?: number | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  clientPhone?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  status: string;
+  /** @nullable */
+  totalCents?: number | null;
+  /** @nullable */
+  jobberWebUri?: string | null;
+  /** @nullable */
+  jobberCreatedAt?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  transitionedAt?: string | null;
+  lastSyncedAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type JobberInvoiceTag = typeof JobberInvoiceTag[keyof typeof JobberInvoiceTag] | null;
+
+
+export const JobberInvoiceTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
+export interface JobberInvoice {
+  id: number;
+  jobberInvoiceId: string;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  subject?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  clientPhone?: string | null;
+  /** @nullable */
+  tag?: JobberInvoiceTag;
+  /** @nullable */
+  propertyAddress?: string | null;
+  status: string;
+  /** @nullable */
+  totalCents?: number | null;
+  /** @nullable */
+  balanceCents?: number | null;
+  /** @nullable */
+  jobberWebUri?: string | null;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  dueAt?: string | null;
+  /** @nullable */
+  jobberCreatedAt?: string | null;
+  lastSyncedAt: string;
+}
+
+export type CustomerTagResultKind = typeof CustomerTagResultKind[keyof typeof CustomerTagResultKind];
+
+
+export const CustomerTagResultKind = {
+  lead: 'lead',
+  call: 'call',
+  booking: 'booking',
+  invoice: 'invoice',
+  client: 'client',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CustomerTagResultTag = typeof CustomerTagResultTag[keyof typeof CustomerTagResultTag] | null;
+
+
+export const CustomerTagResultTag = {
+  client: 'client',
+  good_lead: 'good_lead',
+  bad_lead: 'bad_lead',
+  spam: 'spam',
+} as const;
+
+export interface CustomerTagResult {
+  kind: CustomerTagResultKind;
+  id: number;
+  /** @nullable */
+  tag: CustomerTagResultTag;
+}
+
+export type GetUnreadMessageCount200 = {
+  unread: number;
+};
+
+export type GetMessageThread200 = {
+  thread: MessageThread;
+  messages: ClientMessage[];
+};
+
+export type GetStaffConversation200 = {
+  conversation: StaffConversation;
+  myMemberId: number;
+  messages: StaffMessage[];
+};
+
 export type ListCallsParams = {
 status?: string;
 };
@@ -1128,8 +2404,60 @@ start: string;
 end: string;
 };
 
+export type ListBookingsParams = {
+/**
+ * First day of the window, YYYY-MM-DD in the company's timezone. Defaults to August 1, 2026 (the history floor). Pass a tighter value to keep the response small when you only need recent data.
+ */
+since?: string;
+/**
+ * Last day of the window (inclusive), YYYY-MM-DD in the company's timezone. Omit for no upper bound (all bookings to the future).
+ */
+until?: string;
+};
+
 export type PayPublicQuote200 = {
   checkoutUrl: string;
+};
+
+export type ListLeadsParams = {
+/**
+ * Filter to one review state. Omit for every lead.
+ */
+status?: ListLeadsStatus;
+};
+
+export type ListLeadsStatus = typeof ListLeadsStatus[keyof typeof ListLeadsStatus];
+
+
+export const ListLeadsStatus = {
+  new: 'new',
+  converted: 'converted',
+  dismissed: 'dismissed',
+} as const;
+
+export type GetAddressSuggestionsParams = {
+/**
+ * What has been typed so far. Fewer than 3 characters returns nothing.
+ */
+q: string;
+/**
+ * Bias results toward this point (the company's area).
+ */
+lat?: number;
+lng?: number;
+};
+
+export type GeocodeMapAddressParams = {
+/**
+ * A postal address. Bounded because every distinct value is a paid lookup at Google — no real address is anywhere near this long.
+ * @maxLength 250
+ */
+address: string;
+/**
+ * Bias the answer toward the area this company works in, so a street name that also exists in another province or country resolves to the local one. A bias, not a fence: an address genuinely elsewhere still resolves when it's the only match.
+ */
+lat?: number;
+lng?: number;
 };
 
 export type GetMapDataParams = {
@@ -1147,10 +2475,40 @@ end?: string;
 all?: boolean;
 };
 
+export type GetMapDrivingRouteParams = {
+/**
+ * @minimum -90
+ * @maximum 90
+ */
+startLat: number;
+/**
+ * @minimum -180
+ * @maximum 180
+ */
+startLng: number;
+/**
+ * @minimum -90
+ * @maximum 90
+ */
+endLat: number;
+/**
+ * @minimum -180
+ * @maximum 180
+ */
+endLng: number;
+};
+
 export type GetScheduleParams = {
 /**
  * Day to show, YYYY-MM-DD in the company's timezone.
  */
 date?: string;
+};
+
+export type SearchDirectoryParams = {
+/**
+ * Name fragment or phone number (any format). At least 2 characters.
+ */
+q: string;
 };
 

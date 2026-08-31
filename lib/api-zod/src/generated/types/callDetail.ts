@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CallDetailStatus } from './callDetailStatus';
+import type { CallDetailTag } from './callDetailTag';
 import type { ExtractedAnswer } from './extractedAnswer';
 import type { TranscriptSegment } from './transcriptSegment';
 
@@ -31,6 +32,10 @@ export interface CallDetail {
   quoCallId?: string | null;
   /** @nullable */
   recordingUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  tag?: CallDetailTag;
   transcript: TranscriptSegment[];
   extractedAnswers: ExtractedAnswer[];
 }

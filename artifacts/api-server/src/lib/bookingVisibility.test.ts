@@ -37,8 +37,17 @@ function fullBooking() {
     jobberJobId: "J1",
     jobberClientId: "C1",
     jobberWebUri: "https://jobber.example/j/1",
+    jobberInvoiceWebUri: "https://jobber.example/invoices/9",
+    jobberPropertyId: "P1",
+    jobberQuoteId: "Q1",
+    jobberQuoteNumber: "17",
+    jobberQuoteWebUri: "https://jobber.example/quotes/17",
     jobberSyncError: "boom",
     jobberSyncErrorAt: "2026-08-04T00:00:00.000Z",
+    jobberAutomaticRetryStatus: "pending",
+    jobberAutomaticRetriesRemaining: 4,
+    jobberNextRetryAt: "2026-08-04T00:02:00.000Z",
+    jobberRetryUsesBookingConnection: true,
     createdAt: "2026-07-30T00:00:00.000Z",
   };
 }

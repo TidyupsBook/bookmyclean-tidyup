@@ -43,17 +43,16 @@ export function zonedClock(iso: string, timeZone: string): string {
   }).format(d);
 }
 
-/** Monday = 0 … Sunday = 6, for a YYYY-MM-DD string. */
+/** Sunday = 0 … Saturday = 6, for a YYYY-MM-DD string. */
 export function weekdayIndex(date: string): number {
   const [y, m, d] = date.split("-").map(Number) as [number, number, number];
   // Noon avoids any chance of a UTC rounding edge.
-  const js = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
-  return (js + 6) % 7;
+  return new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
 }
 
-/** "Mon", "Tue", … for a YYYY-MM-DD string. */
+/** "Sun", "Mon", … for a YYYY-MM-DD string. */
 export function weekdayShort(date: string): string {
-  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
     weekdayIndex(date)
   ] as string;
 }
@@ -98,14 +97,14 @@ export function threeDayDates(date: string): string[] {
   return [0, 1, 2].map((i) => shiftDay(date, i));
 }
 
-/** Monday-to-Sunday week containing the given date. */
+/** Sunday-to-Saturday week containing the given date. */
 export function weekDates(date: string): string[] {
-  const monday = shiftDay(date, -weekdayIndex(date));
-  return Array.from({ length: 7 }, (_, i) => shiftDay(monday, i));
+  const sunday = shiftDay(date, -weekdayIndex(date));
+  return Array.from({ length: 7 }, (_, i) => shiftDay(sunday, i));
 }
 
 /**
- * The full month grid, padded to whole Monday-start weeks. Always returns a
+ * The full month grid, padded to whole Sunday-start weeks. Always returns a
  * multiple of 7 so the grid never has a ragged last row.
  */
 export function monthGridDates(anchor: string): string[] {

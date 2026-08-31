@@ -5,14 +5,20 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { LivePositionAccess } from './livePositionAccess';
 import type { MapCleaner } from './mapCleaner';
 import type { MapJob } from './mapJob';
+import type { MapOffice } from './mapOffice';
 import type { MapPin } from './mapPin';
 import type { StaffHome } from './staffHome';
+import type { StaffWithoutHome } from './staffWithoutHome';
 
 export interface MapData {
+  office: MapOffice | null;
   cleaners: MapCleaner[];
+  livePositions: LivePositionAccess;
   staffHomes: StaffHome[];
+  staffWithoutHome: StaffWithoutHome[];
   jobs: MapJob[];
   pins: MapPin[];
 }

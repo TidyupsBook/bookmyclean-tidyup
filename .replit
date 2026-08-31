@@ -109,3 +109,30 @@ defaultBucketID = "replit-objstore-32199dae-37e4-4fcd-a03f-e18aecc48aa5"
 
 [userenv.production]
 PUBLIC_APP_URL = "https://bookmycleaning.net"
+NEW_COMPANY_SIGNUPS = "closed"
+SIGNUP_HOST = "cleaninghub.io"
+LEADS_COMPANY_ID = "7"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18337
+externalPort = 3000
+
+[[ports]]
+localPort = 20141
+externalPort = 80
+
+[[ports]]
+localPort = 23569
+externalPort = 3001
+
+[[ports]]
+localPort = 24174
+externalPort = 3003

@@ -105,7 +105,7 @@ async function call(
 
 /**
  * A booking priced with the calculator: 2h × $75 = $150 subtotal, then the
- * company's 5% tax and 7.5% fees → $168.75 total. Deposit varies per test.
+ * app's fixed 12.5% tax → $168.75 total. Deposit varies per test.
  */
 async function insertBooking(quoteDeposit: number): Promise<number> {
   const [booking] = await db

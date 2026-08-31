@@ -41,3 +41,49 @@ export function jobberRedirectUri(): string {
 export function publicWebhookUrl(): string {
   return `${publicBaseUrl()}/api/webhooks/quo`;
 }
+
+/**
+ * Whether a webhook registration at `hookUrl` belongs to THIS environment,
+ * and is therefore safe to delete when superseding it.
+ *
+ * The dev and published copies of this app share one Quo account, and a
+ * freshly provisioned database carries the other environment's webhook rows.
+ * Deleting "our previous hooks" by id then severs the other environment's
+ * live ingestion — production boots and kills dev's hooks, dev re-picks and
+ * kills production's. Ownership is decided by URL host instead: an
+ * environment only ever deletes registrations pointing at hosts it answers
+ * for. A live dev workspace host (*.replit.dev) is never the published
+ * site's to delete, and a pinned/custom domain is never the workspace's.
+ * Rows for foreign hooks may still be dropped from the local table — the
+ * registration itself must stay alive on Quo's side.
+ */
+export function ownsWebhookHost(hookUrl: string): boolean {
+  let host: string;
+  try {
+    host = new URL(hookUrl).host;
+  } catch {
+    return false;
+  }
+  if (host === new URL(publicBaseUrl()).host) return true;
+  // A pinned environment (the published site) also owns any earlier
+  // registration it made under previous deploy domains — but a live dev
+  // workspace's registration is never its to remove.
+  const pinned = Boolean(process.env.PUBLIC_APP_URL?.trim());
+  return pinned && !host.endsWith(".replit.dev");
+}
+
+/**
+ * Where Stripe's managed webhook should deliver, or null when no public host
+ * exists at all.
+ *
+ * The canonical pin (PUBLIC_APP_URL, production-only) wins so Stripe delivers
+ * to the official domain rather than an alias host. Without a pin this stays
+ * self-inferring: in the workspace REPLIT_DOMAINS is the dev domain, so
+ * development keeps registering a webhook pointing at itself.
+ */
+export function stripeWebhookUrl(path: string): string | null {
+  const pinned = process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  const host = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  const base = pinned || (host ? `https://${host}` : null);
+  return base ? `${base}${path}` : null;
+}

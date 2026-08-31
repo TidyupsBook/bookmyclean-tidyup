@@ -45,10 +45,11 @@ describe("company-zone placement", () => {
 });
 
 describe("weekday maths", () => {
-  it("treats Monday as the first day", () => {
-    expect(weekdayIndex("2026-08-03")).toBe(0); // a Monday
-    expect(weekdayIndex("2026-08-09")).toBe(6); // the Sunday after
+  it("treats Sunday as the first day", () => {
+    expect(weekdayIndex("2026-08-02")).toBe(0); // a Sunday
+    expect(weekdayIndex("2026-08-08")).toBe(6); // the Saturday after
     expect(weekdayShort("2026-08-06")).toBe("Thu");
+    expect(weekdayShort("2026-08-02")).toBe("Sun");
   });
 });
 
@@ -70,11 +71,11 @@ describe("view ranges", () => {
     ]);
   });
 
-  it("week view runs Monday to Sunday around the selected day", () => {
+  it("week view runs Sunday to Saturday around the selected day", () => {
     const week = weekDates("2026-08-06"); // a Thursday
     expect(week).toHaveLength(7);
-    expect(week[0]).toBe("2026-08-03");
-    expect(week[6]).toBe("2026-08-09");
+    expect(week[0]).toBe("2026-08-02");
+    expect(week[6]).toBe("2026-08-08");
   });
 
   it("month grid is whole weeks and contains the whole month", () => {
@@ -87,9 +88,16 @@ describe("view ranges", () => {
     expect(grid[0]! < "2026-08-01").toBe(true);
   });
 
-  it("month grid handles a month that starts on a Monday", () => {
-    const grid = monthGridDates("2026-06-01"); // June 1 2026 is a Monday
-    expect(grid[0]).toBe("2026-06-01");
+  it("month grid handles a month that starts on a Sunday", () => {
+    const grid = monthGridDates("2026-11-01"); // Nov 1 2026 is a Sunday
+    expect(grid[0]).toBe("2026-11-01");
+    expect(grid.length % 7).toBe(0);
+  });
+
+  it("month grid handles a month that starts on a Saturday", () => {
+    const grid = monthGridDates("2026-08-01"); // Aug 1 2026 is a Saturday
+    expect(grid[0]).toBe("2026-07-26"); // padded back to the Sunday before
+    expect(weekdayIndex(grid[grid.length - 1]!)).toBe(6); // ends on a Saturday
     expect(grid.length % 7).toBe(0);
   });
 

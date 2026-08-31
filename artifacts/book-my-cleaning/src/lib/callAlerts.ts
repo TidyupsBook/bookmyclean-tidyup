@@ -11,8 +11,12 @@ const RECENT_MS = 5 * 60_000;
  * Calls the office placed itself are never news. Older records can have no
  * direction recorded at all, and those are treated as incoming — a missed
  * customer is a far worse outcome than one popup about an outgoing call.
+ *
+ * Exported because the call-attention store applies the same rule: a surface
+ * that flags outbound calls and one that doesn't would disagree about what
+ * is waiting.
  */
-function isIncoming(call: Call): boolean {
+export function isIncoming(call: Call): boolean {
   return call.direction !== "outbound";
 }
 
@@ -34,6 +38,26 @@ export function callsWorthAnnouncing(calls: Call[], now: number): Call[] {
     // Negative age means a clock skew, not a call from the future.
     return age >= -RECENT_MS && age <= RECENT_MS;
   });
+}
+
+/**
+ * The active incoming call that should interrupt the dashboard. A seen call
+ * remains in the API list, but its local alert has been intentionally handled.
+ * An omitted/unprimed set keeps the live call visible on first load.
+ */
+export function incomingCallToAlert(
+  calls: Call[],
+  seen?: ReadonlySet<number> | null,
+): Call | null {
+  return (
+    calls.find(
+      (call) =>
+        call.status === "in_progress" &&
+        isIncoming(call) &&
+        !call.isTest &&
+        !seen?.has(call.id),
+    ) ?? null
+  );
 }
 
 /**

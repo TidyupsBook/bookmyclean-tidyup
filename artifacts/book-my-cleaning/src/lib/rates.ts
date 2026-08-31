@@ -1,5 +1,9 @@
 import type { Company } from "@workspace/api-client-react";
-import type { QuoteRates } from "@workspace/pricing";
+import {
+  FIXED_TAX_LABEL,
+  FIXED_TAX_RATE,
+  type QuoteRates,
+} from "@workspace/pricing";
 
 /**
  * The company's pricing policy in the shape the shared quote maths expects.
@@ -13,10 +17,10 @@ export function companyQuoteRates(company?: Company): QuoteRates {
     rateSolo: company?.quoteRateSolo ?? 52.5,
     rateTeam: company?.quoteRateTeam ?? 105,
     fuelSurcharge: company?.quoteFuelSurcharge ?? 12.5,
-    taxLabel: company?.quoteTaxLabel ?? "Alberta Tax",
-    taxRate: company?.quoteTaxRate ?? 5,
-    feesLabel: company?.quoteFeesLabel ?? "Fees & Supplies",
-    feesRate: company?.quoteFeesRate ?? 7.5,
+    taxLabel: FIXED_TAX_LABEL,
+    taxRate: FIXED_TAX_RATE,
+    feesLabel: "",
+    feesRate: 0,
     depositAmount: company?.quoteDepositAmount ?? 0,
     depositEmail: company?.quoteDepositEmail ?? null,
   };

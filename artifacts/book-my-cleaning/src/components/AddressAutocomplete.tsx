@@ -1,14 +1,20 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { loadGooglePlaces } from "@/lib/googleMaps";
+import { useGetAddressSuggestions } from "@workspace/api-client-react";
 import { MapPin } from "lucide-react";
 
 /**
- * Address box with Google address suggestions.
+ * Address box with address suggestions.
  *
- * Suggestions are a convenience, never a requirement: if the key has no Places
- * access, or the network hiccups, this quietly becomes an ordinary text box and
- * whatever was typed still gets geocoded server-side. Picking a suggestion just
+ * The lookup happens on our server, not in the browser: suggestions used to go
+ * straight to Google from here, which only worked on a Maps key with the newest
+ * Places API switched on, and failed as a silent rejected promise when it
+ * wasn't. Server-side, the same key can fall back to Google's older endpoint
+ * and any refusal is logged.
+ *
+ * Suggestions stay a convenience, never a requirement: if Google is unreachable
+ * or the key has no Places access at all, this is an ordinary text box and
+ * whatever was typed still gets geocoded when it's saved. Picking a suggestion
  * fills in the full, well-formed address — which matters because a half-written
  * address ("123 Main St", no city) geocodes to a confidently wrong place rather
  * than failing.
@@ -16,29 +22,21 @@ import { MapPin } from "lucide-react";
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 250;
-/** Google caps the bias radius at 50km. */
-const BIAS_RADIUS_M = 50_000;
-const MAX_SUGGESTIONS = 5;
-
-type Suggestion = {
-  id: string;
-  primary: string;
-  secondary: string;
-  full: string;
-  /** Google's handle for looking the place up, carrying the session token. */
-  toPlace?: () => any;
-};
 
 export function AddressAutocomplete({
-  apiKey,
+  id,
+  testId,
   value,
   onChange,
   onSelect,
   placeholder,
   bias,
   disabled,
+  className,
 }: {
-  apiKey: string;
+  /** So a <Label htmlFor> still points at the box. */
+  id?: string;
+  testId?: string;
   value: string;
   onChange: (value: string) => void;
   /**
@@ -51,15 +49,16 @@ export function AddressAutocomplete({
   /** Nudges results toward the area the crew actually works in. */
   bias?: { lat: number; lng: number };
   disabled?: boolean;
+  /** Extra classes for the box itself — the booking desk lights it up green
+   *  when a live call filled the address in. */
+  className?: string;
 }) {
   const listId = useId();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [unavailable, setUnavailable] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const sessionRef = useRef<any>(null);
-  // Set just before we write a chosen address back into the field, so the
+  // Set just before a chosen address is written back into the field, so the
   // effect below doesn't immediately look that address up again.
   const skipNextLookupRef = useRef(false);
 
@@ -68,86 +67,47 @@ export function AddressAutocomplete({
   const biasLng = bias?.lng;
 
   useEffect(() => {
-    if (unavailable) return;
     if (skipNextLookupRef.current) {
       skipNextLookupRef.current = false;
-      return;
-    }
-
-    const query = value.trim();
-    if (query.length < MIN_CHARS) {
-      setSuggestions([]);
+      setQuery("");
       setOpen(false);
-      // Cleared the box without picking anything — that search is abandoned,
-      // so the next one starts its own session.
-      sessionRef.current = null;
       return;
     }
 
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const places = await loadGooglePlaces(apiKey);
-          if (cancelled) return;
+    const trimmed = value.trim();
+    if (trimmed.length < MIN_CHARS) {
+      setQuery("");
+      setOpen(false);
+      return;
+    }
 
-          // One session token spans the typing that leads to a single pick —
-          // that's how Google bills autocomplete as one lookup, not one per
-          // keystroke.
-          if (!sessionRef.current) {
-            sessionRef.current = new places.AutocompleteSessionToken();
-          }
+    const timer = window.setTimeout(() => setQuery(trimmed), DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [value]);
 
-          const request: Record<string, unknown> = {
-            input: query,
-            sessionToken: sessionRef.current,
-          };
-          if (biasLat !== undefined && biasLng !== undefined) {
-            request.locationBias = {
-              center: { lat: biasLat, lng: biasLng },
-              radius: BIAS_RADIUS_M,
-            };
-          }
+  const enabled = query.length >= MIN_CHARS && !disabled;
+  const { data } = useGetAddressSuggestions(
+    { q: query, lat: biasLat, lng: biasLng },
+    {
+      query: {
+        queryKey: ["address-suggestions", query, biasLat, biasLng],
+        enabled,
+        // The same street typed twice in a session shouldn't cost two lookups.
+        staleTime: 5 * 60 * 1000,
+        retry: false,
+      },
+    },
+  );
 
-          const result =
-            await places.AutocompleteSuggestion.fetchAutocompleteSuggestions(
-              request,
-            );
-          if (cancelled) return;
+  const suggestions = enabled ? (data?.suggestions ?? []) : [];
+  const unavailable = enabled && data?.available === false;
 
-          const next: Suggestion[] = (result?.suggestions ?? [])
-            .map((s: any) => s.placePrediction)
-            .filter(Boolean)
-            .slice(0, MAX_SUGGESTIONS)
-            .map((p: any) => ({
-              id: String(p.placeId ?? p.text?.toString() ?? ""),
-              primary: p.mainText?.toString() ?? p.text?.toString() ?? "",
-              secondary: p.secondaryText?.toString() ?? "",
-              full: p.text?.toString() ?? "",
-              toPlace:
-                typeof p.toPlace === "function" ? () => p.toPlace() : undefined,
-            }))
-            .filter((s: Suggestion) => s.full.length > 0);
-
-          setSuggestions(next);
-          setActiveIndex(-1);
-          setOpen(next.length > 0);
-        } catch {
-          // Most likely the key has no Places access. Stop asking for the rest
-          // of the page load and let the plain text box do its job.
-          if (cancelled) return;
-          setUnavailable(true);
-          setSuggestions([]);
-          setOpen(false);
-        }
-      })();
-    }, DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [value, apiKey, biasLat, biasLng, unavailable]);
+  useEffect(() => {
+    setActiveIndex(-1);
+    setOpen(suggestions.length > 0);
+    // Reacting to the arrival of a result set, not to every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, enabled]);
 
   // Clicking anywhere else closes the list.
   useEffect(() => {
@@ -159,41 +119,12 @@ export function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
 
-  const choose = (suggestion: Suggestion) => {
+  const choose = (suggestion: { full: string }) => {
     skipNextLookupRef.current = true;
     onChange(suggestion.full);
-    setSuggestions([]);
     setOpen(false);
     setActiveIndex(-1);
-
-    // Ask Google for the canonical address of the place that was picked. Two
-    // reasons: it's tidier than the prediction text, and it's the request that
-    // *closes* the autocomplete session — without it Google bills every
-    // keystroke's lookup separately instead of the session as one.
-    const place = suggestion.toPlace?.();
-    sessionRef.current = null;
-    if (!place) {
-      onSelect?.(suggestion.full);
-      return;
-    }
-
-    void (async () => {
-      let chosen = suggestion.full;
-      try {
-        await place.fetchFields({ fields: ["formattedAddress"] });
-        const formatted = place.formattedAddress;
-        if (typeof formatted === "string" && formatted.length > 0) {
-          chosen = formatted;
-          skipNextLookupRef.current = true;
-          onChange(formatted);
-        }
-      } catch {
-        // The prediction text is already in the box and geocodes fine.
-      }
-      // Announced after the tidy-up so the caller acts on the best address we
-      // have, not the abbreviated prediction text.
-      onSelect?.(chosen);
-    })();
+    onSelect?.(suggestion.full);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -215,6 +146,8 @@ export function AddressAutocomplete({
   return (
     <div ref={containerRef} className="relative">
       <Input
+        id={id}
+        data-testid={testId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -223,6 +156,7 @@ export function AddressAutocomplete({
         }}
         placeholder={placeholder}
         disabled={disabled}
+        className={className}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -273,9 +207,8 @@ export function AddressAutocomplete({
 
       {unavailable && (
         <p className="mt-1 text-xs text-muted-foreground">
-          Address suggestions are off. Enable the{" "}
-          <strong>Places API (New)</strong> on your Google Maps key to turn them
-          on — typing the full address still works.
+          Address suggestions are off — your Google Maps key doesn't allow them
+          yet. Typing the full address still works.
         </p>
       )}
     </div>

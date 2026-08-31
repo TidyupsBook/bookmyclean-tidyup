@@ -250,10 +250,17 @@ export async function syncCompanyTimeSheets(
           withEntries.map((job) => job.id),
         ),
       ),
-    );
-  const bookingByJob = new Map(
-    bookings.map((b) => [b.jobberSyncedJobId!, b.id] as const),
-  );
+    )
+    .orderBy(bookingsTable.scheduledFor);
+  // The calendar pull keeps a booking per *visit*, so several rows can share
+  // a job id. Hours hang on the earliest row — the one that was the job's
+  // single row before the visit switch, so existing stretches stay put.
+  const bookingByJob = new Map<string, number>();
+  for (const b of bookings) {
+    if (!bookingByJob.has(b.jobberSyncedJobId!)) {
+      bookingByJob.set(b.jobberSyncedJobId!, b.id);
+    }
+  }
 
   let imported = 0;
   let updated = 0;

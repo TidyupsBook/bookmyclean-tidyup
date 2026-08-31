@@ -11,14 +11,17 @@ import type { BookingUpdateStatus } from './bookingUpdateStatus';
 export interface BookingUpdate {
   status?: BookingUpdateStatus;
   scheduledFor?: string;
-  /** @minLength 1 */
   customerName?: string;
-  /** @minLength 1 */
   customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -34,7 +37,6 @@ export interface BookingUpdate {
      * @nullable
      */
   addressPostal?: string | null;
-  /** @minLength 1 */
   service?: string;
   /**
      * @minimum 0

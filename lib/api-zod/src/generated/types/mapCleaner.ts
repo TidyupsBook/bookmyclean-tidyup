@@ -8,9 +8,16 @@
 
 export interface MapCleaner {
   teamMemberId: number;
+  /** @nullable */
+  deviceId: number | null;
+  /** @nullable */
+  deviceLabel?: string | null;
+  /** @nullable */
+  platform?: string | null;
   name: string;
   /** @nullable */
   color?: string | null;
+  isOwner: boolean;
   lat: number;
   lng: number;
   /** @nullable */

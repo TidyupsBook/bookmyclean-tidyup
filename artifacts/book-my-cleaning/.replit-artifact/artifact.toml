@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Book My Cleaning"
+title = "Book My Cleaning Website"
 description = "Multi-company AI receptionist SaaS for cleaning companies using Jobber. Companies sign up, run a setup wizard (connect Jobber, pick a phone number, customize the AI receptionist's greeting/questions/services), invite their team, and get a dispatcher dashboard with live call transcripts that turn into bookings."
 version = "1.0.0"
 id = "artifacts/book-my-cleaning"

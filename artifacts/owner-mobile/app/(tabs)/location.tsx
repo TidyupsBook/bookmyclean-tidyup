@@ -5,12 +5,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useGetCurrentUser } from "@workspace/api-client-react";
 import { BrandHeaderTitle, GradientRule } from "@/components/Brand";
 import colors from "@/constants/colors";
 import { timeAgo } from "@/lib/format";
@@ -32,7 +32,7 @@ const STATUS_META: Record<
 > = {
   sharing: {
     label: "Sharing location",
-    detail: "Your dispatcher can see where you are while you're on shift.",
+    detail: "Your dispatcher can see where you are while this is on.",
     icon: "navigation",
     color: c.success,
   },
@@ -47,13 +47,6 @@ const STATUS_META: Record<
     detail:
       "We need location permission to share your position. Enable it in Settings, then try again.",
     icon: "alert-triangle",
-    color: c.warning,
-  },
-  "outside-hours": {
-    label: "Outside working hours",
-    detail:
-      "Sharing is on but paused. It runs automatically between 8am and 8pm.",
-    icon: "clock",
     color: c.warning,
   },
   unsupported: {
@@ -73,22 +66,23 @@ export default function LocationScreen() {
     canAskAgain,
     lastSentAt,
     enable,
-    disable,
   } = useLocationTracking();
+
+  // Device housekeeping is the owner's alone — the server refuses everyone
+  // else, so nobody but the owner is even shown the section. Positive check:
+  // nothing renders while the role is still loading.
+  const me = useGetCurrentUser();
+  const isOwner = me.data?.role === "owner";
 
   const meta = STATUS_META[status];
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const isWeb = Platform.OS === "web";
 
-  const onToggle = (next: boolean) => {
-    if (next) void enable();
-    else disable();
-  };
-
   const showSettingsButton =
     enabled && !permissionGranted && !canAskAgain && !isWeb;
   const showRetryButton =
     enabled && !permissionGranted && canAskAgain && !isWeb;
+  const showEnableButton = status === "off" && !isWeb;
 
   const openSettings = () => {
     if (isWeb) return;
@@ -117,18 +111,9 @@ export default function LocationScreen() {
           <View style={styles.toggleText}>
             <Text style={styles.toggleTitle}>Share my location</Text>
             <Text style={styles.toggleSubtitle}>
-              Sends your position every 30 seconds while you're on shift.
+              Sends your position every 30 seconds while this is on.
             </Text>
           </View>
-          <Switch
-            testID="location-toggle"
-            value={enabled}
-            onValueChange={onToggle}
-            disabled={isWeb}
-            trackColor={{ false: c.border, true: c.brandPink }}
-            thumbColor="#ffffff"
-            ios_backgroundColor={c.border}
-          />
         </View>
 
         <View style={styles.divider} />
@@ -178,11 +163,26 @@ export default function LocationScreen() {
             <Text style={styles.actionText}>Try again</Text>
           </Pressable>
         ) : null}
+
+        {showEnableButton ? (
+          <Pressable
+            testID="enable-sharing-button"
+            onPress={() => void enable()}
+            style={({ pressed }) => [
+              styles.primaryActionButton,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Feather name="map-pin" size={16} color={c.primaryForeground} />
+            <Text style={styles.primaryActionText}>Turn on sharing</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Text style={styles.footnote}>
-        Your location is only shared while this switch is on and you're signed
-        in, between 8am and 8pm. Turn it off any time.
+        Your location is shared only after you consent, while you are signed in
+        and actively using the app. To stop sharing, revoke this app&apos;s
+        location permission in your device settings.
       </Text>
     </ScrollView>
   );
@@ -261,6 +261,20 @@ const styles = StyleSheet.create({
     fontFamily: "PlusJakartaSans_600SemiBold",
     fontSize: 14,
     color: c.foreground,
+  },
+  primaryActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: c.primary,
+    borderRadius: colors.radius,
+    paddingVertical: 12,
+  },
+  primaryActionText: {
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontSize: 14,
+    color: c.primaryForeground,
   },
   footnote: {
     fontFamily: "PlusJakartaSans_400Regular",

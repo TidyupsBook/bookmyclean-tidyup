@@ -1,0 +1,46 @@
+diff --git a/expo-module.config.json b/expo-module.config.json
+index 8c0f47dee5e856bf0186bb47db7ffa94ba675203..6bc3e3ae62fbdd5557e2eaa6472f710ae5257b0a 100644
+--- a/expo-module.config.json
++++ b/expo-module.config.json
+@@ -1,7 +1,14 @@
+ {
+-  "platforms": ["apple", "android"],
++  "platforms": [
++    "android"
++  ],
+   "apple": {
+-    "modules": ["ClerkExpoModule", "ClerkAuthViewModule", "ClerkUserProfileViewModule", "ClerkUserButtonViewModule"]
++    "modules": [
++      "ClerkExpoModule",
++      "ClerkAuthViewModule",
++      "ClerkUserProfileViewModule",
++      "ClerkUserButtonViewModule"
++    ]
+   },
+   "android": {
+     "modules": [
+diff --git a/ios/ClerkExpo.podspec b/ios/ClerkExpo.podspec
+index e941f54fa15570100426e291f32f43d044839297..45e974654c832f9f6f02b6fcde0c29c293d0913f 100644
+--- a/ios/ClerkExpo.podspec
++++ b/ios/ClerkExpo.podspec
+@@ -40,16 +40,10 @@ Pod::Spec.new do |s|
+     'SWIFT_COMPILATION_MODE' => 'wholemodule'
+   }
+ 
+-  if defined?(spm_dependency)
+-    spm_dependency(
+-      s,
+-      url: clerk_ios_repo,
+-      requirement: { :kind => 'exactVersion', :version => clerk_ios_version },
+-      products: ['ClerkKit', 'ClerkKitUI']
+-    )
+-  else
+-    raise 'ClerkExpo requires React Native 0.75 or newer for iOS Swift Package Manager dependencies.'
+-  end
++  # [patched for this app] SPM registration removed: the native ClerkExpo
++  # module is never linked here (JS-only Clerk, deployment target < iOS 17),
++  # and React Native's spm.rb crashes pod install when a registration exists
++  # for a pod that CocoaPods skipped over its platform requirement.
+ 
+   s.source_files = "ClerkNativeBridge.swift",
+                    "ClerkExpoModule.swift",

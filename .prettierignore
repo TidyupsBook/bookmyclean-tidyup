@@ -14,3 +14,5 @@ artifacts/*/src/generated
 **/.generated
 .replit
 artifacts/owner-mobile/expo-env.d.ts
+artifacts/*/static-build
+**/.slide-thumbnails

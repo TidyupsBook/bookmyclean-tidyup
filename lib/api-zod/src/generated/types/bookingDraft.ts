@@ -15,6 +15,11 @@ export interface BookingDraft {
   customerPhone?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /** @nullable */
   addressCity?: string | null;
   /** @nullable */

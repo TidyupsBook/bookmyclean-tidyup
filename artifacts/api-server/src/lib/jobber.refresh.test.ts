@@ -103,6 +103,19 @@ describe("getValidAccessToken", () => {
     expect(row.jobberTokenExpiresAt!.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it("clears a stale reconnect flag once the grant works again", async () => {
+    // An account can recover on its own (the other environment reconnected,
+    // or a rejection was transient). Leaving the flag set kept every push
+    // skipping in silence long after Jobber was reachable.
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({ access_token: "new-access", expires_in: 3600 }),
+    });
+    await getValidAccessToken(company({ jobberNeedsReauth: true }));
+    expect(row.jobberNeedsReauth).toBe(false);
+  });
+
   it("keeps the old refresh token when Jobber does not rotate it", async () => {
     fetchMock.mockResolvedValue({
       ok: true,
@@ -124,6 +137,32 @@ describe("getValidAccessToken", () => {
     );
     expect(row.jobberNeedsReauth).toBe(true);
     expect(lastSet).toEqual({ jobberNeedsReauth: true });
+  });
+
+  it("names the environment that lost the grant, so cross-env rotation is diagnosable", async () => {
+    // Dev and production share one Jobber account and Jobber rotates the
+    // refresh token on every renewal — a rejection here usually means the
+    // other environment refreshed first. The owner must be told which copy
+    // needs reconnecting.
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
+    });
+    const savedPin = process.env["PUBLIC_APP_URL"];
+    try {
+      delete process.env["PUBLIC_APP_URL"];
+      await expect(getValidAccessToken(company())).rejects.toThrow(
+        /dev workspace/,
+      );
+      process.env["PUBLIC_APP_URL"] = "https://bookmycleaning.net";
+      await expect(getValidAccessToken(company())).rejects.toThrow(
+        /published site/,
+      );
+    } finally {
+      if (savedPin === undefined) delete process.env["PUBLIC_APP_URL"];
+      else process.env["PUBLIC_APP_URL"] = savedPin;
+    }
   });
 
   it("does not flag reconnect on a transient (5xx) refresh failure", async () => {

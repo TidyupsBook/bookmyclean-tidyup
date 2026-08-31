@@ -11,23 +11,29 @@ import { AppState, Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { useReportStaffLocation } from "@workspace/api-client-react";
 import * as Location from "expo-location";
+import {
+  defaultDeviceLabel,
+  devicePlatform,
+  deviceRecoveryKey,
+  loadDeviceKey,
+  hasLocationConsent,
+  markLocationConsent,
+} from "@/lib/this-device";
 
 // How often we push a fresh position to the dispatcher's live map.
 const SEND_INTERVAL_MS = 30_000;
-// The window (local time) during which a cleaner is considered "on shift".
-const SHIFT_START_HOUR = 8; // 8am
-const SHIFT_END_HOUR = 20; // 8pm
 
 /**
  * A cleaner's location-sharing status, in priority order of what to surface:
  * - "unsupported": platform can't provide GPS (web) — no watcher, honest label.
  * - "denied": OS permission refused — user must grant (or open Settings).
- * - "off": permission is fine but the cleaner has the switch turned off.
- * - "outside-hours": switch is on, but it's outside working hours so we idle.
+ * - "off": permission is fine but consent has not been granted.
  * - "sharing": actively watching + sending.
+ *
+ * There is deliberately no working-hours state: *who may watch, and when* is
+ * decided by the server in the company's timezone, not by this phone's clock.
  */
-export type TrackingStatus =
-  "unsupported" | "denied" | "off" | "outside-hours" | "sharing";
+export type TrackingStatus = "unsupported" | "denied" | "off" | "sharing";
 
 interface LocationTrackingValue {
   status: TrackingStatus;
@@ -37,6 +43,8 @@ interface LocationTrackingValue {
   permissionGranted: boolean;
   /** Whether the OS will still let us prompt (false → send them to Settings). */
   canAskAgain: boolean;
+  /** Deprecated compatibility field; owner approval is no longer a gate. */
+  blockedByOwner: false;
   /** ISO timestamp of the last 2xx send, or null if none yet this session. */
   lastSentAt: string | null;
   /** Turn sharing on: requests permission if needed, then starts the watcher. */
@@ -51,35 +59,27 @@ const LocationTrackingContext = createContext<LocationTrackingValue | null>(
 
 const isWeb = Platform.OS === "web";
 
-function isWithinWorkingHours(now: Date): boolean {
-  const hour = now.getHours();
-  return hour >= SHIFT_START_HOUR && hour < SHIFT_END_HOUR;
-}
-
 export function LocationTrackingProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const reportLocation = useReportStaffLocation();
 
   // The cleaner's explicit choice. We never track without this being true.
   const [enabled, setEnabled] = useState(false);
+  const [consentLoaded, setConsentLoaded] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [canAskAgain, setCanAskAgain] = useState(true);
   const [lastSentAt, setLastSentAt] = useState<string | null>(null);
-  // Recomputed every tick so the "Outside working hours" label stays honest
-  // without a watcher running.
-  const [withinHours, setWithinHours] = useState(() =>
-    isWithinWorkingHours(new Date()),
-  );
 
   // Refs let the interval callback read fresh values without re-subscribing.
   const watcherRef = useRef<Location.LocationSubscription | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestFixRef = useRef<Location.LocationObject | null>(null);
   const sendInFlightRef = useRef(false);
+  const deviceKeyRef = useRef<string | null>(null);
   const reportRef = useRef(reportLocation);
   reportRef.current = reportLocation;
 
@@ -102,6 +102,11 @@ export function LocationTrackingProvider({
     if (!fix || sendInFlightRef.current) return;
     sendInFlightRef.current = true;
     try {
+      // Named identity for this install, so the owner sees "iPhone" and
+      // "iPad" as two pins rather than one that teleports between them.
+      if (!deviceKeyRef.current) {
+        deviceKeyRef.current = await loadDeviceKey();
+      }
       const result = await reportRef.current.mutateAsync({
         data: {
           lat: fix.coords.latitude,
@@ -110,6 +115,10 @@ export function LocationTrackingProvider({
             typeof fix.coords.accuracy === "number"
               ? fix.coords.accuracy
               : null,
+          deviceKey: deviceKeyRef.current,
+          recoveryKey: deviceRecoveryKey(),
+          deviceLabel: defaultDeviceLabel(),
+          platform: devicePlatform(),
         },
       });
       setLastSentAt(result.updatedAt ?? new Date().toISOString());
@@ -155,6 +164,8 @@ export function LocationTrackingProvider({
 
   const enable = useCallback(async () => {
     if (isWeb) return;
+    // A fresh attempt deserves a fresh answer from the server — the owner may
+    // have just switched this person on.
     try {
       const current = await Location.getForegroundPermissionsAsync();
       let granted = current.granted;
@@ -169,13 +180,31 @@ export function LocationTrackingProvider({
       if (!granted) {
         // Denied: never flip the switch on, never loop-prompt.
         setEnabled(false);
+        try {
+          const key = await loadDeviceKey();
+          await reportRef.current.mutateAsync({
+            data: {
+              lat: null,
+              lng: null,
+              accuracy: null,
+              deviceKey: key,
+              recoveryKey: deviceRecoveryKey(),
+              deviceLabel: defaultDeviceLabel(),
+              platform: devicePlatform(),
+              locationHealth: "permission-denied",
+            },
+          });
+        } catch {
+          // The local recovery instruction remains the source of truth.
+        }
         return;
       }
+      if (userId) await markLocationConsent(userId);
       setEnabled(true);
     } catch {
       setEnabled(false);
     }
-  }, []);
+  }, [userId]);
 
   const disable = useCallback(() => {
     setEnabled(false);
@@ -189,10 +218,21 @@ export function LocationTrackingProvider({
     let cancelled = false;
     (async () => {
       try {
+        if (!isSignedIn || !userId) {
+          setConsentLoaded(false);
+          setEnabled(false);
+          return;
+        }
+        const consent = await hasLocationConsent(userId);
+        if (cancelled) return;
+        setConsentLoaded(true);
         const perm = await Location.getForegroundPermissionsAsync();
         if (cancelled) return;
         setPermissionGranted(perm.granted);
         setCanAskAgain(perm.canAskAgain);
+        // A previous accepted decision resumes automatically, without showing
+        // the system prompt again.
+        if (consent && perm.granted) setEnabled(true);
       } catch {
         // ignore — defaults keep the UI in a safe "off" state
       }
@@ -200,30 +240,28 @@ export function LocationTrackingProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  // Keep the working-hours flag current. A light 60s tick is enough to flip
-  // the label; it does not touch GPS.
-  useEffect(() => {
-    const id = setInterval(() => {
-      setWithinHours(isWithinWorkingHours(new Date()));
-    }, 60_000);
-    return () => clearInterval(id);
-  }, []);
+  }, [isSignedIn, userId]);
 
   // Signing out must always kill the watcher and reset the switch — never
   // leave GPS running for a signed-out person.
   useEffect(() => {
     if (!isSignedIn) {
       setEnabled(false);
+      setConsentLoaded(false);
       stopWatcher();
     }
   }, [isSignedIn, stopWatcher]);
 
   // The single source of truth for whether the watcher should be alive right
-  // now: signed in + switch on + permission + in-hours + not web.
+  // now: signed in + switch on + permission + the owner allows it + not web.
+  // No clock check — the hours rule belongs to the server, in company time.
   const shouldTrack =
-    !isWeb && !!isSignedIn && enabled && permissionGranted && withinHours;
+    !isWeb &&
+    !!isSignedIn &&
+    consentLoaded &&
+    enabled &&
+    permissionGranted &&
+    true;
 
   useEffect(() => {
     if (shouldTrack) {
@@ -239,6 +277,8 @@ export function LocationTrackingProvider({
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
+        // Coming back to the app is the natural moment to find out whether the
+        // owner has switched this person on since we last asked.
         if (shouldTrack) void startWatcher();
       } else {
         stopWatcher();
@@ -254,9 +294,8 @@ export function LocationTrackingProvider({
     if (isWeb) return "unsupported";
     if (enabled && !permissionGranted) return "denied";
     if (!enabled) return "off";
-    if (!withinHours) return "outside-hours";
     return "sharing";
-  }, [enabled, permissionGranted, withinHours]);
+  }, [enabled, permissionGranted]);
 
   const value = useMemo<LocationTrackingValue>(
     () => ({
@@ -264,6 +303,7 @@ export function LocationTrackingProvider({
       enabled,
       permissionGranted,
       canAskAgain,
+      blockedByOwner: false,
       lastSentAt,
       enable,
       disable,

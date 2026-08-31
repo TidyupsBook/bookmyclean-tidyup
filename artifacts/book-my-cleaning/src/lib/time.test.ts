@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isoToZonedInput, resolveSpokenDate, zonedInputToIso } from "./time";
+import {
+  formatDateWords,
+  isoToZonedInput,
+  resolveSpokenDate,
+  resolveTypedDate,
+  zonedInputToIso,
+} from "./time";
 
 // 2026 US DST: spring forward Sun Mar 8 (02:00→03:00), fall back Sun Nov 1.
 const DENVER = "America/Denver";
@@ -132,5 +138,71 @@ describe("resolveSpokenDate", () => {
     ]) {
       expect(resolveSpokenDate(phrase, DENVER)).toBeNull();
     }
+  });
+});
+
+describe("resolveTypedDate", () => {
+  afterEach(() => vi.useRealTimers());
+
+  function at(iso: string) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(iso));
+  }
+
+  it("still understands everything the spoken resolver does", () => {
+    at("2026-08-06T18:00:00.000Z"); // Thursday, noon in Denver
+    expect(resolveTypedDate("tomorrow", DENVER)).toBe("2026-08-07");
+    expect(resolveTypedDate("next wednesday", DENVER)).toBe("2026-08-12");
+  });
+
+  it("reads an explicit month and day, in any of the ways people type it", () => {
+    at("2026-08-06T18:00:00.000Z");
+    expect(resolveTypedDate("October 12th", DENVER)).toBe("2026-10-12");
+    expect(resolveTypedDate("oct 12", DENVER)).toBe("2026-10-12");
+    expect(resolveTypedDate("12th of October", DENVER)).toBe("2026-10-12");
+    expect(resolveTypedDate("maybe September 3?", DENVER)).toBe("2026-09-03");
+    expect(resolveTypedDate("sept 3", DENVER)).toBe("2026-09-03");
+  });
+
+  it("rolls a day that already went by this year into the next one", () => {
+    at("2026-08-06T18:00:00.000Z");
+    expect(resolveTypedDate("March 3", DENVER)).toBe("2027-03-03");
+    // But an explicit year is taken at its word.
+    expect(resolveTypedDate("March 3, 2026", DENVER)).toBe("2026-03-03");
+  });
+
+  it("passes a calendar value straight through", () => {
+    at("2026-08-06T18:00:00.000Z");
+    expect(resolveTypedDate("2026-10-12", DENVER)).toBe("2026-10-12");
+  });
+
+  it("refuses days that don't exist", () => {
+    at("2026-08-06T18:00:00.000Z");
+    expect(resolveTypedDate("February 30", DENVER)).toBeNull();
+    expect(resolveTypedDate("2026-02-30", DENVER)).toBeNull();
+  });
+
+  it("gives up on a bare month or anything vaguer — never a guess", () => {
+    at("2026-08-06T18:00:00.000Z");
+    for (const phrase of [
+      "September",
+      "sometime next month",
+      "in the fall",
+      "",
+      null,
+    ]) {
+      expect(resolveTypedDate(phrase, DENVER)).toBeNull();
+    }
+  });
+});
+
+describe("formatDateWords", () => {
+  it("spells a date out so the owner can check what the wording resolved to", () => {
+    expect(formatDateWords("2026-10-12")).toBe("Monday, October 12, 2026");
+  });
+
+  it("returns empty for garbage rather than inventing a day", () => {
+    expect(formatDateWords("2026-02-30")).toBe("");
+    expect(formatDateWords("not a date")).toBe("");
   });
 });

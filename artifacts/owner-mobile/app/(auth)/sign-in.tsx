@@ -17,6 +17,15 @@ import * as WebBrowser from "expo-web-browser";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientFill, GradientRule, SparkleLogo } from "@/components/Brand";
 import colors from "@/constants/colors";
+import {
+  canResendCode,
+  codeErrorMessage,
+  codeStepSubtitle,
+  codeStepTitle,
+  planNextSignInStep,
+  type SignInStep,
+} from "@/lib/sign-in-steps";
+import { clerkAppDestination } from "@/lib/clerk-navigation";
 
 const c = colors.light;
 
@@ -43,38 +52,174 @@ export default function SignInScreen() {
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  // Non-null once the password is accepted but Clerk still wants a code.
+  const [codeStep, setCodeStep] = useState<Extract<
+    SignInStep,
+    { kind: "code" }
+  > | null>(null);
 
   const navigateHome = useCallback(
-    (url: string) => {
-      if (url.startsWith("http")) {
-        window.location.href = url;
-      } else {
-        router.push(url as Href);
-      }
-    },
+    (url: string) =>
+      router.push(
+        clerkAppDestination(
+          url,
+          Platform.OS === "web" ? window.location.origin : undefined,
+        ) as Href,
+      ),
     [router],
   );
 
-  const handleSubmit = async () => {
-    setFormError(null);
-    const { error } = await signIn.password({ emailAddress, password });
+  const finalizeSession = useCallback(async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const { error } = await signIn.finalize({
+      navigate: ({ session, decorateUrl }) => {
+        if (session?.currentTask) return;
+        navigateHome(decorateUrl("/"));
+      },
+    });
     if (error) {
-      setFormError(error.message ?? "Sign in failed. Check your details.");
-      return;
-    }
-    if (signIn.status === "complete") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) return;
-          navigateHome(decorateUrl("/"));
-        },
-      });
-    } else {
       setFormError(
-        "Additional verification is required. Sign in on the web dashboard first.",
+        error.message ??
+          "We verified you but couldn't open the app. Check your connection and try again.",
       );
     }
+  }, [signIn, navigateHome]);
+
+  /** Sends the code for a step that has one to send. */
+  const sendCodeFor = useCallback(
+    async (step: Extract<SignInStep, { kind: "code" }>) => {
+      if (step.phase === "first") {
+        return step.channel === "email_code"
+          ? signIn.emailCode.sendCode()
+          : signIn.phoneCode.sendCode();
+      }
+      if (step.channel === "email_code") return signIn.mfa.sendEmailCode();
+      if (step.channel === "phone_code") return signIn.mfa.sendPhoneCode();
+      // Authenticator apps and backup codes have nothing to send.
+      return { error: null };
+    },
+    [signIn],
+  );
+
+  /**
+   * Reads whatever the sign-in still needs and drives it here, rather than
+   * handing the person off to a computer. Called after every step so a
+   * two-stage flow (code, then MFA) keeps moving without extra plumbing.
+   */
+  const advance = useCallback(async () => {
+    const step = planNextSignInStep(signIn);
+    if (step.kind === "complete") {
+      setCodeStep(null);
+      await finalizeSession();
+      return;
+    }
+    if (step.kind === "blocked") {
+      setCodeStep(null);
+      setFormError(step.message);
+      return;
+    }
+    setCode("");
+    setFormError(null);
+    setCodeStep(step);
+    const { error } = await sendCodeFor(step);
+    if (error) {
+      setFormError(
+        error.message ??
+          "We couldn't send your code. Check your connection and try again.",
+      );
+      return;
+    }
+    if (canResendCode(step.channel)) setNotice("Code sent.");
+  }, [signIn, finalizeSession, sendCodeFor]);
+
+  const handleSubmit = async () => {
+    setFormError(null);
+    setNotice(null);
+    try {
+      const { error } = await signIn.password({ emailAddress, password });
+      if (error) {
+        setFormError(error.message ?? "Sign in failed. Check your details.");
+        return;
+      }
+      await advance();
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
+    }
+  };
+
+  const verifyCode = useCallback(
+    async (step: Extract<SignInStep, { kind: "code" }>, value: string) => {
+      if (step.phase === "first") {
+        return step.channel === "email_code"
+          ? signIn.emailCode.verifyCode({ code: value })
+          : signIn.phoneCode.verifyCode({ code: value });
+      }
+      switch (step.channel) {
+        case "email_code":
+          return signIn.mfa.verifyEmailCode({ code: value });
+        case "phone_code":
+          return signIn.mfa.verifyPhoneCode({ code: value });
+        case "totp":
+          return signIn.mfa.verifyTOTP({ code: value });
+        case "backup_code":
+          return signIn.mfa.verifyBackupCode({ code: value });
+      }
+    },
+    [signIn],
+  );
+
+  const handleVerify = async () => {
+    if (!codeStep) return;
+    setFormError(null);
+    setNotice(null);
+    try {
+      const { error } = await verifyCode(codeStep, code.trim());
+      if (error) {
+        // A wrong code leaves the screen exactly where it is, with a way out.
+        setFormError(codeErrorMessage(error));
+        return;
+      }
+      await advance();
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
+    }
+  };
+
+  const handleResend = async () => {
+    if (!codeStep) return;
+    setFormError(null);
+    setNotice(null);
+    try {
+      const { error } = await sendCodeFor(codeStep);
+      if (error) {
+        setFormError(
+          error.message ??
+            "We couldn't send a new code. Check your connection and try again.",
+        );
+        return;
+      }
+      setCode("");
+      setNotice("New code sent.");
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
+    }
+  };
+
+  const handleStartOver = async () => {
+    setFormError(null);
+    setNotice(null);
+    setCode("");
+    setCodeStep(null);
+    setPassword("");
+    await signIn.reset();
   };
 
   const onGooglePress = useCallback(async () => {
@@ -88,7 +233,7 @@ export default function SignInScreen() {
           session: createdSessionId,
           navigate: async ({ session, decorateUrl }) => {
             if (session?.currentTask) return;
-            router.push(decorateUrl("/") as Href);
+            navigateHome(decorateUrl("/"));
           },
         });
       }
@@ -96,7 +241,7 @@ export default function SignInScreen() {
       setFormError("Google sign-in did not complete. Try again.");
       console.error(JSON.stringify(err, null, 2));
     }
-  }, [startSSOFlow, router]);
+  }, [startSSOFlow, navigateHome]);
 
   const busy = fetchStatus === "fetching";
 
@@ -115,84 +260,163 @@ export default function SignInScreen() {
     >
       <View style={styles.logoBlock}>
         <SparkleLogo size={56} />
-        <Text style={styles.appName}>Book My Cleaning</Text>
-        <Text style={styles.tagline}>Your jobs, from the van</Text>
+        <Text style={styles.appName}>
+          {codeStep ? codeStepTitle(codeStep.channel) : "Book My Cleaning"}
+        </Text>
+        <Text style={styles.tagline}>
+          {codeStep
+            ? codeStepSubtitle(codeStep.channel, codeStep.sentTo)
+            : "Your jobs, from the van"}
+        </Text>
         <View style={{ alignSelf: "stretch", marginTop: 18 }}>
           <GradientRule />
         </View>
       </View>
 
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        testID="email-input"
-        style={styles.input}
-        autoCapitalize="none"
-        autoComplete="email"
-        value={emailAddress}
-        placeholder="you@company.com"
-        placeholderTextColor={c.mutedForeground}
-        onChangeText={setEmailAddress}
-        keyboardType="email-address"
-      />
-      {errors.fields.identifier && (
-        <Text style={styles.error}>{errors.fields.identifier.message}</Text>
-      )}
-
-      <Text style={styles.label}>Password</Text>
-      <TextInput
-        testID="password-input"
-        style={styles.input}
-        value={password}
-        placeholder="Your password"
-        placeholderTextColor={c.mutedForeground}
-        secureTextEntry
-        onChangeText={setPassword}
-      />
-      {errors.fields.password && (
-        <Text style={styles.error}>{errors.fields.password.message}</Text>
-      )}
-      {formError && <Text style={styles.error}>{formError}</Text>}
-
-      <Pressable
-        testID="sign-in-button"
-        onPress={handleSubmit}
-        disabled={!emailAddress || !password || busy}
-        style={({ pressed }) => [
-          styles.primaryWrap,
-          (pressed || busy || !emailAddress || !password) && { opacity: 0.7 },
-        ]}
-      >
-        <GradientFill style={styles.primaryButton}>
-          <Text style={styles.primaryText}>
-            {busy ? "Signing in…" : "Sign in"}
+      {codeStep ? (
+        <>
+          <Text style={styles.label}>
+            {codeStep.channel === "backup_code"
+              ? "Backup code"
+              : "Verification code"}
           </Text>
-        </GradientFill>
-      </Pressable>
+          <TextInput
+            testID="code-input"
+            style={styles.input}
+            value={code}
+            placeholder={codeStep.channel === "backup_code" ? "" : "123456"}
+            placeholderTextColor={c.mutedForeground}
+            autoCapitalize="none"
+            autoFocus
+            onChangeText={setCode}
+            keyboardType={
+              codeStep.channel === "backup_code" ? "default" : "number-pad"
+            }
+          />
+          {errors.fields.code && (
+            <Text style={styles.error}>{errors.fields.code.message}</Text>
+          )}
+          {formError && <Text style={styles.error}>{formError}</Text>}
+          {notice && !formError && <Text style={styles.notice}>{notice}</Text>}
 
-      <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.dividerLine} />
-      </View>
+          <Pressable
+            testID="verify-button"
+            onPress={handleVerify}
+            disabled={!code.trim() || busy}
+            style={({ pressed }) => [
+              styles.primaryWrap,
+              (pressed || busy || !code.trim()) && { opacity: 0.7 },
+            ]}
+          >
+            <GradientFill style={styles.primaryButton}>
+              <Text style={styles.primaryText}>
+                {busy ? "Checking…" : "Verify"}
+              </Text>
+            </GradientFill>
+          </Pressable>
 
-      <Pressable
-        testID="google-sign-in-button"
-        onPress={onGooglePress}
-        style={({ pressed }) => [
-          styles.googleButton,
-          pressed && { opacity: 0.7 },
-        ]}
-      >
-        <Feather name="chrome" size={17} color={c.foreground} />
-        <Text style={styles.googleText}>Continue with Google</Text>
-      </Pressable>
+          {canResendCode(codeStep.channel) && (
+            <Pressable
+              testID="resend-code-button"
+              onPress={handleResend}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.linkRow,
+                (pressed || busy) && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.link}>Send a new code</Text>
+            </Pressable>
+          )}
 
-      <View style={styles.linkRow}>
-        <Text style={styles.linkMuted}>New here? </Text>
-        <Link href="/(auth)/sign-up">
-          <Text style={styles.link}>Create an account</Text>
-        </Link>
-      </View>
+          <Pressable
+            testID="start-over-button"
+            onPress={handleStartOver}
+            style={({ pressed }) => [
+              styles.linkRowTight,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={styles.linkMuted}>Use a different account</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            testID="email-input"
+            style={styles.input}
+            autoCapitalize="none"
+            autoComplete="email"
+            value={emailAddress}
+            placeholder="you@company.com"
+            placeholderTextColor={c.mutedForeground}
+            onChangeText={setEmailAddress}
+            keyboardType="email-address"
+          />
+          {errors.fields.identifier && (
+            <Text style={styles.error}>{errors.fields.identifier.message}</Text>
+          )}
+
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            testID="password-input"
+            style={styles.input}
+            value={password}
+            placeholder="Your password"
+            placeholderTextColor={c.mutedForeground}
+            secureTextEntry
+            onChangeText={setPassword}
+          />
+          {errors.fields.password && (
+            <Text style={styles.error}>{errors.fields.password.message}</Text>
+          )}
+          {formError && <Text style={styles.error}>{formError}</Text>}
+
+          <Pressable
+            testID="sign-in-button"
+            onPress={handleSubmit}
+            disabled={!emailAddress || !password || busy}
+            style={({ pressed }) => [
+              styles.primaryWrap,
+              (pressed || busy || !emailAddress || !password) && {
+                opacity: 0.7,
+              },
+            ]}
+          >
+            <GradientFill style={styles.primaryButton}>
+              <Text style={styles.primaryText}>
+                {busy ? "Signing in…" : "Sign in"}
+              </Text>
+            </GradientFill>
+          </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable
+            testID="google-sign-in-button"
+            onPress={onGooglePress}
+            style={({ pressed }) => [
+              styles.googleButton,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Feather name="chrome" size={17} color={c.foreground} />
+            <Text style={styles.googleText}>Continue with Google</Text>
+          </Pressable>
+
+          <View style={styles.linkRow}>
+            <Text style={styles.linkMuted}>New here? </Text>
+            <Link href="/(auth)/sign-up">
+              <Text style={styles.link}>Create an account</Text>
+            </Link>
+          </View>
+        </>
+      )}
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -284,6 +508,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 26,
+  },
+  linkRowTight: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  notice: {
+    fontFamily: "PlusJakartaSans_500Medium",
+    fontSize: 12,
+    color: c.mutedForeground,
+    marginTop: 6,
   },
   linkMuted: {
     fontFamily: "PlusJakartaSans_400Regular",

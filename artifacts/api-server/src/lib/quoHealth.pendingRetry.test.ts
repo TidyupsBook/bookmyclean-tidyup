@@ -96,6 +96,10 @@ vi.mock("./quo", () => ({
 // Key present but no longer decryptable — the branch under test.
 vi.mock("./secretBox", () => ({ decryptQuoKey: vi.fn(() => null) }));
 
+// The general owed-text sweep has its own tests (team.notify.test.ts); here
+// it would just try to query the mocked-out db, so it's stubbed away.
+vi.mock("./pendingTexts", () => ({ retryPendingTexts: vi.fn(async () => {}) }));
+
 const notifyOwnerQuoKeyDead = vi.fn(async (): Promise<string> => "sent");
 const notifyOwnerQuoRestored = vi.fn(async (): Promise<string> => "sent");
 vi.mock("./ownerNotify", () => ({

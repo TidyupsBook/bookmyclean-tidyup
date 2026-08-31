@@ -14,12 +14,14 @@
       "backgroundColor": "#0d0a0f"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bookmycleaning.ownermobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Book My Cleaning shares your location with your dispatcher while you're on shift, so they can see where your team is on the live map. You control this with an on/off switch in the app."
       }
     },
     "android": {
+      "package": "com.bookmycleaning.ownermobile",
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "web": {
@@ -39,7 +41,15 @@
         {
           "locationWhenInUsePermission": "Book My Cleaning shares your location with your dispatcher while you're on shift, so they can see where your team is on the live map. You control this with an on/off switch in the app."
         }
-      ]
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Book My Cleaning listens through the microphone only while you hold a call on speaker and press Listen, so the booking form can fill itself from what the customer says. Nothing is recorded or stored.",
+          "speechRecognitionPermission": "Book My Cleaning turns the customer's words into text on your phone so the booking form can fill itself during a call. Nothing is recorded or stored."
+        }
+      ],
+      "./plugins/withNativeMaps"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -12,4 +12,8 @@ export interface ActivityItem {
   type: ActivityItemType;
   message: string;
   occurredAt: string;
+  canResendText?: boolean;
+  resendPhone?: string;
+  callId?: number;
+  bookingId?: number;
 }

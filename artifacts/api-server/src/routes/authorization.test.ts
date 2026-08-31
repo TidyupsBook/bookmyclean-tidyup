@@ -55,11 +55,13 @@ import {
   db,
   pool,
   companiesTable,
+  pendingTextsTable,
   teamMembersTable,
   bookingsTable,
   bookingAssignmentsTable,
   activityTable,
   callsTable,
+  servicesTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -84,6 +86,9 @@ const USERS: Record<Role, string> = {
 const MATRIX: Record<string, Role[]> = {
   // Company configuration and go-live: the owner's alone.
   "GET /company": ["owner", "dispatcher", "cleaner"], // shared config (name, timezone) the apps need
+  "GET /company/repair/test-companies": ["owner"],
+  "GET /company/repair/test-companies/review": ["owner"],
+  "POST /company/repair/test-companies": ["owner"],
   "POST /company": ["owner"],
   "PATCH /company": ["owner"],
   "POST /company/jobber/connect": ["owner"],
@@ -92,6 +97,24 @@ const MATRIX: Record<string, Role[]> = {
   // Pulling the Jobber calendar is day-to-day dispatch work, not a settings
   // change, so a dispatcher may trigger it.
   "POST /company/jobber/sync-calendar": ["owner", "dispatcher"],
+  // Jobber connections list: each OAuth grant lives in its own row. A dispatcher
+  // may see which accounts exist; renaming and deleting stay with the owner.
+  "GET /company/jobber-connections": ["owner", "dispatcher"],
+  "PATCH /company/jobber-connections/:id": ["owner"],
+  "DELETE /company/jobber-connections/:id": ["owner"],
+  // Quotes written in Jobber, mirrored read-only. Prices and customer names,
+  // so the same audience as Bookings — never crew.
+  "GET /jobber-quotes": ["owner", "dispatcher"],
+  "GET /jobber-invoices": ["owner", "dispatcher"],
+  // The client directory is names, numbers and home addresses — never crew.
+  "GET /clients": ["owner", "dispatcher"],
+  "POST /clients": ["owner", "dispatcher"],
+  "PATCH /clients/:id": ["owner", "dispatcher"],
+  "GET /callers": ["owner", "dispatcher"],
+  "GET /callers/:id/calls": ["owner", "dispatcher"],
+  "PATCH /customer-tags/:kind/:id": ["owner", "dispatcher"],
+  // Global search spans leads, bookings, clients and staff — same audience.
+  "GET /search": ["owner", "dispatcher"],
   "POST /company/go-live": ["owner"],
   // Quo connection and numbers: owner only.
   "POST /company/quo/connect": ["owner"],
@@ -101,33 +124,101 @@ const MATRIX: Record<string, Role[]> = {
   // Service pricing: cleaners may not even read it.
   "GET /services": ["owner", "dispatcher"],
   "POST /services": ["owner"],
+  "POST /services/suggested-catalog": ["owner"],
   "PATCH /services/:id": ["owner"],
   "DELETE /services/:id": ["owner"],
   // Profile: everyone signed in.
   "GET /me": ["owner", "dispatcher", "cleaner"],
+  // Typing an address happens on the booking form, the staff card and the map,
+  // so everyone who fills any of those in needs it.
+  "GET /map/address-suggestions": ["owner", "dispatcher", "cleaner"],
+  // Reads an address and hands back a point; saves nothing. Same audience as
+  // the map itself, which is what it's for.
+  "GET /map/geocode": ["owner", "dispatcher", "cleaner"],
   // Staff: dispatchers may look and keep the roster tidy (phone numbers, home
   // addresses, who is on this week). Adding, removing, and changing anyone's
   // role or email — the things that decide who can sign in and see what — stay
-  // with the owner.
-  "GET /team": ["owner", "dispatcher"],
+  // with the owner. Cleaners may read the roster (the applicant queue is
+  // filtered out for them in the handler).
+  "GET /team": ["owner", "dispatcher", "cleaner"],
   "POST /team": ["owner"],
+  // A cleaner passes the guard only to rename their OWN card; any other id
+  // (including this matrix's bogus one) is 403 in the handler, which is why
+  // "cleaner" is not in the allowed list. team.test.ts pins the self-rename.
   "PATCH /team/:id": ["owner", "dispatcher"],
   "POST /team/import": ["owner"],
   "DELETE /team/:id": ["owner"],
+  // Jobber staff links. A dispatcher may see how the two rosters line up,
+  // but saying who somebody IS in Jobber — the identity assignments sync by
+  // — stays with the owner, as does creating seats from Jobber's list.
+  "GET /team/jobber-members": ["owner", "dispatcher"],
+  "POST /team/jobber-members/import": ["owner"],
+  "POST /team/:id/jobber-link": ["owner"],
+  "DELETE /team/:id/jobber-link": ["owner"],
+  // Revoking an account removes the Clerk login but keeps the roster seat —
+  // it's the owner's call, same as role assignment.
+  "DELETE /team/:id/account": ["owner"],
+  // The join code decides whose Staff page a sign-up lands on, so a dispatcher
+  // fielding the phone can hand it out.
+  "GET /team/join-code": ["owner", "dispatcher"],
+  // Retiring a code that's been passed around is a policy call about who may
+  // apply, so it stays with the owner even though a dispatcher can read it.
+  "POST /team/join-code/rotate": ["owner"],
+  // Asking to join, and withdrawing that ask, belong to people who are in no
+  // company yet — there is no role to check, so every signed-in caller passes
+  // the guard and the handler refuses anyone who already has a company.
+  "POST /team/join-requests": ["owner", "dispatcher", "cleaner"],
+  "DELETE /team/join-requests": ["owner", "dispatcher", "cleaner"],
+  // A dispatcher may wave a cleaner in; the handler still refuses to let one
+  // hand out a dispatcher seat (asserted in team.test.ts).
+  "POST /team/:id/approve": ["owner", "dispatcher"],
+  "POST /team/:id/decline": ["owner", "dispatcher"],
   // Calls and transcripts: customer phone numbers and recordings — never crew.
   "GET /calls": ["owner", "dispatcher"],
   "POST /calls/sync": ["owner", "dispatcher"],
   "GET /calls/:id": ["owner", "dispatcher"],
-  "GET /calls/:id/booking-draft": ["owner", "dispatcher"],
+  // The notepad is dispatch work: whoever can read a call may annotate it.
+  "PATCH /calls/:id/notes": ["owner", "dispatcher"],
+  "PATCH /calls/:id/tag": ["owner", "dispatcher"],
+  // Turning a call into a booking is the owner's, plus any dispatcher whose
+  // staff card carries the live-call dispatching switch. The dispatcher
+  // seeded here has it OFF (the default), so the matrix reads ["owner"]; the
+  // flag-on path is asserted in the "live-call dispatching grant" suite
+  // below. Reading and annotating calls stays open to dispatch above; only
+  // the two routes that fill the booking form are narrowed.
+  "GET /calls/:id/booking-draft": ["owner"],
+  // Saving a call as a lead is dispatch work: owner or dispatcher, same as
+  // reading a call. The lead itself is owner/dispatcher only.
+  "POST /calls/:id/save-as-lead": ["owner", "dispatcher"],
   "POST /calls/simulate": ["owner", "dispatcher"],
-  // Reads text and hands back suggestions; saves nothing. Still dispatch-only,
-  // because what it reads is a customer talking on the phone.
-  "POST /booking-drafts": ["owner", "dispatcher"],
+  // Reads text and hands back suggestions; saves nothing. Narrowed for the
+  // same reason: it is the live-call desk in another shape.
+  "POST /booking-drafts": ["owner"],
   // Bookings: cleaners see their own jobs (scoping asserted separately below).
   "GET /bookings": ["owner", "dispatcher", "cleaner"],
   // Calendar rows for the live map. Cleaner-safe by construction — the shape
   // carries no price, address or phone number (see the route's comment).
   "GET /bookings/range": ["owner", "dispatcher", "cleaner"],
+  // One booking in full, for the panel opened from the schedule. Cleaners may
+  // read it, but only for a job they're on (scoping asserted in bookings.test).
+  "GET /bookings/:id": ["owner", "dispatcher", "cleaner"],
+  // Customer texting carries prices and addresses — dispatch only.
+  "GET /messages/threads": ["owner", "dispatcher"],
+  "POST /messages/threads": ["owner", "dispatcher"],
+  "GET /messages/unread-count": ["owner", "dispatcher"],
+  "GET /messages/threads/:id": ["owner", "dispatcher"],
+  "POST /messages/threads/:id/messages": ["owner", "dispatcher"],
+  // Staff chat is open to the whole roster; who can read one conversation is
+  // decided by membership inside the route, not by role.
+  "GET /staff-chat/conversations": ["owner", "dispatcher", "cleaner"],
+  "POST /staff-chat/conversations": ["owner", "dispatcher", "cleaner"],
+  "GET /staff-chat/contacts": ["owner", "dispatcher", "cleaner"],
+  "GET /staff-chat/conversations/:id": ["owner", "dispatcher", "cleaner"],
+  "POST /staff-chat/conversations/:id/messages": [
+    "owner",
+    "dispatcher",
+    "cleaner",
+  ],
   "POST /bookings": ["owner", "dispatcher"],
   "PATCH /bookings/:id": ["owner", "dispatcher", "cleaner"],
   "PUT /bookings/:id/crew": ["owner", "dispatcher"],
@@ -138,23 +229,71 @@ const MATRIX: Record<string, Role[]> = {
   "GET /bookings/:id/quote-preview": ["owner", "dispatcher"],
   "POST /bookings/:id/send-quote": ["owner", "dispatcher"],
   "POST /bookings/:id/confirm-time": ["owner", "dispatcher"],
+  "GET /bookings/:id/reschedule-text-preview": ["owner", "dispatcher"],
   "POST /bookings/:id/send-reschedule-text": ["owner", "dispatcher"],
+  // Recording that the client said yes — and scheduling it into Jobber — is
+  // office work. A cleaner must never be able to confirm their own job.
+  "POST /bookings/:id/approve": ["owner", "dispatcher"],
   "POST /bookings/:id/sync-jobber": ["owner", "dispatcher"],
+  "POST /bookings/:id/invoice": ["owner", "dispatcher"],
   // Dashboard: crew may read the headline counts and follow the activity feed.
   // The feed quotes customer phone numbers and deposit amounts, so those are
   // masked for cleaners in the handler (see crewRedaction.ts).
   "GET /dashboard/summary": ["owner", "dispatcher", "cleaner"],
   "GET /dashboard/activity": ["owner", "dispatcher", "cleaner"],
+  // Resending a dropped text quotes phone numbers verbatim — no crew.
+  "POST /dashboard/activity/:id/resend-text": ["owner", "dispatcher"],
   // Live map: crew may watch the day (jobs, coworkers, saved pins); only
   // dispatch may add or remove the saved pins.
   "GET /map/config": ["owner", "dispatcher", "cleaner"],
   "GET /map/data": ["owner", "dispatcher", "cleaner"],
+  "GET /map/driving-route": ["owner", "dispatcher", "cleaner"],
+  "GET /map/routes": ["owner", "dispatcher", "cleaner"],
   "POST /map/pins": ["owner", "dispatcher"],
+  "PATCH /map/pins/:id": ["owner", "dispatcher"],
   "DELETE /map/pins/:id": ["owner", "dispatcher"],
+  "GET /saved-routes": ["owner", "dispatcher"],
+  "POST /saved-routes": ["owner", "dispatcher"],
+  "GET /saved-routes/:id": ["owner", "dispatcher"],
+  "PATCH /saved-routes/:id": ["owner", "dispatcher"],
+  "DELETE /saved-routes/:id": ["owner", "dispatcher"],
+  "POST /saved-routes/:id/stops": ["owner", "dispatcher"],
+  "PUT /saved-routes/:id/stops/reorder": ["owner", "dispatcher"],
+  "GET /saved-routes/:routeId/stops/:stopId": ["owner", "dispatcher"],
+  "PATCH /saved-routes/:routeId/stops/:stopId": ["owner", "dispatcher"],
+  "DELETE /saved-routes/:routeId/stops/:stopId": ["owner", "dispatcher"],
   // Location reporting: any authenticated seat, so a cleaner's phone can post.
   "POST /staff/location": ["owner", "dispatcher", "cleaner"],
+  "GET /staff/presence": ["owner", "dispatcher", "cleaner"],
+  // The whole company's whereabouts, plus the switches over them, on one
+  // screen. Owner only — and refused here rather than merely unlinked, so
+  // typing the URL gets a dispatcher nowhere.
+  "GET /staff/devices": ["owner"],
+  // Everyone may name the device in their own hand; the self-only narrowing
+  // (anyone but the owner renaming somebody else's device) is enforced inside
+  // the route and covered by its own test.
+  "PATCH /staff/devices/:id": ["owner", "dispatcher", "cleaner"],
+  // Deleting a device is destroying company data for good; owner only, like
+  // the tracking page it lives on.
+  "DELETE /staff/devices/:id": ["owner"],
+  // Marking the office redefines what a company-map marker MEANS; only the
+  // owner may do that.
+  "PUT /staff/devices/:id/office": ["owner"],
   // Schedule: everyone signed in; a cleaner's view is scoped to their own jobs.
   "GET /schedule": ["owner", "dispatcher", "cleaner"],
+  // Lead-ad rows carry names, phone numbers and addresses — same audience as
+  // Calls: dispatch only, never crew.
+  "GET /leads": ["owner", "dispatcher"],
+  "POST /leads/sync": ["owner", "dispatcher"],
+  "GET /leads/sync-status": ["owner", "dispatcher"],
+  "GET /leads/sync-preview": ["owner", "dispatcher"],
+  "GET /leads/:id": ["owner", "dispatcher"],
+  "PATCH /leads/:id": ["owner", "dispatcher"],
+  "PATCH /leads/:id/tag": ["owner", "dispatcher"],
+  "POST /leads/bulk-dismiss": ["owner", "dispatcher"],
+  "POST /leads/:id/dismiss": ["owner", "dispatcher"],
+  "POST /leads/:id/convert": ["owner", "dispatcher"],
+  "POST /leads/:id/sync-jobber": ["owner", "dispatcher"],
 };
 
 /**
@@ -168,6 +307,9 @@ const PUBLIC_ROUTES = new Set<string>([
   "POST /quote/:token/pay",
   "POST /quote/:token/payment/refresh",
   "POST /quote/:token/approve",
+  // The public request form's intake — a stranger clicking an ad has no
+  // account. Guarded by honeypot + per-address rate limit instead.
+  "POST /request",
   // OAuth redirect target — Jobber calls it, not a signed-in user.
   "GET /company/jobber/callback",
 ]);
@@ -296,9 +438,34 @@ beforeAll(async () => {
     throw new Error("Could not determine test server port");
   }
   baseUrl = `http://127.0.0.1:${address.port}`;
+
+  // This matrix only proves what the role guards do, but a handler past the
+  // guard may genuinely call out (POST /leads/sync reads the live Google
+  // Sheet). Real network from a test is a flake: a slow upstream and the
+  // test times out. Fail any external call instantly instead — handlers
+  // already treat upstream failure as a caught, reported error.
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    (input: string | URL | Request, init?: RequestInit) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.startsWith(baseUrl)) return realFetch(input, init);
+      return Promise.reject(
+        new Error(
+          `authorization tests must not reach external services: ${url}`,
+        ),
+      );
+    },
+  );
 });
 
 afterAll(async () => {
+  vi.unstubAllGlobals();
   server?.close();
   const companyIds = [companyAId, companyBId].filter((id) => id != null);
   if (companyIds.length > 0) {
@@ -326,6 +493,17 @@ afterAll(async () => {
     await db
       .delete(teamMembersTable)
       .where(inArray(teamMembersTable.companyId, companyIds));
+    // Approve/decline/join-request calls queue owner/applicant texts, and in
+    // tests (no platform Quo key) the rows stay pending; clear them so the
+    // company rows can go.
+    await db
+      .delete(pendingTextsTable)
+      .where(inArray(pendingTextsTable.companyId, companyIds));
+    // The suggested-catalog route is exercised as the owner and inserts
+    // service rows for the authorization fixture companies.
+    await db
+      .delete(servicesTable)
+      .where(inArray(servicesTable.companyId, companyIds));
     await db
       .delete(companiesTable)
       .where(inArray(companiesTable.id, companyIds));
@@ -416,6 +594,85 @@ describe("role matrix", () => {
       }
     }
   }
+});
+
+describe("live-call dispatching grant", () => {
+  // A dispatcher whose staff card carries the switch — the seat the matrix's
+  // dispatcher deliberately is not. Seeded under company A, so the standard
+  // company-scoped cleanup removes it.
+  const grantedUser = `test_authz_live_dispatcher_${runId}`;
+
+  beforeAll(async () => {
+    await db.insert(teamMembersTable).values({
+      companyId: companyAId,
+      name: "Live Dispatcher",
+      email: `live_dispatcher_${runId}@test.invalid`,
+      role: "dispatcher",
+      status: "active",
+      clerkUserId: grantedUser,
+      liveCallDispatching: true,
+    });
+  });
+
+  const asGranted = (method: string, path: string, body?: unknown) =>
+    fetch(`${baseUrl}/api${path.replace(/:(id|token)/g, MISSING_ID)}`, {
+      method,
+      headers: {
+        "x-test-user": grantedUser,
+        ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  it("a dispatcher with the switch on passes both form-filling guards", async () => {
+    const draft = await asGranted("GET", "/calls/:id/booking-draft");
+    // Past the guard; the bogus id then 404s in the handler.
+    expect(draft.status).toBe(404);
+
+    const mic = await asGranted("POST", "/booking-drafts", {
+      text: "Hi, this is Pat, I need a deep clean on Friday",
+    });
+    expect(mic.status).toBe(200);
+  });
+
+  it("/me tells them they can take live calls — and tells the plain dispatcher they can't", async () => {
+    const granted = (await (await asGranted("GET", "/me")).json()) as {
+      canTakeLiveCalls: boolean;
+    };
+    expect(granted.canTakeLiveCalls).toBe(true);
+
+    const plain = (await (
+      await call("GET", "/me", { as: "dispatcher" })
+    ).json()) as { canTakeLiveCalls: boolean };
+    expect(plain.canTakeLiveCalls).toBe(false);
+
+    const owner = (await (
+      await call("GET", "/me", { as: "owner" })
+    ).json()) as { canTakeLiveCalls: boolean };
+    expect(owner.canTakeLiveCalls).toBe(true);
+  });
+
+  it("a stray flag on a cleaner seat grants nothing — role AND flag are required", async () => {
+    const strayUser = `test_authz_stray_cleaner_${runId}`;
+    await db.insert(teamMembersTable).values({
+      companyId: companyAId,
+      name: "Stray Cleaner",
+      email: `stray_cleaner_${runId}@test.invalid`,
+      role: "cleaner",
+      status: "active",
+      clerkUserId: strayUser,
+      liveCallDispatching: true,
+    });
+    const res = await fetch(`${baseUrl}/api/booking-drafts`, {
+      method: "POST",
+      headers: {
+        "x-test-user": strayUser,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ text: "anything" }),
+    });
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("cleaner booking scope", () => {

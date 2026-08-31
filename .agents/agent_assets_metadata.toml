@@ -14,3 +14,37 @@ uri = "file://artifacts/sales-video/public/audio/bg_music.mp3"
 type = "audio"
 title = "background music"
 description = "Generated music: Confident corporate-electronic instrumental background music scoring a 25-second B2B software sales pitch aimed at small business owners. Warm analog synth pads, muted plucked bass, …"
+
+[[outputs]]
+id = "kIgpIH6p92AokyRryOUvb"
+uri = "file://exports/staff-for-live-site.csv"
+type = "table"
+title = "Staff list for the live site (9 crew)"
+description = "Upload on bookmycleaning.net → Staff → Import, signed in as the owner account (cleaningserviceyeg@gmail.com). Names, phones, lead-cleaner flags and home addresses included."
+
+[[outputs]]
+id = "TIDdvCKTGsbOCmg2C482u"
+uri = "file://.local/outputs/Book-My-Cleaning---Pitch-Deck.pptx"
+type = "slides"
+title = "Book My Cleaning — Pitch Deck.pptx"
+
+[[outputs]]
+id = "tpuwa6fh2bS4-GCrHIS0J"
+uri = "file://screenshots/store/apple/01-jobs.png"
+type = "image"
+title = "Sample — Jobs screen (Apple size)"
+description = "1290×2796, ready for the App Store's 6.7\"/6.9\" phone slots."
+
+[[outputs]]
+id = "Y4RO3MfokSjvdv0q9WMOW"
+uri = "file://screenshots/store/apple/03-call-transcript.png"
+type = "image"
+title = "Sample — AI receptionist call (Apple size)"
+description = "Shows the call summary and transcript."
+
+[[outputs]]
+id = "RzOrhFME7teIDQxV32QH1"
+uri = "file://screenshots/store/store-screenshots.zip"
+type = "unspecified"
+title = "Store screenshots — final notification colors"
+description = "9 screens × 2 sizes with color-coded notifications: red = calls, pink = texts, purple = team chat, orange = leads."

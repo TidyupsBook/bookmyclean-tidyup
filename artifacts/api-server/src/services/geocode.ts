@@ -17,12 +17,53 @@ import { logger } from "../lib/logger";
 export type GeocodeResult = { lat: number; lng: number };
 
 /**
+ * Roughly where the company works, used to bias a lookup.
+ *
+ * Street names repeat across the continent, and a bare "17115 61 Ave" is as
+ * good a match in Virginia as in Alberta — Google returns the far one with
+ * full confidence rather than an error. Biasing toward the area a company
+ * actually cleans in is what keeps a typo out of the wrong country.
+ */
+export type GeocodeBias = { lat: number; lng: number };
+
+/**
+ * The company cleans in Alberta, Canada — nowhere else. Every lookup is
+ * hard-restricted to Canada (Google's `components=country:CA`), which is a
+ * filter, not a preference: a bare "123 Main St" can no longer resolve to a
+ * confident match in Virginia. Folded into the cache keys below so entries
+ * cached before the restriction existed (some of them US results, some of
+ * them misses that would now hit) re-resolve instead of being replayed.
+ */
+const COUNTRY_RESTRICTION = "ca";
+
+/**
+ * Where a lookup leans when the caller supplies no bias of its own:
+ * Edmonton, the middle of the service area. A caller-provided bias (a
+ * company's own office) always wins over this.
+ */
+export const EDMONTON_BIAS: GeocodeBias = { lat: 53.5461, lng: -113.4938 };
+
+/**
+ * Half-size of the box drawn around the bias point, in degrees.
+ *
+ * About 110 km north-south and, at Edmonton's latitude, roughly 100 km
+ * east-west: wide enough to cover a metro area and its acreages, tight enough
+ * to exclude the next province. Google treats this as a preference, so an
+ * address genuinely outside it still resolves when nothing local matches —
+ * which is what "unless you searched for it" means to the person typing.
+ */
+const BIAS_DEGREES = 1;
+
+/**
  * The shape a geocoder must satisfy: resolve an address to coordinates, or
  * null when it genuinely can't be placed. May throw for transient/config
  * failures (network, REQUEST_DENIED) so callers can tell "no such place" apart
  * from "geocoding is broken right now".
  */
-export type Geocoder = (address: string) => Promise<GeocodeResult | null>;
+export type Geocoder = (
+  address: string,
+  bias?: GeocodeBias,
+) => Promise<GeocodeResult | null>;
 
 const GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 const REQUEST_TIMEOUT_MS = 8000;
@@ -41,6 +82,17 @@ export class GeocodeConfigError extends Error {
 /** Collapse whitespace and case so "12 Main St " and "12 main st" share a slot. */
 export function normalizeAddress(address: string): string {
   return address.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * The key an address is cached under in the persistent geocoded_addresses
+ * table. The country restriction is part of the key on purpose: rows written
+ * before lookups were locked to Canada (under the bare normalized address)
+ * simply never match again, so a US result — or a miss that would now hit
+ * inside Canada — is re-resolved on its next lookup rather than replayed.
+ */
+export function geocodeCacheKey(address: string): string {
+  return `${COUNTRY_RESTRICTION}:${normalizeAddress(address)}`;
 }
 
 const cache = new Map<string, { result: GeocodeResult | null; at: number }>();
@@ -70,13 +122,22 @@ function release(): void {
  * or Google answers REQUEST_DENIED/OVER_QUERY_LIMIT, returns null on
  * ZERO_RESULTS, and returns coordinates otherwise.
  */
-export const googleGeocoder: Geocoder = async (address) => {
+export const googleGeocoder: Geocoder = async (address, bias) => {
   const key = process.env["GOOGLE_MAPS_API_KEY"];
   if (!key) {
     throw new GeocodeConfigError("GOOGLE_MAPS_API_KEY is not configured");
   }
 
-  const url = `${GEOCODE_URL}?address=${encodeURIComponent(address)}&key=${encodeURIComponent(key)}`;
+  // `bounds` prefers matches inside the box without refusing everything else,
+  // which is exactly the behaviour wanted: local streets win, a genuinely
+  // distant address still resolves.
+  const bounds = bias
+    ? `&bounds=${bias.lat - BIAS_DEGREES},${bias.lng - BIAS_DEGREES}|${bias.lat + BIAS_DEGREES},${bias.lng + BIAS_DEGREES}`
+    : "";
+  // `components=country:CA` is a hard filter, unlike bounds: Google will
+  // return ZERO_RESULTS rather than a US match for a street that only exists
+  // south of the border.
+  const url = `${GEOCODE_URL}?address=${encodeURIComponent(address)}${bounds}&components=country:${COUNTRY_RESTRICTION.toUpperCase()}&key=${encodeURIComponent(key)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let body: {
@@ -137,9 +198,21 @@ export function clearGeocodeCache(): void {
  */
 export async function geocodeAddress(
   address: string,
+  bias?: GeocodeBias,
 ): Promise<GeocodeResult | null> {
-  const key = normalizeAddress(address);
-  if (!key) return null;
+  const normalized = normalizeAddress(address);
+  if (!normalized) return null;
+
+  // No bias from the caller means "somewhere we work", which is Edmonton.
+  const effectiveBias = bias ?? EDMONTON_BIAS;
+
+  // The bias is part of the question, so it has to be part of the cache key —
+  // the same street text can legitimately resolve to two different places for
+  // two companies. Rounded to a coarse grid so every job on a block shares one
+  // entry instead of each one paying for its own lookup. The country
+  // restriction is in the key too, so entries cached before lookups were
+  // locked to Canada are never replayed.
+  const key = `${COUNTRY_RESTRICTION}:${normalized}|${effectiveBias.lat.toFixed(1)},${effectiveBias.lng.toFixed(1)}`;
 
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
@@ -148,7 +221,7 @@ export async function geocodeAddress(
 
   await acquire();
   try {
-    const result = await activeGeocoder(address);
+    const result = await activeGeocoder(address, effectiveBias);
     cache.set(key, { result, at: Date.now() });
     return result;
   } catch (err) {

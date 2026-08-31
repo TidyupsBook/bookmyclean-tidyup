@@ -18,9 +18,15 @@ import {
   DraftBookingFromTextBody,
   DraftBookingFromTextResponse,
   SimulateTestCallResponse,
+  UpdateCallNotesBody,
+  UpdateCallNotesParams,
+  UpdateCallTagBody,
+  UpdateCallTagParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
-import { requireRole } from "../middlewares/requireRole";
+import { requireRole, getCaller } from "../middlewares/requireRole";
+import { canDispatchLiveCalls } from "../lib/callerRole";
+import type { RequestHandler } from "express";
 import {
   getCompanyForUser,
   companyQuoKey,
@@ -32,10 +38,40 @@ import { buildBookingDraft, buildDraftFromText } from "../lib/bookingDraft";
 import { backfillCalls } from "../lib/quoIngest";
 import { listPhoneNumbers } from "../lib/quo";
 import { SyncCallsFromQuoResponse } from "@workspace/api-zod";
+import { setCustomerTag } from "../lib/customerTag";
+import { rebuildCallerAggregates } from "../services/callerDirectory";
 
 const router: IRouter = Router();
 
 router.use(requireAuth);
+
+/**
+ * Who may turn a call into a booking.
+ *
+ * The boss takes the live calls himself — from the office PC, the iPad, or
+ * his phone — and can now hand it out: a dispatcher whose staff card has the
+ * live-call dispatching switch on passes too. Everything else about calls
+ * (the list, a transcript, notes) stays open to dispatch; only the two
+ * routes that read a call into the booking form are narrowed. The grant
+ * itself is defined once, in `canDispatchLiveCalls` — this middleware just
+ * applies it.
+ */
+const requireLiveCallDispatch: RequestHandler = (req, res, next) => {
+  void (async () => {
+    try {
+      const caller = await getCaller(req);
+      if (!canDispatchLiveCalls(caller)) {
+        res
+          .status(403)
+          .json({ error: "You don't have access to do that here" });
+        return;
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  })();
+};
 
 function serializeCall(c: Call) {
   return {
@@ -52,6 +88,7 @@ function serializeCall(c: Call) {
     direction: c.direction,
     summary: c.summary,
     quoCallId: c.quoCallId,
+    tag: c.tag,
   };
 }
 
@@ -59,6 +96,7 @@ function serializeCallDetail(c: Call) {
   return {
     ...serializeCall(c),
     recordingUrl: c.recordingUrl,
+    notes: c.notes,
     transcript: c.transcript,
     extractedAnswers: c.extractedAnswers,
   };
@@ -115,6 +153,7 @@ router.post(
       const numbers = await listPhoneNumbers(quoKey);
       const ourNumbers = new Set(numbers.map((n) => n.number));
       const result = await backfillCalls(quoKey, company, ourNumbers);
+      await rebuildCallerAggregates(company.id, ourNumbers);
       res.json(
         SyncCallsFromQuoResponse.parse({
           ...result,
@@ -170,6 +209,90 @@ router.get(
   },
 );
 
+router.patch(
+  "/calls/:id/notes",
+  requireRole("owner", "dispatcher"),
+  async (req, res): Promise<void> => {
+    const params = UpdateCallNotesParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const body = UpdateCallNotesBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const company = await getCompanyForUser(req.userId!);
+    if (!company) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+    // Conditional update: the company predicate makes it impossible to write
+    // another company's call, and 0 rows back means "not yours" or "gone" —
+    // both a plain 404.
+    const [updated] = await db
+      .update(callsTable)
+      .set({ notes: body.data.notes })
+      .where(
+        and(
+          eq(callsTable.id, params.data.id),
+          eq(callsTable.companyId, company.id),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+    res.json(GetCallResponse.parse(serializeCallDetail(updated)));
+  },
+);
+
+router.patch(
+  "/calls/:id/tag",
+  requireRole("owner", "dispatcher"),
+  async (req, res): Promise<void> => {
+    const params = UpdateCallTagParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const body = UpdateCallTagBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const company = await getCompanyForUser(req.userId!);
+    if (!company) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+    // Same conditional-update shape as the notes pad: the company predicate
+    // makes another company's call unreachable, and 0 rows back is a 404.
+    const [updated] = await db
+      .update(callsTable)
+      .set({ tag: body.data.tag })
+      .where(
+        and(
+          eq(callsTable.id, params.data.id),
+          eq(callsTable.companyId, company.id),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+    await setCustomerTag(
+      company.id,
+      { kind: "call", id: updated.id },
+      body.data.tag,
+    );
+    res.json(GetCallResponse.parse(serializeCallDetail(updated)));
+  },
+);
+
 /**
  * What the New Booking form pre-fills from a call. Declared after
  * `/calls/:id` — Express matches in order and the paths don't collide, but
@@ -177,7 +300,7 @@ router.get(
  */
 router.get(
   "/calls/:id/booking-draft",
-  requireRole("owner", "dispatcher"),
+  requireLiveCallDispatch,
   async (req, res): Promise<void> => {
     const params = GetCallBookingDraftParams.safeParse(req.params);
     if (!params.success) {
@@ -213,7 +336,7 @@ router.get(
  */
 router.post(
   "/booking-drafts",
-  requireRole("owner", "dispatcher"),
+  requireLiveCallDispatch,
   async (req, res): Promise<void> => {
     const parsed = DraftBookingFromTextBody.safeParse(req.body);
     if (!parsed.success) {
@@ -292,11 +415,13 @@ router.post(
         companyId: company.id,
         type: "test_call",
         message: `Test call answered — ${sim.ctx.callerName} asked about ${call!.serviceRequested}.`,
+        callId: call!.id,
       },
       {
         companyId: company.id,
         type: "booking_created",
         message: `Booking created for ${sim.ctx.callerName} (${call!.serviceRequested}).`,
+        bookingId: booking!.id,
       },
     ]);
 

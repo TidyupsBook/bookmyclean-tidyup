@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,7 @@ import {
   lineItemTotal,
   type QuoteRates,
 } from "@workspace/pricing";
-import { DollarSign } from "lucide-react";
+import { Check, DollarSign, Loader2 } from "lucide-react";
 
 /** The pricing choices for one job, as the dispatcher makes them. */
 export type QuoteDraft = {
@@ -102,6 +103,11 @@ export function QuoteCalculator({
   rates,
   serviceName,
   flatAmount,
+  catalogPrice,
+  onSaveQuote,
+  canSaveQuote,
+  saveQuoteBusy,
+  saveQuoteHint,
 }: {
   value: QuoteDraft;
   onChange: (next: QuoteDraft) => void;
@@ -109,6 +115,24 @@ export function QuoteCalculator({
   serviceName: string;
   /** A price set without the calculator, e.g. by the receptionist on the call. */
   flatAmount?: number | null;
+  /** One exact per-unit price from Settings for the selected service. */
+  catalogPrice?: number | null;
+  /**
+   * Save right here, the moment the quote is priced — without finishing the
+   * rest of the form. Offered only once there are quote numbers to keep, and
+   * it must be the host page's ordinary save so the partial-save rules, lead
+   * conversion and Jobber push all still apply. Nothing is sent to the
+   * customer.
+   */
+  onSaveQuote?: () => void;
+  /** Whether the host page has enough to save at all (a name, at minimum). */
+  canSaveQuote?: boolean;
+  saveQuoteBusy?: boolean;
+  /**
+   * What pressing Save leads to, when the host page's save doesn't end on
+   * the Bookings page (quote mode goes straight to the text-a-quote step).
+   */
+  saveQuoteHint?: string;
 }) {
   const set = (patch: Partial<QuoteDraft>) => onChange({ ...value, ...patch });
 
@@ -142,6 +166,20 @@ export function QuoteCalculator({
 
   const priced = totals.lineItems.length > 0;
   const fuel = value.fuelSurcharge ?? rates.fuelSurcharge;
+  const catalogPriceApplied =
+    catalogPrice != null &&
+    value.hours === 1 &&
+    value.crewLabel === "flat rate" &&
+    value.hourlyRate === catalogPrice;
+  const applyCatalogPrice = () => {
+    if (catalogPrice == null) return;
+    onChange({
+      ...value,
+      hours: 1,
+      crewLabel: "flat rate",
+      hourlyRate: catalogPrice,
+    });
+  };
 
   return (
     <div className="rounded-xl border border-brand-pink/25 bg-brand-pink/[0.04] p-4 space-y-4">
@@ -153,6 +191,30 @@ export function QuoteCalculator({
           </span>
         )}
       </div>
+
+      {catalogPrice != null && (
+        <button
+          type="button"
+          onClick={applyCatalogPrice}
+          aria-pressed={catalogPriceApplied}
+          className={cn(
+            "w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+            catalogPriceApplied
+              ? "border-brand-pink bg-brand-pink/10 text-foreground"
+              : "border-brand-pink/30 bg-background hover:border-brand-pink/60",
+          )}
+        >
+          <span className="font-medium">
+            {catalogPriceApplied ? "Using" : "Use"} service-table price
+          </span>
+          <span className="float-right font-bold text-brand-pink tabular-nums">
+            {formatMoney(catalogPrice)}
+          </span>
+          <span className="block text-xs text-muted-foreground mt-0.5">
+            Adds one unit of {serviceName || "this service"} to the quote.
+          </span>
+        </button>
+      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-muted-foreground mr-1">Hours:</span>
@@ -201,12 +263,19 @@ export function QuoteCalculator({
         >
           Custom $/hr
         </Chip>
+        {value.crewLabel === "flat rate" && (
+          <Chip selected onClick={applyCatalogPrice}>
+            Flat service price
+          </Chip>
+        )}
       </div>
 
       <div className="relative">
         <DollarSign className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-brand-pink" />
         <Input
-          aria-label="Hourly rate"
+          aria-label={
+            value.crewLabel === "flat rate" ? "Unit price" : "Hourly rate"
+          }
           inputMode="decimal"
           className="pl-10 text-lg font-semibold h-12"
           value={value.hourlyRate ?? ""}
@@ -347,13 +416,6 @@ export function QuoteCalculator({
                 value={formatMoney(totals.taxAmount)}
               />
             )}
-            {totals.feesRate > 0 && (
-              <Row
-                muted
-                label={`${totals.feesLabel} (${formatRate(totals.feesRate)})`}
-                value={formatMoney(totals.feesAmount)}
-              />
-            )}
             <Row strong label="Total" value={formatMoney(totals.total)} />
             {totals.deposit > 0 && (
               <Row
@@ -363,14 +425,39 @@ export function QuoteCalculator({
               />
             )}
           </div>
+          {onSaveQuote && (
+            <div className="pt-2 space-y-1.5">
+              <Button
+                className="w-full"
+                size="sm"
+                variant="secondary"
+                disabled={!canSaveQuote || saveQuoteBusy}
+                onClick={onSaveQuote}
+                data-testid="button-save-quote"
+              >
+                {saveQuoteBusy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                Save quote
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                {canSaveQuote
+                  ? (saveQuoteHint ??
+                    "Saves the customer and this price now — finish the rest from the Bookings page. Nothing is sent to the customer.")
+                  : "Needs the customer's name first."}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground border-t border-border pt-3">
           {flatAmount != null
-            ? `Currently priced at ${formatMoney(flatAmount)} before tax and fees. Pick the hours and the crew to itemise it.`
+            ? `Currently priced at ${formatMoney(flatAmount)} before tax. Pick the hours and the crew to itemise it.`
             : `Pick the hours and the crew to price this job. Fuel${
                 fuel > 0 ? ` (${formatMoney(fuel)})` : ""
-              }, tax and fees are added automatically.`}
+              }, and 12.5% tax are added automatically.`}
         </p>
       )}
     </div>

@@ -31,7 +31,12 @@ import {
  */
 export const geocodedAddressesTable = pgTable("geocoded_addresses", {
   id: serial("id").primaryKey(),
-  /** Whitespace-collapsed, lowercased address — see normalizeAddress(). */
+  /**
+   * Country-prefixed, whitespace-collapsed, lowercased address — see
+   * geocodeCacheKey(). The country restriction is part of the key so that
+   * changing it (lookups were once unrestricted and could cache US results)
+   * makes old rows unreachable rather than replayed.
+   */
   addressKey: text("address_key").notNull().unique(),
   /** Null together when the address could not be placed. */
   lat: doublePrecision("lat"),

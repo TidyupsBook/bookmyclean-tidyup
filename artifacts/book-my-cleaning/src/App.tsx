@@ -1,5 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  ClerkFailed,
+  ClerkLoaded,
+  ClerkLoading,
+  ClerkProvider,
+  SignIn,
+  SignUp,
+  Show,
+  useAuth,
+  useClerk,
+  useUser,
+} from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { dark } from "@clerk/themes";
 import {
@@ -13,20 +31,91 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import {
+  AppErrorBoundary,
+  AppLoadingScreen,
+  AppShellHandoff,
+  AppStatusScreen,
+  AuthLoadingPanel,
+  AuthUnavailablePanel,
+} from "@/components/AppBoot";
 
 import NotFound from "@/pages/not-found";
 import { MarketingPage } from "@/pages/marketing";
-import { DashboardPage } from "@/pages/dashboard";
-import { SetupPage } from "@/pages/setup";
-import { OnboardingPage } from "@/pages/onboarding";
-import { CallsPage } from "@/pages/calls";
-import { BookingsPage } from "@/pages/bookings";
-import { NewBookingPage } from "@/pages/new-booking";
-import { TeamPage } from "@/pages/team";
-import { SettingsPage } from "@/pages/settings";
-import { MapPage } from "@/pages/map";
-import { SchedulePage } from "@/pages/schedule";
-import QuotePage from "@/pages/quote";
+import {
+  autoListenAvailableForCompany,
+  CallCaptureProvider,
+} from "@/lib/callCapture";
+import {
+  getGetCurrentUserQueryKey,
+  useGetCurrentUser,
+} from "@workspace/api-client-react";
+
+// Route-level code splitting: the marketing page is the only page a first-time
+// visitor needs, so everything behind sign-in (plus the customer quote page)
+// downloads as its own chunk when — and only when — its route is hit. A chunk
+// that is still downloading shows the existing loading screen via <Suspense>;
+// a chunk that fails to download throws, which lands in <AppErrorBoundary>
+// and shows the existing readable failure page instead of a blank one.
+const DashboardPage = lazy(() =>
+  import("@/pages/dashboard").then((m) => ({ default: m.DashboardPage })),
+);
+const SetupPage = lazy(() =>
+  import("@/pages/setup").then((m) => ({ default: m.SetupPage })),
+);
+const OnboardingPage = lazy(() =>
+  import("@/pages/onboarding").then((m) => ({ default: m.OnboardingPage })),
+);
+const CallsPage = lazy(() =>
+  import("@/pages/calls").then((m) => ({ default: m.CallsPage })),
+);
+const CallersPage = lazy(() =>
+  import("@/pages/callers").then((m) => ({ default: m.CallersPage })),
+);
+const MessagesPage = lazy(() =>
+  import("@/pages/messages").then((m) => ({ default: m.MessagesPage })),
+);
+const TeamChatPage = lazy(() =>
+  import("@/pages/team-chat").then((m) => ({ default: m.TeamChatPage })),
+);
+const BookingsPage = lazy(() =>
+  import("@/pages/bookings").then((m) => ({ default: m.BookingsPage })),
+);
+const NewBookingPage = lazy(() =>
+  import("@/pages/new-booking").then((m) => ({ default: m.NewBookingPage })),
+);
+const TeamPage = lazy(() =>
+  import("@/pages/team").then((m) => ({ default: m.TeamPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
+);
+const MapPage = lazy(() =>
+  import("@/pages/map").then((m) => ({ default: m.MapPage })),
+);
+const SchedulePage = lazy(() =>
+  import("@/pages/schedule").then((m) => ({ default: m.SchedulePage })),
+);
+const ScheduleMapPage = lazy(() =>
+  import("@/pages/schedule-map").then((m) => ({ default: m.ScheduleMapPage })),
+);
+const LeadsPage = lazy(() =>
+  import("@/pages/leads").then((m) => ({ default: m.LeadsPage })),
+);
+const ClientsPage = lazy(() =>
+  import("@/pages/clients").then((m) => ({ default: m.ClientsPage })),
+);
+const QuotesPage = lazy(() =>
+  import("@/pages/quotes").then((m) => ({ default: m.QuotesPage })),
+);
+const InvoicesPage = lazy(() =>
+  import("@/pages/invoices").then((m) => ({ default: m.InvoicesPage })),
+);
+const QuotePage = lazy(() => import("@/pages/quote"));
+const RequestPage = lazy(() => import("@/pages/request"));
+const PrivacyPage = lazy(() => import("@/pages/privacy"));
+const SupportPage = lazy(() => import("@/pages/support"));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -41,10 +130,6 @@ function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
     ? path.slice(basePath.length) || "/"
     : path;
-}
-
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env file");
 }
 
 const clerkAppearance = {
@@ -106,8 +191,8 @@ type SignInIntent = "dispatch" | "cleaner";
 const SIGN_IN_INTENT_KEY = "bmc:sign-in-intent";
 
 const SIGN_IN_DOORS: { id: SignInIntent; label: string; landing: string }[] = [
-  { id: "dispatch", label: "Dispatch", landing: "/dashboard" },
-  { id: "cleaner", label: "Cleaner", landing: "/bookings" },
+  { id: "dispatch", label: "Dispatch", landing: "/map" },
+  { id: "cleaner", label: "Cleaner", landing: "/map" },
 ];
 
 /**
@@ -150,6 +235,9 @@ function forgetSignInIntent() {
 
 function SignInPage() {
   const [intent, setIntent] = useState<SignInIntent>(readSignInIntent);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
 
   // Stash the door the moment we know it — including when it came from `?as=`
   // rather than a tab click. Clerk drops our query string partway through a
@@ -197,12 +285,49 @@ function SignInPage() {
           ))}
         </div>
 
-        <SignIn
-          routing="path"
-          path={`${basePath}/sign-in`}
-          signUpUrl={`${basePath}/sign-up`}
-          forceRedirectUrl={`${basePath}${door.landing}`}
-        />
+        {/* Clerk's widget renders nothing until its script is up, so the card
+            area would otherwise be an empty hole under the tabs. */}
+        <ClerkLoading>
+          <AuthLoadingPanel label="Loading sign-in…" />
+        </ClerkLoading>
+        <ClerkFailed>
+          <AuthUnavailablePanel />
+        </ClerkFailed>
+        <ClerkLoaded>
+          {userId ? (
+            <div className="rounded-xl border border-border bg-card p-6 text-center shadow-sm space-y-4">
+              <div className="space-y-1">
+                <h1 className="text-lg font-semibold text-foreground">
+                  You&apos;re already signed in
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {user?.primaryEmailAddress?.emailAddress
+                    ? `This device is currently using ${user.primaryEmailAddress.emailAddress}.`
+                    : "This device is currently using another account."}{" "}
+                  Sign out first to use the {door.label.toLowerCase()} login.
+                </p>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() =>
+                  void signOut({
+                    redirectUrl: `${basePath}/sign-in?as=${intent}`,
+                  })
+                }
+                data-testid="button-switch-signed-in-account"
+              >
+                Sign out and use a different account
+              </Button>
+            </div>
+          ) : (
+            <SignIn
+              routing="path"
+              path={`${basePath}/sign-in`}
+              signUpUrl={`${basePath}/sign-up`}
+              forceRedirectUrl={`${basePath}${door.landing}`}
+            />
+          )}
+        </ClerkLoaded>
       </div>
     </div>
   );
@@ -214,11 +339,21 @@ function SignUpPage() {
       <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] bg-brand-purple/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-brand-pink/20 rounded-full blur-[100px] pointer-events-none" />
 
-      <SignUp
-        routing="path"
-        path={`${basePath}/sign-up`}
-        signInUrl={`${basePath}/sign-in`}
-      />
+      <div className="relative z-10 w-full max-w-[440px]">
+        <ClerkLoading>
+          <AuthLoadingPanel label="Loading sign-up…" />
+        </ClerkLoading>
+        <ClerkFailed>
+          <AuthUnavailablePanel />
+        </ClerkFailed>
+        <ClerkLoaded>
+          <SignUp
+            routing="path"
+            path={`${basePath}/sign-up`}
+            signInUrl={`${basePath}/sign-in`}
+          />
+        </ClerkLoaded>
+      </div>
     </div>
   );
 }
@@ -248,25 +383,86 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function CallCaptureWithAuth({ children }: { children: ReactNode }) {
+  const { userId } = useAuth();
+  // Capture is mounted above the router, including public routes. Do not read
+  // /me until Clerk has resolved an authenticated identity; while it loads,
+  // automatic capture stays off rather than briefly using the wrong company's
+  // policy.
+  const { data: me } = useGetCurrentUser({
+    query: {
+      queryKey: getGetCurrentUserQueryKey(),
+      enabled: Boolean(userId),
+    },
+  });
+  const autoListenAvailable = Boolean(
+    userId && me && autoListenAvailableForCompany(me.companyName),
+  );
+  return (
+    <CallCaptureProvider
+      accountId={userId}
+      autoListenAvailable={autoListenAvailable}
+    >
+      {children}
+    </CallCaptureProvider>
+  );
+}
+
+/**
+ * Home is public, so it never waits on auth: the marketing page is what a
+ * signed-out visitor gets and what the static shell was already showing, so
+ * rendering it while Clerk boots makes the handoff invisible. Only a resolved,
+ * signed-in session sends anyone to the dashboard.
+ *
+ * Deliberately one `<MarketingPage />` in one position — branching between two
+ * copies would unmount and remount it the moment auth resolved, replaying every
+ * entrance animation.
+ */
 function HomeRedirect() {
+  const { isLoaded, userId } = useAuth();
+
+  if (isLoaded && userId) return <Redirect to="/map" />;
+  return <MarketingPage />;
+}
+
+/**
+ * Gate for the pages that need an account.
+ *
+ * Clerk's `<Show>` renders nothing at all while auth is still loading — not
+ * even its fallback — so without these branches "starting up", "auth is
+ * blocked" and "the app is broken" all looked identical: an empty page.
+ */
+function RequireSignedIn({ children }: { children: ReactNode }) {
   return (
     <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <MarketingPage />
-      </Show>
+      <ClerkLoading>
+        <AppLoadingScreen />
+      </ClerkLoading>
+      <ClerkFailed>
+        <AppStatusScreen
+          title="Sign-in is unavailable"
+          message="We couldn't reach the sign-in service, so we can't tell whether you're logged in. This is usually a blocked connection — reloading, or opening the site in its own browser tab, normally clears it."
+        />
+      </ClerkFailed>
+      <ClerkLoaded>
+        <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
+          {children}
+        </Show>
+      </ClerkLoaded>
     </>
   );
 }
 
-function ClerkProviderWithRoutes() {
+function ClerkProviderWithRoutes({
+  publishableKey,
+}: {
+  publishableKey: string;
+}) {
   const [, setLocation] = useLocation();
 
   return (
     <ClerkProvider
-      publishableKey={clerkPubKey}
+      publishableKey={publishableKey}
       proxyUrl={clerkProxyUrl}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
@@ -290,99 +486,189 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          {/* Every branch below this point renders something — a page, a
+              loading screen or a failure message — so the static shell can
+              stand down as soon as one of them lands. */}
+          <AppShellHandoff />
           <ClerkQueryClientCacheInvalidator />
-          <Switch>
-            <Route path="/" component={HomeRedirect} />
-            <Route path="/sign-in/*?" component={SignInPage} />
-            <Route path="/sign-up/*?" component={SignUpPage} />
-            {/* Public: the customer following the link in their quote text has
+          {/* Above the router on purpose: a call being transcribed has to
+              survive the dispatcher moving from the map to the booking desk,
+              and anything mounted inside a route is torn down on the way. */}
+          <CallCaptureWithAuth>
+            <Suspense fallback={<AppLoadingScreen />}>
+              <Switch>
+                <Route path="/" component={HomeRedirect} />
+                <Route path="/sign-in/*?" component={SignInPage} />
+                <Route path="/sign-up/*?" component={SignUpPage} />
+                {/* Public: the customer following the link in their quote text has
                 no account and must never be bounced to a sign-in page. */}
-            <Route path="/quote/:token" component={QuotePage} />
+                <Route path="/quote/:token" component={QuotePage} />
+                {/* Public: the landing page behind the ad links. A stranger
+                fills in the request form here — no account, no sign-in. */}
+                <Route path="/request" component={RequestPage} />
+                {/* Public: linked from the footer and referenced by app-store
+                listings and ad accounts — must resolve with no account. */}
+                <Route path="/privacy" component={PrivacyPage} />
+                <Route path="/support" component={SupportPage} />
 
-            <Route
-              path="/onboarding"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <OnboardingPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/setup"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <SetupPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/dashboard"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <DashboardPage />
-                </Show>
-              )}
-            />
-            {/* Before /bookings so wouter doesn't read "new" as a booking id. */}
-            <Route
-              path="/bookings/new"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <NewBookingPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/calls"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <CallsPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/bookings"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <BookingsPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/team"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <TeamPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/map"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <MapPage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/schedule"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <SchedulePage />
-                </Show>
-              )}
-            />
-            <Route
-              path="/settings"
-              component={() => (
-                <Show when="signed-in" fallback={<Redirect to="/sign-in" />}>
-                  <SettingsPage />
-                </Show>
-              )}
-            />
+                <Route
+                  path="/onboarding"
+                  component={() => (
+                    <RequireSignedIn>
+                      <OnboardingPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/setup"
+                  component={() => (
+                    <RequireSignedIn>
+                      <SetupPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/messages"
+                  component={() => (
+                    <RequireSignedIn>
+                      <MessagesPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/team-chat"
+                  component={() => (
+                    <RequireSignedIn>
+                      <TeamChatPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/dashboard"
+                  component={() => (
+                    <RequireSignedIn>
+                      <DashboardPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                {/* Before /bookings so wouter doesn't read "new" as a booking id. */}
+                <Route
+                  path="/bookings/new"
+                  component={() => (
+                    <RequireSignedIn>
+                      <NewBookingPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/leads"
+                  component={() => (
+                    <RequireSignedIn>
+                      <LeadsPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/clients"
+                  component={() => (
+                    <RequireSignedIn>
+                      <ClientsPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/quotes"
+                  component={() => (
+                    <RequireSignedIn>
+                      <QuotesPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/invoices"
+                  component={() => (
+                    <RequireSignedIn>
+                      <InvoicesPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/calls"
+                  component={() => (
+                    <RequireSignedIn>
+                      <CallsPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/callers"
+                  component={() => (
+                    <RequireSignedIn>
+                      <CallersPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/bookings"
+                  component={() => (
+                    <RequireSignedIn>
+                      <BookingsPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/team"
+                  component={() => (
+                    <RequireSignedIn>
+                      <TeamPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/tracking"
+                  component={() => (
+                    <RequireSignedIn>
+                      <Redirect to="/map" />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/map"
+                  component={() => (
+                    <RequireSignedIn>
+                      <MapPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/schedule"
+                  component={() => (
+                    <RequireSignedIn>
+                      <SchedulePage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/schedule-map"
+                  component={() => (
+                    <RequireSignedIn>
+                      <ScheduleMapPage />
+                    </RequireSignedIn>
+                  )}
+                />
+                <Route
+                  path="/settings"
+                  component={() => (
+                    <RequireSignedIn>
+                      <SettingsPage />
+                    </RequireSignedIn>
+                  )}
+                />
 
-            <Route component={NotFound} />
-          </Switch>
+                <Route component={NotFound} />
+              </Switch>
+            </Suspense>
+          </CallCaptureWithAuth>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
@@ -392,8 +678,22 @@ function ClerkProviderWithRoutes() {
 
 export default function App() {
   return (
-    <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
-    </WouterRouter>
+    <AppErrorBoundary>
+      {clerkPubKey ? (
+        <WouterRouter base={basePath}>
+          <ClerkProviderWithRoutes publishableKey={clerkPubKey} />
+        </WouterRouter>
+      ) : (
+        // This used to be a module-scope `throw`, which took the whole bundle
+        // down before React existed and left an empty document behind.
+        <>
+          <AppShellHandoff />
+          <AppStatusScreen
+            title="Sign-in isn't configured"
+            message="This build is missing its VITE_CLERK_PUBLISHABLE_KEY, so accounts can't load. Add the key to the environment and rebuild — everything else on the site still works."
+          />
+        </>
+      )}
+    </AppErrorBoundary>
   );
 }

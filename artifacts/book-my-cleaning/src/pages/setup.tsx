@@ -36,12 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { openAuthTab } from "@/lib/externalAuth";
 import { Link, useLocation } from "wouter";
 
-/**
- * Where we send companies who don't have Quo yet. Set VITE_QUO_AFFILIATE_URL to
- * the PartnerStack referral link to earn commission on these signups.
- */
-const QUO_SIGNUP_URL =
-  import.meta.env.VITE_QUO_AFFILIATE_URL ?? "https://my.quo.com/signup";
+import { QUO_SIGNUP_URL } from "@/lib/signupLinks";
 
 export function SetupPage() {
   const { data: company, isLoading } = useGetCompany();

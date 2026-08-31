@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import type { Booking } from "@workspace/api-client-react";
+import { bookingDisplayName, type Booking } from "@workspace/api-client-react";
 import colors from "@/constants/colors";
 import { formatMoney, formatTimeInTz } from "@/lib/format";
 
@@ -136,7 +136,7 @@ export function BookingCard({
       <View style={styles.mainCol}>
         <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1}>
-            {booking.customerName}
+            {bookingDisplayName(booking)}
           </Text>
           <StatusBadge status={booking.status} />
         </View>
@@ -148,6 +148,16 @@ export function BookingCard({
             <Feather name="map-pin" size={12} color={c.mutedForeground} />
             <Text style={styles.address} numberOfLines={1}>
               {booking.customerAddress}
+            </Text>
+          </View>
+        ) : null}
+        {(booking.crew ?? []).length > 0 ? (
+          // Who's on the job, at a glance — every role sees this (names are
+          // not money), matching the web schedule's crew badges.
+          <View style={styles.crewRow} testID={`booking-crew-${booking.id}`}>
+            <Feather name="users" size={12} color={c.brandPurple} />
+            <Text style={styles.crewNames} numberOfLines={1}>
+              {(booking.crew ?? []).map((m) => m.name).join(", ")}
             </Text>
           </View>
         ) : null}
@@ -202,6 +212,13 @@ const styles = StyleSheet.create({
     color: c.mutedForeground,
   },
   addressRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  crewRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  crewNames: {
+    flex: 1,
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontSize: 12,
+    color: c.brandPurple,
+  },
   address: {
     flex: 1,
     fontFamily: "PlusJakartaSans_400Regular",

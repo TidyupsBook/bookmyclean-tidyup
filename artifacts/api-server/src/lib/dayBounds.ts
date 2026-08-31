@@ -36,6 +36,28 @@ export function companyDayBounds(
   return { start, end, date };
 }
 
+/**
+ * The first day the bookings list is allowed to show.
+ *
+ * Everything scheduled before this date is Jobber-era history: it was pulled
+ * in from Jobber during the migration and belongs in Jobber, not in this app's
+ * job list. The floor is a display/read rule only — those rows are still
+ * stored, still syncable, and still reachable by direct link — so it lives
+ * here next to the day-bounds helper rather than in the sync code.
+ */
+export const BOOKING_HISTORY_FLOOR_DATE = "2026-08-01";
+
+/**
+ * The history floor as a UTC instant, anchored to the company's own midnight.
+ *
+ * A job at 11pm on July 31 local stays out and 12:01am on August 1 local stays
+ * in, whichever zone the viewer's browser happens to be in — the same
+ * company-timezone rule every other "which day is this" answer uses.
+ */
+export function bookingHistoryFloor(timeZone: string): Date {
+  return companyDayBounds(BOOKING_HISTORY_FLOOR_DATE, timeZone).start;
+}
+
 /** Today's YYYY-MM-DD in the given zone. */
 function normalizeDate(dateStr: string | undefined, timeZone: string): string {
   if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;

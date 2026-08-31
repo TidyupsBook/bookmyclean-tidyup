@@ -5,7 +5,9 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusDatabase } from './healthStatusDatabase';
 
 export interface HealthStatus {
   status: string;
+  database: HealthStatusDatabase;
 }

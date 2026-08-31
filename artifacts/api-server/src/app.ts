@@ -9,14 +9,17 @@ import {
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
+import { HEALTHZ_PATH } from "./routes/health";
 import quoWebhookRouter, { QUO_WEBHOOK_PATH } from "./routes/quoWebhook";
 import jobberWebhookRouter, {
   JOBBER_WEBHOOK_PATH,
 } from "./routes/jobberWebhook";
 import { WebhookHandlers } from "./lib/webhookHandlers";
+import { canonicalHostRedirect } from "./middlewares/canonicalHost";
 import { logger } from "./lib/logger";
 
 export const STRIPE_WEBHOOK_PATH = "/api/stripe/webhook";
+export const JOBBER_OAUTH_CALLBACK_PATH = "/api/company/jobber/callback";
 
 const app: Express = express();
 
@@ -40,33 +43,44 @@ app.use(
   }),
 );
 
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+// The deployment healthcheck probes bare `/api` on a non-canonical host.
+// Answer it before the canonical-host redirect: a 301 sends the checker out
+// to the public domain (where it times out), and falling through to the
+// authenticated router returns 401 — either way the platform counts the
+// deploy unhealthy. Registered app-level and first so no middleware can get
+// in front of it.
+app.get("/api", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
-// CORS: explicit allowlist of this app's own origins only. Reflecting every
-// origin (`origin: true`) with credentials enabled would let any website make
-// authenticated requests with the victim's session cookie and read responses.
-const allowedOrigins = new Set<string>(
-  [
-    ...(process.env.REPLIT_DOMAINS?.split(",") ?? []),
-    process.env.REPLIT_DEV_DOMAIN,
-  ]
-    .map((d) => d?.trim())
-    .filter((d): d is string => Boolean(d))
-    .map((d) => `https://${d}`),
+// Fold every alias host (the default .replit.app domain, bookcleaning.app once
+// it is linked here) into the canonical domain. No-op unless PUBLIC_APP_URL is
+// pinned, which only production sets. Webhook receivers and the OAuth callback
+// are exempt: third parties call those on whatever host they were registered
+// with, and a bounced signed POST is a silently dropped event. The health
+// probe is exempt too: the deployment checker calls it on a non-canonical
+// host (localhost) and a 301 makes it follow the redirect out to the public
+// domain and time out — the platform then declares the app unhealthy and
+// restart-loops the whole deployment.
+app.use(
+  canonicalHostRedirect([
+    QUO_WEBHOOK_PATH,
+    JOBBER_WEBHOOK_PATH,
+    STRIPE_WEBHOOK_PATH,
+    JOBBER_OAUTH_CALLBACK_PATH,
+    HEALTHZ_PATH,
+  ]),
 );
 
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
+// Allow any origin for browser clients and the app's own API consumers.
+// This intentionally reflects the request's Origin header while credentials
+// remain enabled so the app can be reached from arbitrary frontends.
 app.use(
   cors({
     credentials: true,
-    origin: (origin, callback) => {
-      // Non-browser or same-origin requests carry no Origin header; allow
-      // them (no CORS headers are needed and none grant anything extra).
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
+    origin: true,
   }),
 );
 

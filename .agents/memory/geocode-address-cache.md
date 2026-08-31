@@ -23,6 +23,13 @@ The design:
 - The per-cycle budget is rotated through the unresolved queue rather than
   always starting at the head, so a few addresses failing for reasons that
   aren't cached (network blips) can't permanently block everything behind them.
+- **Lookup semantics live in the key.** Lookups are hard-restricted to Canada
+  and that restriction is folded into both the in-process key and the
+  persistent table key (a `ca:` prefix). Any future change to what a lookup
+  *means* — country restriction, bias handling — must change the keys in
+  lockstep, or entries cached under the old semantics (US results, misses that
+  would now hit) are replayed forever. Old-format rows are simply left
+  unreachable rather than migrated.
 
 **Why:** the original backfill did a fixed small batch of *bookings*, ordered by
 future date only. Past work never got pinned at all, and a bulk import would

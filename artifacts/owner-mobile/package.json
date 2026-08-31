@@ -4,9 +4,12 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
+    "dev": "lsof -ti tcp:$PORT | xargs -r kill -9 2>/dev/null; CI=1 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN BASE_PATH=/owner-mobile node server/dev-proxy.js",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
+    "test:e2e:leads-refresh": "node e2e/leads-refresh.mjs",
+    "smoke:ios": "maestro test e2e/maestro/speech-smoke.yaml --env PLATFORM=ios",
+    "smoke:android": "maestro test e2e/maestro/speech-smoke.yaml --env PLATFORM=android",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
@@ -21,6 +24,8 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "catalog:",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "~19.1.10",
     "@types/react-dom": "~19.1.7",
     "@ungap/structured-clone": "^1.3.0",
@@ -29,6 +34,7 @@
     "expo": "~54.0.27",
     "expo-auth-session": "~7.0.11",
     "expo-blur": "~15.0.8",
+    "expo-clipboard": "~8.0.7",
     "expo-constants": "~18.0.11",
     "expo-crypto": "~15.0.9",
     "expo-font": "~14.0.10",
@@ -41,16 +47,19 @@
     "expo-location": "~19.0.8",
     "expo-router": "~6.0.17",
     "expo-secure-store": "~15.0.8",
+    "expo-speech-recognition": "^56.0.1",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
+    "jsdom": "^26.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keyboard-controller": "1.18.5",
+    "react-native-maps": "1.20.1",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -61,5 +70,12 @@
     "vitest": "^4.1.10",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
+  },
+  "expo": {
+    "autolinking": {
+      "exclude": [
+        "@clerk/expo"
+      ]
+    }
   }
 }

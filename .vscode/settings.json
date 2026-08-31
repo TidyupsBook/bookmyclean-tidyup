@@ -1,0 +1,14 @@
+{
+  "window.title": "BOOK MY CLEANING | bookmycleaning.net | ${activeEditorShort}",
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#eb12c6",
+    "titleBar.activeForeground": "#ffffff",
+    "titleBar.inactiveBackground": "#eb12c6",
+    "titleBar.inactiveForeground": "#d1fae5",
+    "activityBar.background": "#eb12c6",
+    "activityBar.foreground": "#ccfbf1",
+    "statusBar.background": "#eb12c6",
+    "statusBar.foreground": "#ffffff"
+  },
+  "workbench.startupEditor": "readme"
+}

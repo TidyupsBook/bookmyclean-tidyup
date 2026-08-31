@@ -19,3 +19,11 @@ extra dependency; run the wall-clock→instant conversion twice so DST boundarie
 right offset. Show a short zone label (e.g. "MDT") next to times and next to the scheduling
 input so the operator knows which clock they are reading. Expose the company timezone through
 the API — a purely server-side timezone cannot keep the UI honest.
+
+The two-pass conversion has a side effect worth keeping intentional: for the repeated
+fall-back hour (e.g. 1:30 AM occurring twice), it always converges on the earlier,
+still-daylight-saving offset rather than the later standard-time one. Web (`time.ts`) and
+mobile (`format.ts`) both rely on this same `zonedInputToIso`/`zoneOffsetMs` shape, so treat it
+as one shared, load-bearing contract — a fix or tweak on one side that isn't mirrored on the
+other means the same reschedule saves a different instant depending on which app the owner
+used.

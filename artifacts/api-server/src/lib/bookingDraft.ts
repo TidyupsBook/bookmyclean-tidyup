@@ -39,12 +39,6 @@ const UNKNOWN_NAMES = new Set(["unknown", "unknown caller", "restricted", ""]);
 const POSTAL_RE = /\b([A-Za-z]\d[A-Za-z])[ -]?(\d[A-Za-z]\d)\b/;
 
 /**
- * US ZIP code, with the optional +4. The digit guards keep it from reading
- * five digits out of the middle of a phone number read without pauses.
- */
-const ZIP_RE = /(?<!\d)(\d{5})(?:-(\d{4}))?(?!\d)/;
-
-/**
  * A house number followed by one to three plain words and a street type.
  *
  * The street-name words deliberately allow no digits: without that, a sentence
@@ -71,6 +65,16 @@ const PETS_RE =
  */
 const PHONE_RE =
   /(?:\+?1[\s.-]?)?\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})(?!\d)/;
+
+/**
+ * A number repeated back with only its local seven digits: "so that's
+ * 555-1234". Seven digits on their own are too easily a price or a big house
+ * number, so the short form counts only straight after words that name it as
+ * the number being confirmed — which is exactly how it is said when the
+ * dispatcher, wearing earbuds, reads it back to the customer.
+ */
+const CONFIRM_PHONE_RE =
+  /\b(?:so that's|so it's|your (?:phone )?number(?:'s| is| was)|the number(?:'s| is| was)|you said)[:,]?\s+(\d{3})[\s.-](\d{4})(?!\d)/i;
 
 /** One or two plain words — the shape a spoken name takes. */
 const NAME_WORDS = String.raw`([a-z][a-z'-]{1,19}(?:\s+[a-z][a-z'-]{1,19})?)`;
@@ -105,6 +109,35 @@ const WEAK_NAME_RE = new RegExp(
     NAME_FILLER +
     NAME_WORDS +
     String.raw`(?=\s*[.,!?]|\s*$|\s+(?:calling|speaking|here|again|and|but|so)\b)`,
+  "i",
+);
+
+/**
+ * The dispatcher repeating the name back — "so your name is Sarah?", "and
+ * your name was Johnson". This is how a booking gets taken with earbuds in:
+ * the customer is inaudible to the microphone by definition, so the
+ * dispatcher's own confirmations are the entire transcript. Second person is
+ * as unambiguous as first — nobody says "your name is" about anything but a
+ * name.
+ */
+const CONFIRM_NAME_RE = new RegExp(
+  String.raw`\byour name(?:'s| is| was)\s+` + NAME_FILLER + NAME_WORDS,
+  "i",
+);
+
+/**
+ * A bare echo with a confirmation tail: "Sarah Johnson, got it", "So that's
+ * Sarah, right?". The tail is what keeps this deterministic — without the
+ * "got it" there is no telling an echoed name from the middle of a sentence.
+ *
+ * The echo must also start its own thought: "123 Main Street, got it"
+ * contains the words "Main Street, got it", and a street must never become a
+ * customer, so nothing may sit between the sentence start and the name.
+ */
+const ECHO_NAME_RE = new RegExp(
+  String.raw`(?:^|[.!?]\s+)(?:so,?\s+|and\s+|okay,?\s+|ok,?\s+)?(?:that's\s+|that is\s+)?` +
+    NAME_WORDS +
+    String.raw`\s*[,—–-]\s*(?:got it|right|correct|perfect)\b`,
   "i",
 );
 
@@ -160,21 +193,48 @@ const NOT_A_NAME = new Set([
 const NAME_TAIL = /\s+(?:calling|speaking|here|again)$/i;
 
 function nameIn(text: string): string | null {
-  const match = text.match(STRONG_NAME_RE) ?? text.match(WEAK_NAME_RE);
+  const match =
+    text.match(STRONG_NAME_RE) ??
+    text.match(CONFIRM_NAME_RE) ??
+    text.match(WEAK_NAME_RE);
   const raw = match?.[1]?.replace(NAME_TAIL, "").trim();
+  if (raw) {
+    const words = raw.split(/\s+/);
+    if (!NOT_A_NAME.has(words[0]!.toLowerCase())) {
+      // A trailing filler word means we caught a sentence, not a surname.
+      if (words.length === 2 && NOT_A_NAME.has(words[1]!.toLowerCase())) {
+        return titleCase(words[0]!);
+      }
+      return titleCase(words.join(" "));
+    }
+  }
+  return echoedNameIn(text);
+}
+
+/**
+ * The echo pattern repeats every kind of detail, not just names — "deep
+ * clean, got it", "two bedrooms, right". So unlike the introductions, where
+ * only the first word can betray a sentence, an echoed candidate is thrown
+ * out whole if *any* word of it belongs to a detail that already has its own
+ * box. One suspect word sinks the echo: "Sarah, right" is a name, "next
+ * Tuesday, right" never is.
+ */
+function echoedNameIn(text: string): string | null {
+  const raw = text.match(ECHO_NAME_RE)?.[1]?.trim();
   if (!raw) return null;
   const words = raw.split(/\s+/);
-  if (NOT_A_NAME.has(words[0]!.toLowerCase())) return null;
-  // A trailing filler word means we caught a sentence, not a surname.
-  if (words.length === 2 && NOT_A_NAME.has(words[1]!.toLowerCase())) {
-    return titleCase(words[0]!);
-  }
+  const suspect = (w: string) =>
+    NOT_A_NAME.has(w.toLowerCase()) || NOT_AN_ECHOED_NAME.has(w.toLowerCase());
+  if (words.some(suspect)) return null;
   return titleCase(words.join(" "));
 }
 
 function phoneIn(text: string): string | null {
   const m = text.match(PHONE_RE);
-  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : null;
+  if (m) return `(${m[1]}) ${m[2]}-${m[3]}`;
+  const short = text.match(CONFIRM_PHONE_RE);
+  // Exactly as heard: inventing an area code would be a guess in disguise.
+  return short ? `${short[1]}-${short[2]}` : null;
 }
 
 /**
@@ -194,10 +254,80 @@ const WORD_NUMBERS: Record<string, number> = {
   ten: 10,
 };
 
+/**
+ * Vocabulary that shows up in echoed confirmations of *other* details. Any
+ * of these inside an echoed-name candidate means the dispatcher was
+ * confirming a service, a count, an address or a day — never a customer.
+ */
+const NOT_AN_ECHOED_NAME = new Set([
+  ...Object.keys(WORD_NUMBERS),
+  "that's",
+  "it's",
+  "thanks",
+  "thank",
+  "perfect",
+  "right",
+  "correct",
+  "got",
+  "clean",
+  "cleaning",
+  "deep",
+  "standard",
+  "recurring",
+  "airbnb",
+  "move",
+  "post",
+  "construction",
+  "bed",
+  "beds",
+  "bedroom",
+  "bedrooms",
+  "bath",
+  "baths",
+  "bathroom",
+  "bathrooms",
+  "half",
+  "street",
+  "avenue",
+  "road",
+  "drive",
+  "lane",
+  "court",
+  "way",
+  "boulevard",
+  "terrace",
+  "place",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "today",
+  "tomorrow",
+  "morning",
+  "afternoon",
+  "evening",
+  "week",
+  "weekend",
+  "next",
+  "this",
+  "dog",
+  "dogs",
+  "cat",
+  "cats",
+  "pets",
+  "dollars",
+  "bucks",
+]);
+
 function countOf(text: string, noun: "bed" | "bath"): number | null {
   const words = Object.keys(WORD_NUMBERS).join("|");
+  // "(?:room)?s?" and not "(?:room|s)?": the plural "two bedrooms" — the way
+  // it is actually said, and repeated back — needs both suffixes at once.
   const re = new RegExp(
-    `\\b(\\d{1,2}|${words})\\s*(?:and a half\\s*)?${noun}(?:room|s)?\\b`,
+    `\\b(\\d{1,2}|${words})\\s*(?:and a half\\s*)?${noun}(?:room)?s?\\b`,
     "i",
   );
   const m = text.match(re);
@@ -228,20 +358,19 @@ type TextDraft = {
   pets: string | null;
 };
 
-/**
- * A postal code out of free text: Canadian first (its shape is unmistakable),
- * then a US ZIP. A five-digit number that is the house number of the address
- * we just matched is not a ZIP — "12345 Oak Street" must not fill the postal
- * box with its own house number.
- */
+/** Return a consistently formatted Canadian postal code, or leave it blank. */
+export function normalizeCanadianPostalCode(
+  value: string | null | undefined,
+): string | null {
+  const compact = (value ?? "").replace(/[\s-]/g, "").toUpperCase();
+  if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(compact)) return null;
+  return `${compact.slice(0, 3)} ${compact.slice(3)}`;
+}
+
+/** A postal code out of free text. Alberta bookings never auto-fill US ZIPs. */
 function postalIn(text: string, address: string | null): string | null {
   const ca = text.match(POSTAL_RE);
-  if (ca) return `${ca[1]!.toUpperCase()} ${ca[2]!.toUpperCase()}`;
-  const zip = text.match(ZIP_RE);
-  if (!zip) return null;
-  const code = zip[2] ? `${zip[1]}-${zip[2]}` : zip[1]!;
-  if (address && address.includes(zip[1]!)) return null;
-  return code;
+  return ca ? normalizeCanadianPostalCode(ca[0]) : null;
 }
 
 function draftFromText(text: string): TextDraft {

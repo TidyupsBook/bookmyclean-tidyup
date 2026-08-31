@@ -14,10 +14,14 @@
  * after an import are the ones that page is showing.
  */
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useSyncJobberCalendar } from "@workspace/api-client-react";
+import {
+  useSyncJobberCalendar,
+  getGetCompanyQueryKey,
+} from "@workspace/api-client-react";
 
 export function JobberSyncButton({
   connected,
@@ -33,6 +37,7 @@ export function JobberSyncButton({
 }) {
   const { toast } = useToast();
   const sync = useSyncJobberCalendar();
+  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
   if (!connected || needsReauth) {
@@ -70,6 +75,10 @@ export function JobberSyncButton({
         onSynced();
       },
       onError: (error: any) => {
+        // A stale grant flips jobberNeedsReauth on the server mid-request.
+        // Refetch the company so this button turns into "Reconnect Jobber"
+        // right away instead of failing identically on the next click.
+        queryClient.invalidateQueries({ queryKey: getGetCompanyQueryKey() });
         toast({
           title: "Jobber sync failed",
           description:

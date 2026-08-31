@@ -17,5 +17,4 @@ export interface Service {
   priceMax?: number | null;
   /** @nullable */
   durationMinutes?: number | null;
-  createdAt: string;
 }

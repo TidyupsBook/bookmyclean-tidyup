@@ -6,17 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BookingCreateFrequency } from './bookingCreateFrequency';
-import type { BookingCreateStatus } from './bookingCreateStatus';
 
 export interface BookingCreate {
-  /** @minLength 1 */
-  customerName: string;
-  /** @minLength 1 */
-  customerPhone: string;
+  customerName?: string;
+  customerPhone?: string;
   /** @nullable */
   customerEmail?: string | null;
   /** @nullable */
   customerAddress?: string | null;
+  /**
+     * @maxLength 120
+     * @nullable
+     */
+  addressLine2?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -32,8 +34,7 @@ export interface BookingCreate {
      * @nullable
      */
   addressPostal?: string | null;
-  /** @minLength 1 */
-  service: string;
+  service?: string;
   /**
      * @minimum 0
      * @maximum 50
@@ -53,9 +54,12 @@ export interface BookingCreate {
      * @nullable
      */
   internalNotes?: string | null;
+  /** @nullable */
+  leadId?: number | null;
+  /** @nullable */
+  routeStopId?: number | null;
   teamMemberIds?: number[] | null;
   scheduledFor: string;
-  status?: BookingCreateStatus;
   /**
      * @minimum 0
      * @maximum 24

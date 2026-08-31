@@ -17,7 +17,11 @@ export interface TeamMember {
   phone?: string | null;
   role: TeamMemberRole;
   isLead: boolean;
+  /** @nullable */
+  title?: string | null;
+  roleLabel: string;
   active: boolean;
+  liveCallDispatching: boolean;
   /** @nullable */
   color?: string | null;
   /** @nullable */
@@ -32,5 +36,9 @@ export interface TeamMember {
   blockedByOtherCompany: boolean;
   /** @nullable */
   claimedAt?: string | null;
+  /** @nullable */
+  jobberUserId: string | null;
+  /** @nullable */
+  jobberConnectionId: number | null;
   createdAt: string;
 }

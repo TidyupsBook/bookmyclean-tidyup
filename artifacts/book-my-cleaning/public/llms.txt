@@ -4,4 +4,4 @@
 
 ## Pages
 
-- [Home](https://bookmycleaning.ca/): Landing page describing the AI receptionist product and cleaning service
+- [Home](https://bookmycleaning.net/): Landing page describing the AI receptionist product and cleaning service

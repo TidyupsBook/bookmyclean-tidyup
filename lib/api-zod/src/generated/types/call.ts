@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CallStatus } from './callStatus';
+import type { CallTag } from './callTag';
 
 export interface Call {
   id: number;
@@ -29,4 +30,6 @@ export interface Call {
   quoCallId?: string | null;
   /** @nullable */
   recordingUrl?: string | null;
+  /** @nullable */
+  tag?: CallTag;
 }

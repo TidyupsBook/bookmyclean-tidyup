@@ -16,6 +16,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole } from "../middlewares/requireRole";
 import { getCaller } from "../middlewares/requireRole";
 import { companyDayBounds } from "../lib/dayBounds";
+import { travelLegsForLane } from "../lib/travel";
+import { customerLabel } from "../lib/bookingFormat";
 
 const router: IRouter = Router();
 
@@ -55,11 +57,18 @@ router.get(
       .where(
         and(
           eq(bookingsTable.companyId, company.id),
+          // A date alone does not put work on the dispatch board. Quotes,
+          // tentative requests, and other pending work stay in Bookings until
+          // someone confirms the visit. Completed work remains on its
+          // historical day, while canceled work disappears with pending work.
+          inArray(bookingsTable.status, ["confirmed", "completed"]),
           gte(bookingsTable.scheduledFor, start),
           lt(bookingsTable.scheduledFor, end),
         ),
       )
-      .orderBy(asc(bookingsTable.scheduledFor));
+      // Id as tie-break so two jobs at the same time always chain in the
+      // same order, keeping travel legs deterministic.
+      .orderBy(asc(bookingsTable.scheduledFor), asc(bookingsTable.id));
 
     // Service durations to fall back on when a booking has none of its own.
     const services = await db
@@ -88,29 +97,41 @@ router.get(
           : // No bookings — match nothing.
             eq(bookingAssignmentsTable.bookingId, -1),
       );
-    const assigneesByBooking = new Map<number, number[]>();
-    for (const a of assignments) {
-      const list = assigneesByBooking.get(a.bookingId) ?? [];
-      list.push(a.teamMemberId);
-      assigneesByBooking.set(a.bookingId, list);
-    }
-
     // The team members who could carry jobs. Cleaners only ever see their own
-    // lane, so the roster is narrowed to them.
+    // lane, so the roster is narrowed to active staff. Retired records remain
+    // in the database for history, never as current schedule lanes.
     const roster = await db
       .select({
         id: teamMembersTable.id,
         name: teamMembersTable.name,
         role: teamMembersTable.role,
         color: teamMembersTable.color,
+        homeLat: teamMembersTable.homeLat,
+        homeLng: teamMembersTable.homeLng,
       })
       .from(teamMembersTable)
-      .where(eq(teamMembersTable.companyId, company.id))
+      .where(
+        and(
+          eq(teamMembersTable.companyId, company.id),
+          eq(teamMembersTable.active, true),
+        ),
+      )
       .orderBy(teamMembersTable.name);
+    const activeSeatIds = new Set(roster.map((seat) => seat.id));
+    const assigneesByBooking = new Map<number, number[]>();
+    for (const assignment of assignments) {
+      if (!activeSeatIds.has(assignment.teamMemberId)) continue;
+      const list = assigneesByBooking.get(assignment.bookingId) ?? [];
+      list.push(assignment.teamMemberId);
+      assigneesByBooking.set(assignment.bookingId, list);
+    }
 
     const toJob = (b: Booking) => ({
       bookingId: b.id,
-      customerName: b.customerName,
+      // Nameless bookings still label their lane block; the payload carries
+      // the phone too, so fall back through it before "No name".
+      customerName: customerLabel(b),
+      customerPhone: b.customerPhone,
       customerAddress: b.customerAddress ?? null,
       scheduledFor: b.scheduledFor.toISOString(),
       durationMinutes:
@@ -121,6 +142,25 @@ router.get(
       // Best available headline price: the quoted flat amount, else the deposit.
       price: b.quotedAmount ?? null,
     });
+
+    // A lane's jobs with the drive from the previous stop attached — home for
+    // the first job (when the cleaner's home is geocoded), then job to job.
+    const laneJobs = (
+      jobs: Booking[],
+      seat: { homeLat: number | null; homeLng: number | null },
+    ) => {
+      const legs = travelLegsForLane(
+        jobs.map((b) => ({
+          lat: b.lat ?? null,
+          lng: b.lng ?? null,
+          label: b.customerName,
+        })),
+        seat.homeLat !== null && seat.homeLng !== null
+          ? { lat: seat.homeLat, lng: seat.homeLng }
+          : null,
+      );
+      return jobs.map((b, i) => ({ ...toJob(b), travel: legs[i] ?? null }));
+    };
 
     // A cleaner sees only the lane for their own seat, filled with only the
     // jobs they are actually assigned to — never another crew member's lane
@@ -140,7 +180,7 @@ router.get(
                   teamMemberId: seat.id,
                   name: seat.name,
                   color: seat.color,
-                  jobs: myJobs.map(toJob),
+                  jobs: laneJobs(myJobs, seat),
                 },
               ]
             : [],
@@ -156,9 +196,12 @@ router.get(
       teamMemberId: seat.id,
       name: seat.name,
       color: seat.color,
-      jobs: dayBookings
-        .filter((b) => (assigneesByBooking.get(b.id) ?? []).includes(seat.id))
-        .map(toJob),
+      jobs: laneJobs(
+        dayBookings.filter((b) =>
+          (assigneesByBooking.get(b.id) ?? []).includes(seat.id),
+        ),
+        seat,
+      ),
     }));
     const unassigned = dayBookings
       .filter((b) => (assigneesByBooking.get(b.id) ?? []).length === 0)

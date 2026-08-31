@@ -160,6 +160,132 @@ export function resolveSpokenDate(
   return shift(ahead);
 }
 
+const MONTHS: Record<string, number> = {
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
+  may: 5,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sept: 9,
+  sep: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
+};
+
+// Longest names first, so "sept 3" matches "sept" rather than stopping at "sep".
+const MONTH_PATTERN = Object.keys(MONTHS)
+  .sort((a, b) => b.length - a.length)
+  .join("|");
+
+/** `YYYY-MM-DD` that names a real day (no February 30th). */
+function isRealDay(ymd: string): boolean {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(y!, m! - 1, d!));
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === m! - 1 &&
+    date.getUTCDate() === d
+  );
+}
+
+/**
+ * Turns whatever the owner *types* into the date box into a real day, in the
+ * company's zone.
+ *
+ * Everything `resolveSpokenDate` understands ("today", "tomorrow", "next
+ * Tuesday") still lands, plus the explicit wordings a caller actually says —
+ * "October 12th", "Oct 12", "12th of October", with an optional year. A named
+ * day without a year that has already passed this year means the one coming,
+ * so "March 3" typed in August is next March.
+ *
+ * Returns null for anything vaguer than one specific day ("September",
+ * "sometime next month"). Vague wording must never block a save — it is kept
+ * on the booking as an "Asked for: …" note instead, for the office to
+ * schedule properly later.
+ */
+export function resolveTypedDate(
+  text: string | null | undefined,
+  timeZone: string,
+): string | null {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return null;
+
+  // Already a date-input value — the calendar and tests write these.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return isRealDay(trimmed) ? trimmed : null;
+  }
+
+  const spoken = resolveSpokenDate(trimmed, timeZone);
+  if (spoken) return spoken;
+
+  const lower = trimmed.toLowerCase();
+  // "October 12th, 2026" / "oct 12" …
+  let month: number | undefined;
+  let day: number | undefined;
+  let yearText: string | undefined;
+  const monthFirst = new RegExp(
+    `\\b(${MONTH_PATTERN})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s*(\\d{4}))?`,
+  ).exec(lower);
+  if (monthFirst) {
+    month = MONTHS[monthFirst[1]!];
+    day = Number(monthFirst[2]);
+    yearText = monthFirst[3];
+  } else {
+    // … or "12th of October 2026" / "12 oct".
+    const dayFirst = new RegExp(
+      `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_PATTERN})\\b\\.?(?:,?\\s*(\\d{4}))?`,
+    ).exec(lower);
+    if (!dayFirst) return null;
+    day = Number(dayFirst[1]);
+    month = MONTHS[dayFirst[2]!];
+    yearText = dayFirst[3];
+  }
+  if (!month || !day) return null;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const today = todayInZone(timeZone);
+  const explicitYear = yearText ? Number(yearText) : null;
+  let year = explicitYear ?? Number(today.slice(0, 4));
+  let ymd = `${year}-${pad(month)}-${pad(day)}`;
+  if (!isRealDay(ymd)) return null;
+  // No year said and the day already went by this year: they mean the next one.
+  if (explicitYear === null && ymd < today) {
+    year += 1;
+    ymd = `${year}-${pad(month)}-${pad(day)}`;
+    if (!isRealDay(ymd)) return null;
+  }
+  return ymd;
+}
+
+/** `YYYY-MM-DD` -> "Monday, October 12, 2026", for showing what a typed date resolved to. */
+export function formatDateWords(ymd: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) || !isRealDay(ymd)) return "";
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(Date.UTC(y!, m! - 1, d!)));
+}
+
 /** Tomorrow at 9am in the company's zone, as a `datetime-local` value. */
 export function defaultScheduledFor(timeZone: string): string {
   const now = new Date();

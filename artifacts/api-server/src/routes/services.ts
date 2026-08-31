@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, servicesTable } from "@workspace/db";
 import {
   ListServicesResponse,
@@ -9,12 +9,36 @@ import {
   UpdateServiceBody,
   UpdateServiceResponse,
   DeleteServiceParams,
+  ImportSuggestedServicesResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole } from "../middlewares/requireRole";
 import { getCompanyForUser } from "../lib/company";
 
 const router: IRouter = Router();
+
+export const SUGGESTED_SERVICES = [
+  { name: "1Bed 1Bath Moveout Cleaning", price: 200 },
+  { name: "2Bed 2Bath Moveout Cleaning", price: 105 },
+  { name: "Standard Home Cleaning", price: 150 },
+  { name: "Deep Cleaning Service", price: 300 },
+  { name: "Move-Out Cleaning", price: 400 },
+  { name: "3Bed 3Bath Moveout Cleaning", price: 105 },
+  { name: "1Bed 1Bath Deep Cleaning", price: null },
+  { name: "2Bed 1Bath Deep Cleaning", price: null },
+  { name: "3Bed 1Bath Deep Cleaning", price: null },
+  { name: "2Bed 2Bath Deep Cleaning", price: null },
+  { name: "3Bed 2Bath Deep Cleaning", price: null },
+  { name: "3Bed 3Bath Deep Cleaning", price: null },
+  { name: "2Bed 3Bath Moveout Cleaning", price: null },
+  { name: "3Bed 1Bath Moveout Cleaning", price: null },
+  { name: "3Bed 2Bath Move In Cleaning", price: null },
+  { name: "2Bed 2Bath Move In Cleaning", price: null },
+  { name: "3Bed 3Bath Move In Cleaning", price: null },
+  { name: "Basic Initial Cleaning", price: null },
+  { name: "Bathroom Cleaning", price: null },
+  { name: "Steam Cleaning", price: null },
+] as const;
 
 router.use(requireAuth);
 
@@ -55,6 +79,53 @@ router.post(
       .values({ ...parsed.data, companyId: company.id })
       .returning();
     res.status(201).json(CreateServiceResponse.parse(service));
+  },
+);
+
+router.post(
+  "/services/suggested-catalog",
+  requireRole("owner"),
+  async (req, res): Promise<void> => {
+    const company = await getCompanyForUser(req.userId!);
+    if (!company) {
+      res.status(404).json({ error: "No company yet" });
+      return;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      // Two tabs can press the button together. Serialize this one company's
+      // import so "add missing names" cannot create the same service twice.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(${company.id}, 20260725)`,
+      );
+      const existing = await tx
+        .select()
+        .from(servicesTable)
+        .where(eq(servicesTable.companyId, company.id));
+      const existingNames = new Set(
+        existing.map((service) => service.name.trim().toLocaleLowerCase()),
+      );
+      const missing = SUGGESTED_SERVICES.filter(
+        (service) => !existingNames.has(service.name.toLocaleLowerCase()),
+      );
+      const created =
+        missing.length === 0
+          ? []
+          : await tx
+              .insert(servicesTable)
+              .values(
+                missing.map((service) => ({
+                  companyId: company.id,
+                  name: service.name,
+                  priceMin: service.price,
+                  priceMax: service.price,
+                })),
+              )
+              .returning();
+      return { created: created.length, services: [...existing, ...created] };
+    });
+
+    res.json(ImportSuggestedServicesResponse.parse(result));
   },
 );
 

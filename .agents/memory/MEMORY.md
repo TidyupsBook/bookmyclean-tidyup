@@ -1,11 +1,12 @@
 - [Orval zod v4 mismatch](orval-zod-v4.md) — orval v8 emits zod v4 API (`zod.int()`); codegen script must rewrite the generated import to `zod/v4`.
 - [Clerk web auth is cookie-based](clerk-web-auth.md) — never add bearer-token wiring to browser API calls; a 401 on web is a cookie/middleware issue, not missing tokens.
-- [Quo API constraints](quo-api.md) — raw key (no `Bearer`), `/v1/calls` needs a participant so enumerate via conversations, transcripts are post-call only.
+- [Quo API constraints](quo-api.md) — raw key (no `Bearer`), `/v1` webhooks sign with legacy `openphone-signature` (NOT the documented svix trio), `/v1/calls` needs a participant, transcripts post-call.
 - [Scope express.raw to the webhook path](express-raw-body-scope.md) — a raw parser on `/api` leaves every other route's body a Buffer; body-parser skips once `req._body` is set.
 - [Quo plans & provisioning](quo-plans-and-provisioning.md) — transcripts need Business (not Starter), Sona calls burn credits, and there is no API to create accounts, numbers, or keys.
 - [Webhook idempotency via claim rows](webhook-idempotency-claim.md) — claim the delivery id before processing and release it on failure; ack-then-process silently drops events.
 - [Quo owner-notify pending marker](notify-claim-release.md) — the health flag never reverts on send failure; a separate pending marker (with a flag-matching restore guard) retries the text.
-- [Migrations are required here](db-migrations-required.md) — API applies Drizzle migrations at startup, so `drizzle-kit push` alone ships nothing; always add a migration file + journal entry.
+- [Deploy boot must be loud and fast](deploy-boot-silence.md) — a publish dies with zero logs if the port isn't open in ~60s; log before the first DB call, and only migrations may precede listen().
+- [Migrations are required here](db-migrations-required.md) — boot applies migrations; ship file+journal and write DDL idempotent — task merges renumber files and Publish pre-applies columns, so ALTERs re-run.
 - [API date serialization](api-date-serialization.md) — a new nullable timestamp column 500s the whole list endpoint once one row sets it; update the route serializer in the same change.
 - [Booking times use company timezone](company-timezone-display.md) — never render or parse booking times in browser-local time; dispatcher and customer must see the same hour.
 - [Activity type enum lives in OpenAPI](db-migrations-practice.md) — new activity `type` values must be added to the ActivityItem enum + codegen and given a dashboard icon, or the feed fails zod validation at runtime.
@@ -15,18 +16,90 @@
 - [Cancellation sweeps need a complete pull](sync-cancellation-sweeps.md) — reconcile-by-absence must be gated on proven completeness; widening a sync window scales the blast radius of every early `break`.
 - [Geocode by address, not by row](geocode-address-cache.md) — shared address-keyed cache, misses cached too; repeat visits cost one lookup and test fixtures need run-unique addresses.
 - [Jobber time tracking is read-only](jobber-time-tracking.md) — no time sheet mutation exists; clocked hours go over as a job/request note, best effort, no extra scope.
+- [Jobber outbound push](jobber-outbound-push.md) — introspect unauthenticated before writing a mutation, stub fetch (not our helpers) in tests, and never announce a sync whose claim was stolen.
+- [Work we push onto Jobber's calendar](jobber-app-created-ids.md) — separate id columns so the pull adopts instead of duplicating, and only the remote can prove a job was already created.
 - [Jobber sync runs two directions](jobber-sync-direction.md) — pushed requests and pulled jobs need separate id columns, or the pull cancels bookings it never imported.
 - [Jobber OAuth PKCE flow](jobber-oauth.md) — real OAuth with PKCE; connect returns authorizeUrl, callback at /api/company/jobber/callback stores tokens; token refresh on every sync.
+- [Jobber connection lifecycle locks](jobber-connection-lifecycle-lock.md) — all connection create/remove paths share the company advisory lock, so promotion and capacity remain atomic.
+- [Jobber user list is complete by contract](jobber-user-list-complete.md) — absence means "deactivated", so the listing must paginate to exhaustion and throw rather than return a partial page.
+- [Jobber rate budget](jobber-rate-budget.md) — one account's throttle budget is shared across envs and pollers; queries are priced by requested page sizes, so keep visit×assignee pages small.
+- [Jobber shared grant](jobber-shared-grant.md) — one Jobber account across envs + rotating refresh tokens: background polling must be pinned-env only, and refresh-rejection copy names the environment.
 - [video-js scaffold gaps](video-artifact-scaffold.md) — new video artifacts ship without DOM libs in tsconfig and unformatted, so repo typecheck + format go red until fixed.
 - [Owner-notify claim release](notify-claim-release.md) — notification sends return sent/skipped/failed; retry state must live apart from health flags or dashboards lie during outages.
 - [Team roles & authorization](team-roles-authorization.md) — resolving a company is scope, not permission; a seat needs no email, and "lead cleaner" is a label, never a role.
 - [Clerk instance mismatch](clerk-instance-mismatch.md) — a cloned prod DB carries dev Clerk ids that 404, stranding every account in an onboarding loop; email recovery must be cohort-scoped and expiring.
-- [Clerk Expo mobile wiring](clerk-expo-mobile.md) — mobile uses bearer tokens via setAuthTokenGetter + custom auth screens; Clerk key must be injected in both dev script and build.js Metro env.
+- [Clerk Expo mobile wiring](clerk-expo-mobile.md) — JS-only Clerk: bearer tokens, key injected in dev+build Metro env, and the iOS-17 native module must be excluded from both linkers.
+- [Expo Launch static config](expo-launch-static-config.md) — App Store builds must use static app.json; Expo Launch refuses to mutate app.config.js/ts.
+- [Expo config-plugin imports](expo-config-plugin-imports.md) — local Expo plugins must import config helpers from `expo/config-plugins`, not an undeclared transitive package.
 - [Stripe live-mode switch](stripe-live-mode.md) — live keys come from the Publish pane, not code; mode-scoped keys stop webhook reconciliation from touching the live webhook; private visibility blocks webhooks.
-- [waitForJob timeout is capped](waitforjob-timeout-cap.md) — the `timeout` arg is silently clamped to ~20s; long waits need real sleeps, not a bigger number.
+- [waitForJob timeout behavior](waitforjob-timeout-cap.md) — long timeouts ARE honored (300s observed); on timeout re-call waitForJob with the same jobId, the job is likely still running.
 - [Router-level guards leak across routers](express-router-use-guard-leak.md) — routers mount at `/`, so `router.use(requireRole)` guards other routers' routes; guards must be per-route, pinned by the authorization test matrix.
-- [Google Maps setup & loading](google-maps-key-setup.md) — `loading=async` leaves the namespace empty (importLibrary only); key needs two APIs, and each half fails invisibly in its own way.
+- [Google Maps setup & loading](google-maps-key-setup.md) — script `load` is not SDK-ready (wait for `callback=`), `loading=async` leaves the namespace empty, and each key half fails invisibly.
 - [Public base URL must be pinned](public-base-url-pin.md) — a host inferred from REPLIT_DOMAINS is wrong for any URL a third party approves in advance; pin it and show it copyable.
 - [Repairing production rows](destructive-data-migrations.md) — enumerate every scoped child table, pin ids plus an attribute, and test with fixtures seeded at the real ids.
+- [Task merges can strand the workspace on main](task-merge-branch-checkout.md) — sudden mass "regressions" after a merge are often a wrong branch checkout; check git before debugging code.
 - [Pushing to GitHub](git-push-replit.md) — gitPush only sees `origin` (real remote is `subrepl-*`), and the GitHub connector grants API access, not push credentials.
 - [Unlayered CSS beats Tailwind utilities](tailwind-layer-precedence.md) — a bare reset in index.html silently kills every padding/width utility app-wide; scope everything you add there.
+- [Dark-only theme](dark-only-theme.md) — `.dark` is never applied, so `dark:` variants never fire and the light-mode class renders on the dark page; pick colors for dark outright.
+- [Pending seats grant nothing](pending-seat-access.md) — a self-signed-up staff member resolves to the weakest role with no company; approval must be one conditional update.
+- [Live call capture](live-call-capture.md) — the mic session lives above the router, never prompts on its own, and every async start needs a cancel token.
+- [Live call auth boundary](live-call-auth-boundary.md) — the app-wide capture provider must reset on every resolved identity transition, including sign-out.
+- [In-app notifications](in-app-notifications.md) — crew chat texts nobody by design; badge+sound share one tally, baseline per identity, never ding on first load.
+- [Owed-text queue](pending-texts-queue.md) — texts owed to anyone go through pending_texts (claim-by-delete, hourly sweep), composed at queue time so the source row may vanish.
+- [Test DB stale fixtures](test-db-stale-fixtures.md) — tests share the dev DB; a crashed run strands rows with hardcoded unique values (23505), and new-table tests fail until the server restart applies migrations.
+- [OpenAPI schema naming vs orval](openapi-schema-naming.md) — a component named `<OperationId>Response` collides with orval's generated export; suffix `Result` instead.
+- [Geocoding needs a service-area bias](geocode-bias.md) — a bare street line resolves confidently in the wrong province; bias by bounds, and fold the bias into the cache key.
+- [Google key split](google-key-split.md) — one key rarely covers maps + geocoding + places; probe each key server-side and never swap a working map onto an unproven one.
+- [Read watermarks](read-watermarks.md) — mark read by message id, never now() or a round-tripped timestamp; ms/µs truncation leaves threads permanently unread.
+- [Roster phone format](roster-phone-format.md) — team-member phones are stored as typed, not E.164; lookups by phone must normalize both sides or miss real rosters.
+- [Static shell handoff](static-shell-handoff.md) — dismiss the pre-rendered shell only on proof React painted; Clerk's `<Show>` renders nothing (not even fallback) while auth loads.
+- [jsdom ceiling on Node 20](jsdom-on-node20.md) — pin jsdom ^26 (27+ dies on undici 8 at import); it does run inline scripts, rAF and real stylesheet cascade.
+- [Browser e2e via preinstalled Chromium](browser-e2e-playwright.md) — playwright-core + $REPLIT_PLAYWRIGHT_CHROMIUM_EXECUTABLE; cross-site iframes need different hostnames, not ports.
+- [Mobile Expo browser host checks](mobile-expo-browser-e2e.md) — run mobile browser checks on REPLIT_EXPO_DEV_DOMAIN and fail on origin changes; shared preview rewrites can exercise the wrong bundle.
+- [Mobile component tests](mobile-component-tests.md) — Expo .tsx tests render via react-native-web alias in vitest; rn-web Modal never unmounts, so assert side effects, not absence.
+- [Web component tests setup](web-component-tests.md) — .tsx tests need jsdom pinned to v26 on Node 20, `esbuild.jsx: "automatic"` in the standalone vitest config, and a per-file jsdom pragma.
+- [API-client mocks must spread importOriginal](api-client-react-mock-spread.md) — inline vi.mock factories drop the package's hand-written pure helpers; every factory spreads the original first.
+- [Inline request bodies break codegen](openapi-inline-body-collision.md) — every requestBody must $ref a named component schema or the zod const and its TS type collide at the index re-export.
+- [Production data writes](prod-data-writes.md) — prod SQL is read-only; getting rows into the live app means driving its own endpoint/UI, and publishing never carries data over.
+- [User uploads land in a public repo](uploads-are-public.md) — attached_assets is tracked and auto-committed; strip PII uploads before the next push, while the commit is still local.
+- [pnpm overrides need bounded ranges](pnpm-override-ranges.md) — unscoped overrides (open `>=` or bare pins) force wrong majors onto consumers; scope per major or builds break far from the diff.
+- [Import preview parity](import-preview-parity.md) — a preview of a bulk import must replicate the server's full semantics (whole team, name fallback rules, duplicate skipping), tested in a shared lib.
+- [Canonical redirect vs probes](canonical-redirect-probes.md) — a 301 on /api/healthz restart-loops the whole deploy; exempt probe paths like webhooks, and check deploy logs for 301-on-probe first.
+- [Quo webhooks across environments](quo-webhook-environments.md) — one shared Quo account, per-env hook rows; re-picks strand duplicate sets, and only same-host hooks are safe to delete.
+- [Shared detail-cache merges](shared-detail-cache-merges.md) — two mutations returning the same detail object must each merge only their own field into the cache, or a slow save rolls the other field back.
+- [Autosave must serialize writes](autosave-serialization.md) — one write in flight, chain the newest draft on settle; stale-callback guards alone still let the server persist old text.
+- [Expo Go + private dev URL](expo-go-private-dev-url.md) — bundle loads (expo subdomain skips the proxy) but API calls hit Replit's login wall; zero requests reach the server.
+- [Expo dev origin CORS](expo-dev-origin-cors.md) — phone dev clients call the API cross-origin from the expo subdomain; cors pkg 401s disallowed preflights, so allowlist REPLIT_EXPO_DEV_DOMAIN.
+- [Expo dev preview path prefix](expo-dev-preview-prefix.md) — the shared dev proxy keeps the artifact prefix but Expo answers only at root; dev must run a prefix-stripping proxy on $PORT.
+- [Live location is per device](device-location-tracking.md) — devices are tracked, not people; sharing is opt-in and "off" deletes; dispatcher watching is clock-gated, so route tests must pick a zone at runtime.
+- [Staff presence definition](presence-live-definition.md) — "live" is one server-side 5-min rule; embed flags in polled responses or use the presence endpoint, never ship raw timestamps to judge client-side.
+- [Background sweep event dedupe](late-sweep-dedupe.md) — once-per-slip events need in-flight guard, restart seeding, pg advisory-xact-lock, and announce-only-after-durable-write.
+- [Expo route platform split](expo-route-platform-split.md) — never give route files .web.tsx variants; the router bundles both, so platform forks live in components/.
+- [Expo app/ dir is routes-only](expo-app-dir-routes-only.md) — test files under app/ get bundled as screens and kill the publish build while dev looks fine; keep tests in __tests__/.
+- [Clerk mobile sign-in statuses](clerk-mobile-signin-statuses.md) — a correct password can leave the session unfinished (`needs_client_trust`); re-read status and drive the step in-app.
+- [GitHub repo layout](github-repo-layout.md) — code lives on `book-my-cleaning`; `main` is empty/stale, parallel copies drift, and merging them collides on migration numbers.
+- [Jobber quote mirror & client directory](jobber-quote-mirror.md) — no updated-at sort key: the pull cursor lives on the company row and advances only on complete pulls; digit-less phones identify nobody.
+- [Jobber-form leads](jobber-form-leads.md) — leads win over the request pull for new requests; echo guard vs our own push is two-sided; converting hands the twin's unique request id to the new booking.
+- [Lead-origin bookings in Jobber](lead-origin-jobber.md) — a lead always becomes a NEW Jobber client; the marker is set at booking creation (the push beats convert) and has no FK on purpose.
+- [Lead prefill cache freshness](lead-prefill-cache.md) — lead-card repairs must patch the booking form's separate prefill cache before navigation.
+- [Lead Jobber push & adoption](lead-jobber-push.md) — form leads push themselves on submit; three duplication defenses (stamp at creation, adopt at push, skip in request pull) must all hold.
+- [Leads sheet sync](leads-sheet-sync.md) — pin the shared sheet to an explicit production company; never infer it from company insertion order.
+- [Standing owner rules](standing-owner-rules.md) — every task ends in a commit+push, and any scrolling page must inherit the shell's back-to-top button.
+- [One build, several storefronts](single-company-deployment.md) — a deployment can be closed to new companies by runtime flag; the refusal must sit after the idempotent owner return.
+- [Live map tool modes](map-tool-modes.md) — exclusive map tools share one state field, and click-intercepting tools use a ref, never a dependency of the marker redraw effect.
+- [Live-call capture is an entitlement](live-call-entitlement.md) — owner-only; losing it must end the session, drop in-flight scans and clear call-derived fields, not just hide buttons.
+- [Call attention & corner](call-attention.md) — waiting-to-book clears only on engagement or booking, never a timer; one corner owner at a time, and 'unsupported' declines must not raise the mic bar (iPad).
+- [SPA deep-link flash e2e](spa-deeplink-flash-testing.md) — same-URL goto is a no-op, so mount-triggered flashes need a visit-elsewhere-then-deep-link plan and a timed check.
+- [Mobile live call capture](mobile-live-capture.md) — expo-speech-recognition import crashes Expo Go (lazy-require it), and draft answers must apply through a latest-render ref, never a stale closure.
+- [Speech diagnostics privacy](speech-diagnostics.md) — device troubleshooting identifies platform, permissions, recognizer, and stage without including customer transcript content.
+- [Permission asks queue](permission-ask-queue.md) — one-time device prompts serialize on a dialog-closed event, never on the "asked" storage flag, which flips while the dialog is still busy.
+- [Store screenshots demo rig](store-screenshots-demo.md) — demo Clerk user + fail-closed seeder + Playwright capture; mobile token wiring must live in the ROOT layout or deep links 401.
+- [Deployment log visibility](deploy-log-scope.md) — fetchDeploymentLogs only returns the CURRENT build's logs; each republish wipes visibility into the prior instance, so pull logs before republishing when investigating.
+- [Device reset recovery](device-reset-recovery.md) — match a reset by a coarse opaque recovery identity, clear stale coordinates, and never create a health row for an unknown first install.
+- [Pnpm audits with unpatched upstream CVEs](pnpm-audit-unfixable-patches.md) — put audit exclusions in pnpm-workspace.yaml, retaining both legacy CVE and current GHSA forms during the pnpm 10→11 transition.
+- [Pnpm patch integrity](pnpm-patch-integrity.md) — generate package patches with pnpm and prove a forced install applies their guards to the runtime-resolved copy.
+- [Pnpm package-manager auto-switching](pnpm-manage-package-manager-versions.md) — pnpm 10 self-install failures can break every workflow; disable its version manager in `.npmrc`.
+- [Dashboard browser fixtures](dashboard-browser-fixtures.md) — browser tests must suppress first-visit permission dialogs or overlays can mask the flow under test.
+- [Vite e2e route reload stalls](vite-e2e-route-reload-stalls.md) — mocked browser tests can remain in Suspense after a second full-page route load; verify page changes independently.
+- [Timezone labels need an instant](zone-label-instant.md) — DST-sensitive labels must describe the relevant timestamp, not the current date.
+- [Quo contact identity claims](quo-contact-identity-claims.md) — serialize mirror creation per local identity; detach shared contact IDs when a client’s phone changes.

@@ -1,23 +1,10 @@
 ---
-name: waitForJob timeout is capped
-description: The timeout argument to waitForJob is silently clamped far below what you pass, so it cannot be used to block on a long-running subagent.
+name: waitForJob timeout behavior
+description: How long waitForJob actually waits, and how to handle long-running subagent jobs
 ---
 
-# waitForJob's timeout is silently clamped
+# waitForJob timeout behavior
 
-Passing `waitForJob({ jobId, timeout: 900 })` does **not** wait 900 seconds. The call
-returns in roughly 20 seconds. Chaining several of them looks like a long wait in the
-transcript while almost no wall-clock time has passed.
+The `timeout` argument (seconds) is honored for long waits — observed a full 300s wait on a default call and a successful 280s wait that returned a finished architect review. An earlier session concluded it was clamped to ~20s; that is outdated (platform behavior changed or the original diagnosis was wrong).
 
-**Why this matters:** it is invisible. Each call comes back "still running", which reads
-exactly like a genuine long wait. It is easy to burn a dozen calls believing hours have
-elapsed when it has been three minutes, and then wrongly conclude a subagent is hung.
-
-**How to apply:** when waiting on something genuinely long (a design subagent building a
-video, a big install), do not raise the `timeout` number. Instead:
-
-- Check real elapsed time with `date` before assuming a job is stuck.
-- Burn real wall time with a shell `sleep` (the shell tool allows up to ~300s per call),
-  then re-check the job.
-- Confirm progress out-of-band by looking at file mtimes in the directory the job writes
-  to, rather than trusting the job status alone.
+**How to apply:** for long-running jobs (architect reviews, testing agents), await the job or call `waitForJob({ jobId, timeout: ~280 })` in a small retry loop — 2-3 rounds covers most reviews. If a wait times out, the job is usually still running: re-call `waitForJob` with the same jobId rather than restarting the subagent. When the job finished during a timed-out wait, the next `waitForJob` returns instantly with the result.

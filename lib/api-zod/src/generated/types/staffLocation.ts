@@ -5,12 +5,26 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { StaffLocationStatus } from './staffLocationStatus';
 
 export interface StaffLocation {
+  status: StaffLocationStatus;
   teamMemberId: number;
-  lat: number;
-  lng: number;
+  /** @nullable */
+  deviceId?: number | null;
+  /** @nullable */
+  deviceLabel?: string | null;
+  /** @nullable */
+  platform?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
   /** @nullable */
   accuracy?: number | null;
-  updatedAt: string;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  message?: string | null;
+  recoveryMatched?: boolean;
 }

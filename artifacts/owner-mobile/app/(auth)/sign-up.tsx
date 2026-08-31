@@ -14,6 +14,8 @@ import { type Href, Link, useRouter } from "expo-router";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientFill, GradientRule, SparkleLogo } from "@/components/Brand";
 import colors from "@/constants/colors";
+import { clerkAppDestination } from "@/lib/clerk-navigation";
+import { codeErrorMessage } from "@/lib/sign-in-steps";
 
 const c = colors.light;
 
@@ -26,34 +28,99 @@ export default function SignUpScreen() {
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // The email already has an account: don't leave people staring at Clerk's
+  // raw "taken" message — tell them plainly and put a sign-in button in
+  // front of them, or they retry sign-up forever.
+  const [emailTaken, setEmailTaken] = useState(false);
 
   const busy = fetchStatus === "fetching";
 
   const handleSubmit = async () => {
     setFormError(null);
-    const { error } = await signUp.password({ emailAddress, password });
-    if (error) {
-      setFormError(error.message ?? "Sign up failed. Check your details.");
-      return;
+    setNotice(null);
+    setEmailTaken(false);
+    try {
+      const { error } = await signUp.password({ emailAddress, password });
+      if (error) {
+        const code = (error as { code?: string }).code;
+        const message = error.message ?? "";
+        if (
+          code === "form_identifier_exists" ||
+          /taken|already/i.test(message)
+        ) {
+          setEmailTaken(true);
+          setFormError(
+            "You already have an account with this email — no need to sign up again. Tap below to sign in.",
+          );
+        } else {
+          setFormError(message || "Sign up failed. Check your details.");
+        }
+        return;
+      }
+      const sent = await signUp.verifications.sendEmailCode();
+      if (sent.error) {
+        setFormError(
+          sent.error.message ??
+            "We couldn't send your code. Check your connection and try again.",
+        );
+      }
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
     }
-    await signUp.verifications.sendEmailCode();
+  };
+
+  const handleResend = async () => {
+    setFormError(null);
+    setNotice(null);
+    try {
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) {
+        setFormError(
+          error.message ??
+            "We couldn't send a new code. Check your connection and try again.",
+        );
+        return;
+      }
+      setCode("");
+      setNotice("New code sent.");
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
+    }
   };
 
   const handleVerify = async () => {
     setFormError(null);
-    await signUp.verifications.verifyEmailCode({ code });
+    setNotice(null);
+    // A wrong code has to read as "try again", not as a screen that ignored you.
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error) {
+        setFormError(codeErrorMessage(error));
+        return;
+      }
+    } catch {
+      setFormError(
+        "We couldn't reach Book My Cleaning. Check your connection and try again.",
+      );
+      return;
+    }
     if (signUp.status === "complete") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await signUp.finalize({
         navigate: ({ session, decorateUrl }) => {
           if (session?.currentTask) return;
-          const url = decorateUrl("/");
-          if (url.startsWith("http")) {
-            window.location.href = url;
-          } else {
-            router.push(url as Href);
-          }
+          router.push(
+            clerkAppDestination(
+              decorateUrl("/"),
+              Platform.OS === "web" ? window.location.origin : undefined,
+            ) as Href,
+          );
         },
       });
     }
@@ -111,6 +178,8 @@ export default function SignUpScreen() {
           {errors.fields.code && (
             <Text style={styles.error}>{errors.fields.code.message}</Text>
           )}
+          {formError && <Text style={styles.error}>{formError}</Text>}
+          {notice && !formError && <Text style={styles.notice}>{notice}</Text>}
           <Pressable
             testID="verify-button"
             onPress={handleVerify}
@@ -127,10 +196,12 @@ export default function SignUpScreen() {
             </GradientFill>
           </Pressable>
           <Pressable
-            onPress={() => signUp.verifications.sendEmailCode()}
+            testID="resend-code-button"
+            onPress={handleResend}
+            disabled={busy}
             style={({ pressed }) => [
               styles.linkRow,
-              pressed && { opacity: 0.7 },
+              (pressed || busy) && { opacity: 0.7 },
             ]}
           >
             <Text style={styles.link}>I need a new code</Text>
@@ -170,6 +241,21 @@ export default function SignUpScreen() {
             <Text style={styles.error}>{errors.fields.password.message}</Text>
           )}
           {formError && <Text style={styles.error}>{formError}</Text>}
+
+          {emailTaken && (
+            <Pressable
+              testID="email-taken-sign-in-button"
+              onPress={() => router.push("/(auth)/sign-in" as Href)}
+              style={({ pressed }) => [
+                styles.primaryWrap,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <GradientFill style={styles.primaryButton}>
+                <Text style={styles.primaryText}>Sign in instead</Text>
+              </GradientFill>
+            </Pressable>
+          )}
 
           <Pressable
             testID="sign-up-button"
@@ -263,6 +349,12 @@ const styles = StyleSheet.create({
     fontFamily: "PlusJakartaSans_400Regular",
     fontSize: 14,
     color: c.mutedForeground,
+  },
+  notice: {
+    fontFamily: "PlusJakartaSans_500Medium",
+    fontSize: 12,
+    color: c.mutedForeground,
+    marginTop: 6,
   },
   link: {
     fontFamily: "PlusJakartaSans_600SemiBold",

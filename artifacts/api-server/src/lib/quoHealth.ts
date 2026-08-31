@@ -16,6 +16,7 @@ import {
   sendPendingQuoNotification,
   setQuoNeedsReauth,
 } from "./company";
+import { retryPendingTexts } from "./pendingTexts";
 import { logger } from "./logger";
 
 /** One hour: frequent enough to catch a dead key, gentle on Quo's API. */
@@ -68,6 +69,11 @@ export async function runQuoHealthCheck(): Promise<void> {
     // failed or was skipped. No-op when nothing is pending.
     await sendPendingQuoNotification(company);
   }
+
+  // Also retry the general owed-text queue (join-request nudges and
+  // verdicts) — for every company, not just Quo-connected ones: a brand-new
+  // company that hasn't connected Quo yet still owes its owner these texts.
+  await retryPendingTexts();
 }
 
 let timer: NodeJS.Timeout | null = null;

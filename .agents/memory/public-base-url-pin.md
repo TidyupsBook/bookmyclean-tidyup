@@ -25,3 +25,5 @@ Any such URL should also be shown in the UI, copyable, rather than described.
 An owner asked to supply a callback address will otherwise register the domain
 they are looking at. Flag it explicitly when the value on screen is a `.replit.dev`
 preview host.
+
+**Canonical domain (bookmycleaning.net):** production pins `PUBLIC_APP_URL` (production env only — a shared value would point dev webhook registration at prod). The pin also drives: an alias-host 301 redirect middleware (GET/HEAD only; webhook receivers and the Jobber OAuth callback exempt — bounced signed POSTs are dropped events), a boot pass that re-registers Quo webhooks whose stored URL differs (strictly pin-gated, create→swap→delete with allSettled rollback), and the Stripe managed-webhook URL. Site canonical/OG/JSON-LD tags must name the same domain or search engines keep the old one.
