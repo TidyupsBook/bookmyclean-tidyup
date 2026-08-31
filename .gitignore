@@ -55,3 +55,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Uploaded staff exports and generated staff files: real names, phone
+# numbers and home addresses. This repository is public.
+attached_assets/staff_*.json
+/exports/
