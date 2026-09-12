@@ -54,6 +54,7 @@ import {
   zoneLabel,
 } from "@/lib/time";
 import { invoiceOpenTarget } from "@/lib/jobberInvoice";
+import { trackEvent } from "@/lib/analytics";
 import {
   Calendar,
   MapPin,
@@ -1410,6 +1411,13 @@ function QuoteDialog({
       },
       {
         onSuccess: () => {
+          trackEvent("quote_price_saved", {
+            used_catalog_price:
+              catalogPrice != null &&
+              draft.hours === 1 &&
+              draft.crewLabel === "flat rate" &&
+              draft.hourlyRate === catalogPrice,
+          });
           setSavedDraft(draft);
           queryClient.invalidateQueries({
             queryKey: getListBookingsQueryKey(),
@@ -1468,6 +1476,14 @@ function QuoteDialog({
       },
       {
         onSuccess: () => {
+          trackEvent("quote_sent", {
+            used_catalog_price:
+              catalogPrice != null &&
+              savedDraft.hours === 1 &&
+              savedDraft.crewLabel === "flat rate" &&
+              savedDraft.hourlyRate === catalogPrice,
+            price_mismatch_confirmed: priceMismatch,
+          });
           queryClient.invalidateQueries({
             queryKey: getListBookingsQueryKey(),
           });

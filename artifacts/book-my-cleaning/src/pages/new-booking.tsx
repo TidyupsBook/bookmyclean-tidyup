@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { fieldHighlightClass } from "@/lib/callFillHighlight";
 import { companyQuoteRates } from "@/lib/rates";
 import { exactServicePrice } from "@/lib/servicePricing";
+import { trackEvent } from "@/lib/analytics";
 import { takeDashboardQuoteHandoff } from "@/lib/dashboardQuoteHandoff";
 import { normalizeCanadianPostalCode } from "@/lib/postal";
 import {
@@ -1205,6 +1206,14 @@ export function NewBookingPage() {
       },
       {
         onSuccess: (booking) => {
+          trackEvent("booking_saved", {
+            source: requestedLeadId != null ? "lead" : "direct",
+            quote_mode: quoteMode,
+            has_quote:
+              quote.hours != null &&
+              quote.hours > 0 &&
+              quote.hourlyRate != null,
+          });
           // Close the loop with the Leads inbox before leaving the page: the
           // lead this form came from must end up converted and linked, or the
           // failure must be seen and retried — a lead left "new" invites a
@@ -1274,7 +1283,12 @@ export function NewBookingPage() {
     convertLead.mutate(
       { id: requestedLeadId, data: { bookingId: booking.id } },
       {
-        onSuccess: () => finishAfterSave(booking),
+        onSuccess: () => {
+          trackEvent("lead_converted", {
+            conversion_path: quoteMode ? "quote" : "booking",
+          });
+          finishAfterSave(booking);
+        },
         onError: (error: unknown) => {
           const status = (error as { status?: number } | null)?.status;
           if (status === 409) {

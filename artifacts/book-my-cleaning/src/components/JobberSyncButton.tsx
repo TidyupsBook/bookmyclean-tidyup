@@ -18,6 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
 import {
   useSyncJobberCalendar,
   getGetCompanyQueryKey,
@@ -62,6 +63,11 @@ export function JobberSyncButton({
   const run = () => {
     sync.mutate(undefined, {
       onSuccess: (result) => {
+        trackEvent("jobber_sync_completed", {
+          imported: result.imported,
+          updated: result.updated,
+          cancelled: result.canceled,
+        });
         const bits: string[] = [];
         if (result.imported) bits.push(`${result.imported} new`);
         if (result.updated) bits.push(`${result.updated} updated`);

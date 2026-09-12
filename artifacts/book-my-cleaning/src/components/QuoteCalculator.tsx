@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import {
   computeQuoteTotals,
@@ -178,6 +179,9 @@ export function QuoteCalculator({
       hours: 1,
       crewLabel: "flat rate",
       hourlyRate: catalogPrice,
+    });
+    trackEvent("catalog_price_applied", {
+      price: catalogPrice,
     });
   };
 

@@ -78,6 +78,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Link } from "wouter";
 import { acknowledgeWebsiteLeads } from "@/lib/websiteLeadAlerts";
+import { trackEvent } from "@/lib/analytics";
 import { AddressPlacementWarning } from "@/components/AddressPlacementWarning";
 
 /**
@@ -294,7 +295,13 @@ function LeadCard({
     dismiss.mutate(
       { id: lead.id },
       {
-        onSuccess: refresh,
+        onSuccess: () => {
+          trackEvent("lead_status_updated", {
+            status: "dismissed",
+            source: lead.source,
+          });
+          refresh();
+        },
         onError: () =>
           toast({
             title: "Couldn't dismiss that lead",
@@ -454,6 +461,10 @@ function LeadCard({
                 { id: lead.id, data: { tag } },
                 {
                   onSuccess: (updated) => {
+                    trackEvent("lead_status_updated", {
+                      status: tag ?? "untagged",
+                      source: lead.source,
+                    });
                     setLead(updated);
                     refresh();
                   },
@@ -983,6 +994,10 @@ export function LeadsPage() {
   const handleSync = () =>
     syncNow.mutate(undefined, {
       onSuccess: (result) => {
+        trackEvent("lead_sheet_sync_completed", {
+          imported: result.imported,
+          had_error: Boolean(result.error),
+        });
         refreshAll();
         toast({
           title: result.error ? "Sync had trouble" : "Leads synced",
@@ -1020,6 +1035,10 @@ export function LeadsPage() {
       { data: { ids } },
       {
         onSuccess: (result) => {
+          trackEvent("lead_bulk_dismissed", {
+            dismissed: result.dismissed,
+            skipped: result.skipped,
+          });
           setSelectedCardLeadIds(new Set());
           setCardSelectionMode(false);
           refreshAll();

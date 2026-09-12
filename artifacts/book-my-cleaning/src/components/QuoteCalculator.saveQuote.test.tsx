@@ -11,6 +11,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+
+const trackEvent = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics", () => ({ trackEvent }));
+
 import {
   QuoteCalculator,
   emptyQuoteDraft,
@@ -70,6 +74,9 @@ describe("Save quote with the calculator", () => {
       hours: 1,
       crewLabel: "flat rate",
       hourlyRate: 400,
+    });
+    expect(trackEvent).toHaveBeenCalledWith("catalog_price_applied", {
+      price: 400,
     });
   });
 

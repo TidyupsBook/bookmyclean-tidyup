@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/analytics";
 import { openAuthTab, isPreviewUrl } from "@/lib/externalAuth";
 import {
   Dialog,
@@ -897,6 +898,9 @@ function ServicesSettings() {
   const handleImportCatalog = () => {
     importCatalog.mutate(undefined, {
       onSuccess: (result) => {
+        trackEvent("service_catalog_imported", {
+          created: result.created,
+        });
         queryClient.invalidateQueries({
           queryKey: getListServicesQueryKey(),
         });
