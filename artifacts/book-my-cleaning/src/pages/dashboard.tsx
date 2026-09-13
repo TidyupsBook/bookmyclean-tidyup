@@ -47,6 +47,7 @@ import { PageHeader, LoadingSpinner } from "@/components/ui/shared";
 import { JobberSyncButton } from "@/components/JobberSyncButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   PhoneIncoming,
@@ -426,6 +427,9 @@ function DroppedTextRow({ item }: { item: ActivityItem }) {
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState(item.resendPhone ?? "");
   const [showValidation, setShowValidation] = useState(false);
+  const [saveToSource, setSaveToSource] = useState(
+    item.resendSourceLabel != null,
+  );
   const resend = useResendGivenUpText();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -434,6 +438,7 @@ function DroppedTextRow({ item }: { item: ActivityItem }) {
   const cancel = () => {
     setPhone(item.resendPhone ?? "");
     setShowValidation(false);
+    setSaveToSource(item.resendSourceLabel != null);
     setEditing(false);
   };
 
@@ -442,7 +447,13 @@ function DroppedTextRow({ item }: { item: ActivityItem }) {
     if (!validPhone) return;
 
     resend.mutate(
-      { id: item.id, data: { toPhone: phone.trim() } },
+      {
+        id: item.id,
+        data: {
+          toPhone: phone.trim(),
+          saveToSource: item.resendSourceLabel ? saveToSource : false,
+        },
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({
@@ -520,6 +531,19 @@ function DroppedTextRow({ item }: { item: ActivityItem }) {
               ? "Enter a valid E.164 number, such as +15551234567."
               : "Use E.164 format: +, country code, then the phone number."}
           </p>
+          {item.resendSourceLabel && (
+            <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+              <Checkbox
+                checked={saveToSource}
+                onCheckedChange={(checked) => setSaveToSource(checked === true)}
+                aria-label={`Save this number to the ${item.resendSourceLabel}`}
+              />
+              <span>
+                Save this corrected number to the {item.resendSourceLabel} so
+                future texts use it
+              </span>
+            </label>
+          )}
           <div className="mt-3 flex gap-2">
             <Button
               type="button"

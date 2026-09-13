@@ -4209,6 +4209,8 @@ components:
         # It is omitted for cleaners and for older owner-targeted rows whose
         # recipient was resolved at send time.
         resendPhone: { type: string }
+        # A safe generic label only; record type/id never leave the server.
+        resendSourceLabel: { type: string, enum: [team member, lead, client] }
         # For call-related entries (call_answered, test_call): the id of the
         # call this entry describes, so clients can link straight to its
         # detail screen. Absent on older rows and non-call entries.
@@ -4226,6 +4228,10 @@ components:
           type: string
           pattern: "^\\+[1-9][0-9]{1,14}$"
           description: Recipient in E.164 format, for example +15551234567.
+        saveToSource:
+          type: boolean
+          default: false
+          description: Save the corrected number to the original company-owned record when it still exists.
     ResendGivenUpTextResult:
       type: object
       required: [queued]

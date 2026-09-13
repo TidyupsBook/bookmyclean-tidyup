@@ -7,6 +7,7 @@
  */
 
 export * from './activityItem';
+export * from './activityItemResendSourceLabel';
 export * from './activityItemType';
 export * from './addressSuggestion';
 export * from './addressSuggestions';

@@ -7,6 +7,8 @@ import {
   activityTable,
   pendingTextsTable,
   leadsTable,
+  teamMembersTable,
+  clientsTable,
 } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
@@ -14,7 +16,10 @@ import {
   ResendGivenUpTextBody,
   ResendGivenUpTextResponse,
 } from "@workspace/api-zod";
-import { deliverPendingText } from "../lib/pendingTexts";
+import {
+  deliverPendingText,
+  parsePendingTextSource,
+} from "../lib/pendingTexts";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole, getCaller } from "../middlewares/requireRole";
 import { getCompanyForUser } from "../lib/company";
@@ -225,21 +230,30 @@ router.get(
 
     res.json(
       GetRecentActivityResponse.parse(
-        items.map((i) => ({
-          id: i.id,
-          type: i.type,
-          message: redact ? redactForCrew(i.message) : i.message,
-          occurredAt: i.occurredAt.toISOString(),
-          canResendText:
-            !redact && i.type === "text_given_up" && i.textPayload != null,
-          ...(!redact &&
-          i.type === "text_given_up" &&
-          i.textPayload?.toPhone != null
-            ? { resendPhone: i.textPayload.toPhone }
-            : {}),
-          ...(i.callId != null ? { callId: i.callId } : {}),
-          ...(i.bookingId != null ? { bookingId: i.bookingId } : {}),
-        })),
+        items.map((i) => {
+          const source = parsePendingTextSource(i.textPayload?.source);
+          return {
+            id: i.id,
+            type: i.type,
+            message: redact ? redactForCrew(i.message) : i.message,
+            occurredAt: i.occurredAt.toISOString(),
+            canResendText:
+              !redact && i.type === "text_given_up" && i.textPayload != null,
+            ...(!redact &&
+            i.type === "text_given_up" &&
+            i.textPayload?.toPhone != null
+              ? { resendPhone: i.textPayload.toPhone }
+              : {}),
+            ...(!redact && i.type === "text_given_up" && source != null
+              ? {
+                  resendSourceLabel:
+                    source.type === "team_member" ? "team member" : source.type,
+                }
+              : {}),
+            ...(i.callId != null ? { callId: i.callId } : {}),
+            ...(i.bookingId != null ? { bookingId: i.bookingId } : {}),
+          };
+        }),
       ),
     );
   },
@@ -294,6 +308,7 @@ router.post(
           )
           .returning({ id: activityTable.id });
         if (claimed.length === 0) return null;
+        const source = parsePendingTextSource(payload.source);
         const [row] = await tx
           .insert(pendingTextsTable)
           .values({
@@ -301,8 +316,48 @@ router.post(
             toPhone: input.data.toPhone,
             kind: payload.kind,
             content: payload.content,
+            source,
           })
           .returning();
+        if (input.data.saveToSource && source) {
+          if (source.type === "team_member") {
+            await tx
+              .update(teamMembersTable)
+              .set({ phone: input.data.toPhone })
+              .where(
+                and(
+                  eq(teamMembersTable.id, source.id),
+                  eq(teamMembersTable.companyId, company.id),
+                ),
+              );
+          } else if (source.type === "lead") {
+            await tx
+              .update(leadsTable)
+              .set({
+                phoneNumber: input.data.toPhone,
+                phoneE164: input.data.toPhone,
+              })
+              .where(
+                and(
+                  eq(leadsTable.id, source.id),
+                  eq(leadsTable.companyId, company.id),
+                ),
+              );
+          } else {
+            await tx
+              .update(clientsTable)
+              .set({
+                phone: input.data.toPhone,
+                phoneE164: input.data.toPhone,
+              })
+              .where(
+                and(
+                  eq(clientsTable.id, source.id),
+                  eq(clientsTable.companyId, company.id),
+                ),
+              );
+          }
+        }
         return row!;
       });
     } catch (err) {

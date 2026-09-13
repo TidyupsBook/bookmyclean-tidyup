@@ -9,6 +9,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { companiesTable } from "./companies";
+import type { PendingTextSource } from "./pendingTexts";
 
 export const activityTable = pgTable("activity", {
   id: serial("id").primaryKey(),
@@ -45,6 +46,7 @@ export const activityTable = pgTable("activity", {
     toPhone: string | null;
     kind: string;
     content: string;
+    source?: PendingTextSource | null;
   } | null>(),
 });
 

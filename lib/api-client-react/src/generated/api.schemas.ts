@@ -1615,6 +1615,15 @@ export const ActivityItemType = {
   lead_request_received: 'lead_request_received',
 } as const;
 
+export type ActivityItemResendSourceLabel = typeof ActivityItemResendSourceLabel[keyof typeof ActivityItemResendSourceLabel];
+
+
+export const ActivityItemResendSourceLabel = {
+  team_member: 'team member',
+  lead: 'lead',
+  client: 'client',
+} as const;
+
 export interface ActivityItem {
   id: number;
   type: ActivityItemType;
@@ -1622,6 +1631,7 @@ export interface ActivityItem {
   occurredAt: string;
   canResendText?: boolean;
   resendPhone?: string;
+  resendSourceLabel?: ActivityItemResendSourceLabel;
   callId?: number;
   bookingId?: number;
 }
@@ -1632,6 +1642,8 @@ export interface ResendGivenUpTextInput {
      * @pattern ^\+[1-9][0-9]{1,14}$
      */
   toPhone: string;
+  /** Save the corrected number to the original company-owned record when it still exists. */
+  saveToSource?: boolean;
 }
 
 export interface ResendGivenUpTextResult {

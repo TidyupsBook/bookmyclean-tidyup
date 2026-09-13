@@ -54,7 +54,7 @@ import { getCaller } from "../middlewares/requireRole";
 import { findBlockedEmails } from "../lib/seatAffiliation";
 import { roleLabel, MAX_TITLE_LENGTH } from "../lib/roleLabel";
 import { geocodeAddress, GeocodeConfigError } from "../services/geocode";
-import { queueText } from "../lib/pendingTexts";
+import { queueText, queueTextToSource } from "../lib/pendingTexts";
 import { appUrl, staffPageUrl } from "../lib/ownerNotify";
 import { toE164 } from "../lib/quo";
 import { logger } from "../lib/logger";
@@ -772,16 +772,16 @@ router.post(
     // Tell them they're in, so they stop refreshing the waiting screen. Only
     // possible when they left a phone number; the waiting screen also polls,
     // so a member without one still gets moved along on their next visit.
-    const to = approved.phone ? toE164(approved.phone) : null;
-    if (to) {
-      await queueText(caller.company, {
-        to,
+    await queueTextToSource(
+      caller.company,
+      { type: "team_member", id: approved.id },
+      {
         kind: "join_request_approved",
         content:
           `Good news — ${caller.company.name} approved your request on Book My Cleaning. ` +
           `You're on the team: sign in at ${appUrl()}`,
-      });
-    }
+      },
+    );
 
     res.json(ApproveTeamMemberResponse.parse(serializeMember(approved!)));
   },

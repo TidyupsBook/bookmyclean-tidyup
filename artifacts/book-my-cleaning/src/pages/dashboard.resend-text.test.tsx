@@ -19,6 +19,7 @@ vi.mock("@workspace/api-client-react", async (importOriginal) => ({
         occurredAt: "2026-08-30T18:00:00.000Z",
         canResendText: true,
         resendPhone: "+15551112222",
+        resendSourceLabel: "team member",
       },
     ],
     isLoading: false,
@@ -62,6 +63,16 @@ describe("dropped-text resend", () => {
     );
     const input = screen.getByLabelText("Send this text to");
     expect(input).toHaveValue("+15551112222");
+    expect(
+      screen.getByText(
+        "Save this corrected number to the team member so future texts use it",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Save this number to the team member",
+      }),
+    ).toBeChecked();
 
     fireEvent.change(input, { target: { value: "(555) 333-4444" } });
     fireEvent.click(screen.getByRole("button", { name: "Resend text" }));
@@ -74,7 +85,10 @@ describe("dropped-text resend", () => {
     fireEvent.click(screen.getByRole("button", { name: "Resend text" }));
 
     expect(resendMutate).toHaveBeenCalledWith(
-      { id: 81, data: { toPhone: "+15553334444" } },
+      {
+        id: 81,
+        data: { toPhone: "+15553334444", saveToSource: true },
+      },
       expect.objectContaining({
         onSuccess: expect.any(Function),
         onError: expect.any(Function),

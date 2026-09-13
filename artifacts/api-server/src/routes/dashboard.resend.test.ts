@@ -79,12 +79,15 @@ import {
   companiesTable,
   activityTable,
   pendingTextsTable,
+  teamMembersTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   retryPendingTexts,
   PENDING_TEXT_MAX_AGE_MS,
+  queueTextToSource,
 } from "../lib/pendingTexts";
+import type { PendingTextSource } from "@workspace/db";
 
 const runId = `${Date.now()}_${process.pid}_resend`;
 const OWNER = `resend_owner_${runId}`;
@@ -113,12 +116,14 @@ async function dropText(input?: {
   toPhone?: string | null;
   kind?: string;
   content?: string;
+  source?: PendingTextSource;
 }): Promise<number> {
   await db.insert(pendingTextsTable).values({
     companyId,
     toPhone: input?.toPhone === undefined ? "+15551112222" : input.toPhone,
     kind: input?.kind ?? "join_request_approved",
     content: input?.content ?? "You're in!",
+    source: input?.source,
     createdAt: new Date(Date.now() - PENDING_TEXT_MAX_AGE_MS - 60 * 60 * 1000),
   });
   await retryPendingTexts();
@@ -155,6 +160,9 @@ afterAll(async () => {
   await db
     .delete(pendingTextsTable)
     .where(eq(pendingTextsTable.companyId, companyId));
+  await db
+    .delete(teamMembersTable)
+    .where(eq(teamMembersTable.companyId, companyId));
   await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
@@ -186,6 +194,7 @@ describe("the give-up entry", () => {
       toPhone: "+15551112222",
       kind: "join_request_approved",
       content: "You're in!",
+      source: null,
     });
 
     const res = await call("GET", "/dashboard/activity", { user: OWNER });
@@ -288,6 +297,183 @@ describe("resend", () => {
         ([, input]: any[]) => input.to === "+15551112222",
       ),
     ).toBe(false);
+  });
+
+  it("saves the correction to the source so a later newly-created text uses it", async () => {
+    const [member] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId,
+        name: `Corrected member ${runId}`,
+        phone: "+15551112222",
+        role: "cleaner",
+        status: "active",
+      })
+      .returning();
+    const entryId = await dropText({
+      source: { type: "team_member", id: member!.id },
+    });
+
+    const feed = (await (
+      await call("GET", "/dashboard/activity", { user: OWNER })
+    ).json()) as Array<{ id: number; resendSourceLabel?: string }>;
+    expect(feed.find((item) => item.id === entryId)?.resendSourceLabel).toBe(
+      "team member",
+    );
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entryId}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15553334444", saveToSource: true },
+      },
+    );
+    expect(res.status).toBe(200);
+
+    sendMessage.mockClear();
+    const [company] = await db
+      .select()
+      .from(companiesTable)
+      .where(eq(companiesTable.id, companyId));
+    await queueTextToSource(
+      company!,
+      { type: "team_member", id: member!.id },
+      {
+        kind: "later_team_text",
+        content: "This is a later text.",
+      },
+    );
+    expect(
+      sendMessage.mock.calls.some(
+        ([, input]: any[]) => input.to === "+15553334444",
+      ),
+    ).toBe(true);
+
+    await db
+      .delete(teamMembersTable)
+      .where(eq(teamMembersTable.id, member!.id));
+  });
+
+  it("still resends when the original source was deleted", async () => {
+    const [member] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId,
+        name: `Deleted member ${runId}`,
+        phone: "+15551112222",
+        role: "cleaner",
+        status: "active",
+      })
+      .returning();
+    const entryId = await dropText({
+      source: { type: "team_member", id: member!.id },
+    });
+    await db
+      .delete(teamMembersTable)
+      .where(eq(teamMembersTable.id, member!.id));
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entryId}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15554445555", saveToSource: true },
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(
+      sendMessage.mock.calls.some(
+        ([, input]: any[]) => input.to === "+15554445555",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not update a source record owned by another company", async () => {
+    const foreignOwner = `resend_foreign_${runId}`;
+    const [foreignCompany] = await db
+      .insert(companiesTable)
+      .values({
+        ownerUserId: foreignOwner,
+        name: `Foreign Resend Co ${runId}`,
+        timezone: "America/Toronto",
+      })
+      .returning();
+    const [foreignMember] = await db
+      .insert(teamMembersTable)
+      .values({
+        companyId: foreignCompany!.id,
+        name: `Foreign member ${runId}`,
+        phone: "+15551112222",
+        role: "cleaner",
+        status: "active",
+      })
+      .returning();
+    const entryId = await dropText({
+      source: { type: "team_member", id: foreignMember!.id },
+    });
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entryId}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15556667777", saveToSource: true },
+      },
+    );
+    expect(res.status).toBe(200);
+
+    const [unchanged] = await db
+      .select()
+      .from(teamMembersTable)
+      .where(eq(teamMembersTable.id, foreignMember!.id));
+    expect(unchanged!.phone).toBe("+15551112222");
+
+    await db
+      .delete(teamMembersTable)
+      .where(eq(teamMembersTable.id, foreignMember!.id));
+    await db
+      .delete(companiesTable)
+      .where(eq(companiesTable.id, foreignCompany!.id));
+  });
+
+  it("ignores malformed source metadata without blocking the resend", async () => {
+    const [entry] = await db
+      .insert(activityTable)
+      .values({
+        companyId,
+        type: "text_given_up",
+        message: "A text needs attention.",
+        textPayload: {
+          toPhone: "+15551112222",
+          kind: "future_kind",
+          content: "Still send this.",
+          source: { type: "future_source", id: 123 },
+        } as never,
+      })
+      .returning();
+
+    const feed = (await (
+      await call("GET", "/dashboard/activity", { user: OWNER })
+    ).json()) as Array<{ id: number; resendSourceLabel?: string }>;
+    expect(
+      feed.find((item) => item.id === entry!.id)?.resendSourceLabel,
+    ).toBeUndefined();
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entry!.id}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15558889999", saveToSource: true },
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(
+      sendMessage.mock.calls.some(
+        ([, input]: any[]) => input.to === "+15558889999",
+      ),
+    ).toBe(true);
   });
 
   it("rejects a resend target that is not E.164", async () => {

@@ -13,17 +13,30 @@
  * (configuration gaps — no platform key, no owner number) are retried too:
  * they go out on their own once the configuration is fixed.
  */
-import { eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import {
   db,
   pendingTextsTable,
   companiesTable,
   activityTable,
+  teamMembersTable,
+  leadsTable,
+  clientsTable,
+  pendingTextSourceSchema,
   type Company,
   type PendingText,
+  type PendingTextSource,
 } from "@workspace/db";
 import { sendPlatformText } from "./ownerNotify";
 import { logger } from "./logger";
+import { toE164 } from "./quo";
+
+export function parsePendingTextSource(
+  value: unknown,
+): PendingTextSource | null {
+  const parsed = pendingTextSourceSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 /**
  * Record an owed text and try to send it right away. Never throws: the state
@@ -35,7 +48,12 @@ import { logger } from "./logger";
  */
 export async function queueText(
   company: Company,
-  input: { to: string | null; kind: string; content: string },
+  input: {
+    to: string | null;
+    kind: string;
+    content: string;
+    source?: PendingTextSource;
+  },
 ): Promise<void> {
   try {
     const [row] = await db
@@ -45,6 +63,7 @@ export async function queueText(
         toPhone: input.to,
         kind: input.kind,
         content: input.content,
+        source: input.source,
       })
       .returning();
     await deliverPendingText(company, row!);
@@ -54,6 +73,57 @@ export async function queueText(
       "[pendingTexts] could not queue text; it will not be sent",
     );
   }
+}
+
+/**
+ * Create a text from the source record's current phone number. Future messages
+ * use a correction saved by the resend flow instead of a stale value captured
+ * by the caller.
+ */
+export async function queueTextToSource(
+  company: Company,
+  source: PendingTextSource,
+  input: { kind: string; content: string },
+): Promise<void> {
+  let phone: string | null = null;
+  if (source.type === "team_member") {
+    const [row] = await db
+      .select({ phone: teamMembersTable.phone })
+      .from(teamMembersTable)
+      .where(
+        and(
+          eq(teamMembersTable.id, source.id),
+          eq(teamMembersTable.companyId, company.id),
+        ),
+      );
+    phone = row?.phone ?? null;
+  } else if (source.type === "lead") {
+    const [row] = await db
+      .select({
+        phoneE164: leadsTable.phoneE164,
+        phone: leadsTable.phoneNumber,
+      })
+      .from(leadsTable)
+      .where(
+        and(eq(leadsTable.id, source.id), eq(leadsTable.companyId, company.id)),
+      );
+    phone = row?.phoneE164 ?? row?.phone ?? null;
+  } else {
+    const [row] = await db
+      .select({ phoneE164: clientsTable.phoneE164, phone: clientsTable.phone })
+      .from(clientsTable)
+      .where(
+        and(
+          eq(clientsTable.id, source.id),
+          eq(clientsTable.companyId, company.id),
+        ),
+      );
+    phone = row?.phoneE164 ?? row?.phone ?? null;
+  }
+
+  const to = phone ? toE164(phone) : null;
+  if (!to) return;
+  await queueText(company, { ...input, to, source });
 }
 
 /**
@@ -85,6 +155,7 @@ export async function deliverPendingText(
     toPhone: claimed.toPhone,
     kind: claimed.kind,
     content: claimed.content,
+    source: claimed.source,
     createdAt: claimed.createdAt,
   });
   logger.warn(
@@ -126,6 +197,7 @@ export async function retryPendingTexts(): Promise<void> {
         .where(lt(pendingTextsTable.createdAt, cutoff))
         .returning();
       for (const row of expired) {
+        const source = parsePendingTextSource(row.source);
         await tx.insert(activityTable).values({
           companyId: row.companyId,
           type: "text_given_up",
@@ -137,6 +209,7 @@ export async function retryPendingTexts(): Promise<void> {
             toPhone: row.toPhone,
             kind: row.kind,
             content: row.content,
+            source,
           },
         });
         logger.warn(

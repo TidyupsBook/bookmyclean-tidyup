@@ -4003,6 +4003,7 @@ export const GetRecentActivityResponseItem = zod.object({
   "occurredAt": zod.string(),
   "canResendText": zod.boolean().optional(),
   "resendPhone": zod.string().optional(),
+  "resendSourceLabel": zod.enum(['team member', 'lead', 'client']).optional(),
   "callId": zod.int().optional(),
   "bookingId": zod.int().optional()
 })
@@ -4017,10 +4018,11 @@ export const ResendGivenUpTextParams = zod.object({
 })
 
 export const resendGivenUpTextBodyToPhoneRegExp = new RegExp('^\\+[1-9][0-9]{1,14}$');
-
+export const resendGivenUpTextBodySaveToSourceDefault = false;
 
 export const ResendGivenUpTextBody = zod.object({
-  "toPhone": zod.string().regex(resendGivenUpTextBodyToPhoneRegExp).describe('Recipient in E.164 format, for example +15551234567.')
+  "toPhone": zod.string().regex(resendGivenUpTextBodyToPhoneRegExp).describe('Recipient in E.164 format, for example +15551234567.'),
+  "saveToSource": zod.boolean().default(resendGivenUpTextBodySaveToSourceDefault).describe('Save the corrected number to the original company-owned record when it still exists.')
 })
 
 export const ResendGivenUpTextResponse = zod.object({

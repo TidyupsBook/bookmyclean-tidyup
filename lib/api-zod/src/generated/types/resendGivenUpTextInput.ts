@@ -12,4 +12,6 @@ export interface ResendGivenUpTextInput {
      * @pattern ^\+[1-9][0-9]{1,14}$
      */
   toPhone: string;
+  /** Save the corrected number to the original company-owned record when it still exists. */
+  saveToSource?: boolean;
 }

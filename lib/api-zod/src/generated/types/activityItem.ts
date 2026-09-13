@@ -5,6 +5,7 @@
  * Book My Cleaning — AI receptionist for Jobber cleaning companies
  * OpenAPI spec version: 0.1.0
  */
+import type { ActivityItemResendSourceLabel } from './activityItemResendSourceLabel';
 import type { ActivityItemType } from './activityItemType';
 
 export interface ActivityItem {
@@ -14,6 +15,7 @@ export interface ActivityItem {
   occurredAt: string;
   canResendText?: boolean;
   resendPhone?: string;
+  resendSourceLabel?: ActivityItemResendSourceLabel;
   callId?: number;
   bookingId?: number;
 }

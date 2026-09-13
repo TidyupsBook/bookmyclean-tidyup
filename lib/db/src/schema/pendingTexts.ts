@@ -1,5 +1,20 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { companiesTable } from "./companies";
+import { z } from "zod/v4";
+
+export const pendingTextSourceSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("team_member"), id: z.number().int().positive() }),
+  z.object({ type: z.literal("lead"), id: z.number().int().positive() }),
+  z.object({ type: z.literal("client"), id: z.number().int().positive() }),
+]);
+export type PendingTextSource = z.infer<typeof pendingTextSourceSchema>;
 
 /**
  * A text message the app still owes somebody.
@@ -28,6 +43,11 @@ export const pendingTextsTable = pgTable("pending_texts", {
   /** What this text is about, for logs — e.g. "join_request_owner". */
   kind: text("kind").notNull(),
   content: text("content").notNull(),
+  /**
+   * The company-owned record whose phone supplied `toPhone`, when one still
+   * exists. This is only a reference: delivery never depends on the source.
+   */
+  source: jsonb("source").$type<PendingTextSource | null>(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
