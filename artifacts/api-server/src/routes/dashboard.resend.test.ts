@@ -80,6 +80,8 @@ import {
   activityTable,
   pendingTextsTable,
   teamMembersTable,
+  leadsTable,
+  clientsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
@@ -163,6 +165,8 @@ afterAll(async () => {
   await db
     .delete(teamMembersTable)
     .where(eq(teamMembersTable.companyId, companyId));
+  await db.delete(leadsTable).where(eq(leadsTable.companyId, companyId));
+  await db.delete(clientsTable).where(eq(clientsTable.companyId, companyId));
   await db.delete(companiesTable).where(eq(companiesTable.id, companyId));
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
@@ -387,6 +391,75 @@ describe("resend", () => {
     expect(
       sendMessage.mock.calls.some(
         ([, input]: any[]) => input.to === "+15554445555",
+      ),
+    ).toBe(true);
+  });
+
+  it("still resends a deleted lead and reports that its correction was not saved", async () => {
+    const [lead] = await db
+      .insert(leadsTable)
+      .values({
+        companyId,
+        source: "form",
+        externalId: `deleted-lead-${runId}`,
+        sourceTab: "form",
+        phoneNumber: "+15551112222",
+        phoneE164: "+15551112222",
+      })
+      .returning();
+    const entryId = await dropText({
+      source: { type: "lead", id: lead!.id },
+    });
+    await db.delete(leadsTable).where(eq(leadsTable.id, lead!.id));
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entryId}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15554445555", saveToSource: true },
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: false });
+    expect(
+      sendMessage.mock.calls.some(
+        ([, input]: any[]) => input.to === "+15554445555",
+      ),
+    ).toBe(true);
+  });
+
+  it("still resends a deleted client and reports that its correction was not saved", async () => {
+    const [client] = await db
+      .insert(clientsTable)
+      .values({
+        companyId,
+        name: `Deleted client ${runId}`,
+        phone: "+15551112222",
+        phoneE164: "+15551112222",
+        source: "booking",
+      })
+      .returning();
+    const entryId = await dropText({
+      source: { type: "client", id: client!.id },
+    });
+    await db.delete(clientsTable).where(eq(clientsTable.id, client!.id));
+
+    const res = await call(
+      "POST",
+      `/dashboard/activity/${entryId}/resend-text`,
+      {
+        user: OWNER,
+        body: { toPhone: "+15556667777", saveToSource: true },
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: false });
+    expect(
+      sendMessage.mock.calls.some(
+        ([, input]: any[]) => input.to === "+15556667777",
       ),
     ).toBe(true);
   });
