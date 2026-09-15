@@ -297,7 +297,10 @@ router.post(
     // The queue row gets a fresh createdAt — the 3-day expiry clock restarts
     // now. Delivery is only attempted after the row is committed; a send
     // failure re-inserts it for the hourly sweep, as with any owed text.
-    let queued;
+    let queued: {
+      row: typeof pendingTextsTable.$inferSelect;
+      sourceUpdated: boolean;
+    } | null;
     try {
       queued = await db.transaction(async (tx) => {
         const claimed = await tx
@@ -319,9 +322,10 @@ router.post(
             source,
           })
           .returning();
+        let sourceUpdated = false;
         if (input.data.saveToSource && source) {
           if (source.type === "team_member") {
-            await tx
+            const updated = await tx
               .update(teamMembersTable)
               .set({ phone: input.data.toPhone })
               .where(
@@ -329,9 +333,11 @@ router.post(
                   eq(teamMembersTable.id, source.id),
                   eq(teamMembersTable.companyId, company.id),
                 ),
-              );
+              )
+              .returning({ id: teamMembersTable.id });
+            sourceUpdated = updated.length > 0;
           } else if (source.type === "lead") {
-            await tx
+            const updated = await tx
               .update(leadsTable)
               .set({
                 phoneNumber: input.data.toPhone,
@@ -342,9 +348,11 @@ router.post(
                   eq(leadsTable.id, source.id),
                   eq(leadsTable.companyId, company.id),
                 ),
-              );
+              )
+              .returning({ id: leadsTable.id });
+            sourceUpdated = updated.length > 0;
           } else {
-            await tx
+            const updated = await tx
               .update(clientsTable)
               .set({
                 phone: input.data.toPhone,
@@ -355,10 +363,12 @@ router.post(
                   eq(clientsTable.id, source.id),
                   eq(clientsTable.companyId, company.id),
                 ),
-              );
+              )
+              .returning({ id: clientsTable.id });
+            sourceUpdated = updated.length > 0;
           }
         }
-        return row!;
+        return row ? { row, sourceUpdated } : null;
       });
     } catch (err) {
       logger.error(
@@ -373,8 +383,13 @@ router.post(
       return;
     }
     // Best effort immediate send; on failure the row stays for the sweep.
-    await deliverPendingText(company, queued);
-    res.json(ResendGivenUpTextResponse.parse({ queued: true }));
+    await deliverPendingText(company, queued.row);
+    res.json(
+      ResendGivenUpTextResponse.parse({
+        queued: true,
+        sourceUpdated: queued.sourceUpdated,
+      }),
+    );
   },
 );
 

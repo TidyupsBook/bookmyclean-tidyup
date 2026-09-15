@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -92,6 +98,42 @@ describe("dropped-text resend", () => {
       expect.objectContaining({
         onSuccess: expect.any(Function),
         onError: expect.any(Function),
+      }),
+    );
+  });
+
+  it("distinguishes a saved number from a deleted original record", async () => {
+    renderCard();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Check number & resend" }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Check number & resend" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Resend text" }));
+
+    const options = resendMutate.mock.calls[0]?.[1];
+    options.onSuccess({ queued: true, sourceUpdated: true });
+    expect(toast).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: "Text queued and number saved",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Check number & resend" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Resend text" }));
+    resendMutate.mock.calls[1]?.[1].onSuccess({
+      queued: true,
+      sourceUpdated: false,
+    });
+    expect(toast).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: "Text queued, original record no longer exists",
       }),
     );
   });

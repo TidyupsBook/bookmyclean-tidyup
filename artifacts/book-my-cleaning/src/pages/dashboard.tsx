@@ -455,14 +455,22 @@ function DroppedTextRow({ item }: { item: ActivityItem }) {
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
           queryClient.invalidateQueries({
             queryKey: getGetRecentActivityQueryKey(),
           });
           setEditing(false);
           toast({
-            title: "Text queued",
-            description: `We'll try ${phone.trim()} now and keep retrying if needed.`,
+            title: result.sourceUpdated
+              ? "Text queued and number saved"
+              : saveToSource
+                ? "Text queued, original record no longer exists"
+                : "Text queued",
+            description: result.sourceUpdated
+              ? `We'll try ${phone.trim()} now and keep retrying if needed.`
+              : saveToSource
+                ? "The text will still be sent, but the corrected number could not be saved for future use."
+                : `We'll try ${phone.trim()} now and keep retrying if needed.`,
           });
         },
         onError: (error: any) =>

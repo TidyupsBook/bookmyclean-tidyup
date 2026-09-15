@@ -252,7 +252,7 @@ describe("resend", () => {
       },
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ queued: true });
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: false });
 
     // Delivered immediately with the original recipient and content.
     const sent = sendMessage.mock.calls.find(
@@ -330,6 +330,7 @@ describe("resend", () => {
       },
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: true });
 
     sendMessage.mockClear();
     const [company] = await db
@@ -382,6 +383,7 @@ describe("resend", () => {
       },
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: false });
     expect(
       sendMessage.mock.calls.some(
         ([, input]: any[]) => input.to === "+15554445555",
@@ -422,6 +424,7 @@ describe("resend", () => {
       },
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ queued: true, sourceUpdated: false });
 
     const [unchanged] = await db
       .select()

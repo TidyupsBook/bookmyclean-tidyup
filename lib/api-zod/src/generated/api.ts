@@ -4026,7 +4026,8 @@ export const ResendGivenUpTextBody = zod.object({
 })
 
 export const ResendGivenUpTextResponse = zod.object({
-  "queued": zod.boolean()
+  "queued": zod.boolean(),
+  "sourceUpdated": zod.boolean().describe('True when the corrected number was saved to the original company-owned record.')
 })
 
 

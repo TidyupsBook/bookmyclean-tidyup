@@ -8,4 +8,6 @@
 
 export interface ResendGivenUpTextResult {
   queued: boolean;
+  /** True when the corrected number was saved to the original company-owned record. */
+  sourceUpdated: boolean;
 }

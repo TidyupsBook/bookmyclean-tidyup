@@ -4234,9 +4234,12 @@ components:
           description: Save the corrected number to the original company-owned record when it still exists.
     ResendGivenUpTextResult:
       type: object
-      required: [queued]
+      required: [queued, sourceUpdated]
       properties:
         queued: { type: boolean }
+        sourceUpdated:
+          type: boolean
+          description: True when the corrected number was saved to the original company-owned record.
     MapConfig:
       type: object
       required: [apiKey, configured]
