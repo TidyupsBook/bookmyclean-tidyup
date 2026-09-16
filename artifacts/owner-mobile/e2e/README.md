@@ -31,6 +31,10 @@ pnpm --filter @workspace/owner-mobile run smoke:ios
 pnpm --filter @workspace/owner-mobile run smoke:android
 ```
 
+Both scripts put Maestro's complete per-flow output in
+`build/maestro-results/<platform>`. The physical-device GitHub Actions workflow
+uploads that directory when a smoke fails.
+
 The flow expects an owner session already signed in and opens the New booking
 screen. With the call audio on speaker, say the following sentence,
 pausing briefly at each `|`:
@@ -66,9 +70,9 @@ contains only `platform`, `permission`, `recognizerError`, and
 `lastTranscriptStage`. It never includes the live transcript or any booking
 fields.
 
-Maestro stores the flow artifact bundle, including `logs/maestro.log`, under
-`~/.maestro/tests` by default on macOS and Linux. For a CI-friendly location,
-run either platform with an explicit output directory:
+Maestro stores the flow artifact bundle, including `logs/maestro.log`, in the
+platform-specific output directory configured by the package scripts. The
+equivalent direct Maestro commands are:
 
 ```bash
 maestro test \
@@ -85,6 +89,13 @@ maestro test \
 If the app has already stopped capture or left the booking screen when a
 failure occurs, the conditional hook safely skips the record because there is
 no current diagnostics snapshot to copy.
+
+On failure, the physical-device workflow searches the output directory for the
+record and adds a four-row table to the GitHub Actions run summary. The table
+contains only `platform`, `permission`, `recognizerError`, and
+`lastTranscriptStage`. If no valid record exists, the summary says that the app
+may have crashed or left the diagnostics screen. It never copies surrounding
+log output, transcript content, or booking fields into the summary.
 
 If the device transcribes punctuation or “St. Albert” differently, the
 sentence should still be spoken exactly as written. The three stable

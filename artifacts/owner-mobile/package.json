@@ -8,8 +8,9 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "test:e2e:leads-refresh": "node e2e/leads-refresh.mjs",
-    "smoke:ios": "maestro test e2e/maestro/speech-smoke.yaml --env PLATFORM=ios",
-    "smoke:android": "maestro test e2e/maestro/speech-smoke.yaml --env PLATFORM=android",
+    "smoke:ios": "maestro test --test-output-dir=build/maestro-results/ios e2e/maestro/speech-smoke.yaml --env PLATFORM=ios",
+    "smoke:android": "maestro test --test-output-dir=build/maestro-results/android e2e/maestro/speech-smoke.yaml --env PLATFORM=android",
+    "test:speech-summary": "node --test scripts/summarize-speech-smoke.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

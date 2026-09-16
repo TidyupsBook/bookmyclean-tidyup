@@ -1,0 +1,70 @@
+name: Physical-device speech smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS physical device
+    runs-on: [self-hosted, macOS, ios-physical-device]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: artifacts/owner-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run installed-build speech smoke
+        id: speech_smoke
+        continue-on-error: true
+        run: pnpm run smoke:ios
+
+      - name: Add failed speech diagnostics to run summary
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        run: node scripts/summarize-speech-smoke.mjs ios build/maestro-results/ios
+
+      - name: Upload failed Maestro output
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: speech-smoke-maestro-ios
+          path: artifacts/owner-mobile/build/maestro-results/ios
+          if-no-files-found: warn
+
+      - name: Fail job when speech smoke failed
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        run: exit 1
+
+  android:
+    name: Android physical device
+    runs-on: [self-hosted, android-physical-device]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: artifacts/owner-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run installed-build speech smoke
+        id: speech_smoke
+        continue-on-error: true
+        run: pnpm run smoke:android
+
+      - name: Add failed speech diagnostics to run summary
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        run: node scripts/summarize-speech-smoke.mjs android build/maestro-results/android
+
+      - name: Upload failed Maestro output
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: speech-smoke-maestro-android
+          path: artifacts/owner-mobile/build/maestro-results/android
+          if-no-files-found: warn
+
+      - name: Fail job when speech smoke failed
+        if: always() && steps.speech_smoke.outcome == 'failure'
+        run: exit 1
