@@ -799,6 +799,116 @@ describe("syncCompanyJobberQuotes", () => {
     }
   });
 
+  it("recovers from a malformed page without losing backfill progress", async () => {
+    const backfillStartedAt = new Date("2026-09-15T12:00:00.000Z");
+    const savedFilterFloor = "2026-08-20T08:00:00.000Z";
+    const savedEndCursor = `cursor_${runId}_recover`;
+    const [recoveryRow] = await db
+      .insert(companiesTable)
+      .values({
+        ownerUserId: `jqs_recovery_owner_${runId}`,
+        name: `Quote Recovery Co ${runId}`,
+        timezone: "America/Edmonton",
+        jobberConnected: true,
+        jobberAccessToken: "enc",
+        jobberRefreshToken: "enc",
+        jobberQuotesBackfillStartedAt: backfillStartedAt,
+        jobberQuotesBackfillEndCursor: savedEndCursor,
+        jobberQuotesBackfillFilterFloor: savedFilterFloor,
+      })
+      .returning();
+    const recoveryCompanyId = recoveryRow!.id;
+
+    try {
+      // Jobber returned a response shape that cannot prove which quotes were
+      // read. The run must not discard or advance any persisted progress.
+      graphqlMock.mockReset();
+      graphqlMock.mockResolvedValue({ quotes: null });
+      const malformedResult = await syncCompanyJobberQuotes(recoveryRow!);
+      expect(malformedResult.complete).toBe(false);
+
+      const [, , malformedVars] = graphqlMock.mock.calls[0] as [
+        string,
+        string,
+        {
+          filter: { createdAt?: { after: string } };
+          after?: string | null;
+        },
+      ];
+      expect(malformedVars.filter.createdAt?.after).toBe(savedFilterFloor);
+      expect(malformedVars.after).toBe(savedEndCursor);
+
+      const [afterMalformed] = await db
+        .select({
+          watermark: companiesTable.jobberQuotesSyncedThrough,
+          backfillStartedAt: companiesTable.jobberQuotesBackfillStartedAt,
+          backfillEndCursor: companiesTable.jobberQuotesBackfillEndCursor,
+          backfillFilterFloor: companiesTable.jobberQuotesBackfillFilterFloor,
+        })
+        .from(companiesTable)
+        .where(eq(companiesTable.id, recoveryCompanyId));
+      expect(afterMalformed!.watermark).toBeNull();
+      expect(afterMalformed!.backfillStartedAt!.getTime()).toBe(
+        backfillStartedAt.getTime(),
+      );
+      expect(afterMalformed!.backfillEndCursor).toBe(savedEndCursor);
+      expect(afterMalformed!.backfillFilterFloor).toBe(savedFilterFloor);
+
+      // A later healthy run resumes the exact same query/cursor pair and can
+      // finish normally rather than becoming stuck after the malformed page.
+      respondWith([
+        {
+          ...quote(450),
+          id: `quote_${runId}_recovered`,
+        },
+      ]);
+      const [reloadedCompany] = await db
+        .select()
+        .from(companiesTable)
+        .where(eq(companiesTable.id, recoveryCompanyId));
+      const recoveredResult = await syncCompanyJobberQuotes(reloadedCompany!);
+      expect(recoveredResult.complete).toBe(true);
+
+      const [, , recoveredVars] = graphqlMock.mock.calls[0] as [
+        string,
+        string,
+        {
+          filter: { createdAt?: { after: string } };
+          after?: string | null;
+        },
+      ];
+      expect(recoveredVars.filter.createdAt?.after).toBe(savedFilterFloor);
+      expect(recoveredVars.after).toBe(savedEndCursor);
+
+      const [afterRecovery] = await db
+        .select({
+          watermark: companiesTable.jobberQuotesSyncedThrough,
+          backfillStartedAt: companiesTable.jobberQuotesBackfillStartedAt,
+          backfillEndCursor: companiesTable.jobberQuotesBackfillEndCursor,
+          backfillFilterFloor: companiesTable.jobberQuotesBackfillFilterFloor,
+        })
+        .from(companiesTable)
+        .where(eq(companiesTable.id, recoveryCompanyId));
+      expect(afterRecovery!.watermark).not.toBeNull();
+      expect(afterRecovery!.backfillStartedAt).toBeNull();
+      expect(afterRecovery!.backfillEndCursor).toBeNull();
+      expect(afterRecovery!.backfillFilterFloor).toBeNull();
+    } finally {
+      await db
+        .delete(jobberQuotesTable)
+        .where(eq(jobberQuotesTable.companyId, recoveryCompanyId));
+      await db
+        .delete(bookingsTable)
+        .where(eq(bookingsTable.companyId, recoveryCompanyId));
+      await db
+        .delete(clientsTable)
+        .where(eq(clientsTable.companyId, recoveryCompanyId));
+      await db
+        .delete(companiesTable)
+        .where(eq(companiesTable.id, recoveryCompanyId));
+    }
+  });
+
   it("does not save the end cursor or filter floor when node processing fails", async () => {
     // If any node write throws, the cursor+floor pair must NOT be persisted.
     // Saving them before the writes would let the next run skip to a point past
