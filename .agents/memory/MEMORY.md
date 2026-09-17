@@ -39,6 +39,7 @@
 - [Repairing production rows](destructive-data-migrations.md) — enumerate every scoped child table, pin ids plus an attribute, and test with fixtures seeded at the real ids.
 - [Task merges can strand the workspace on main](task-merge-branch-checkout.md) — sudden mass "regressions" after a merge are often a wrong branch checkout; check git before debugging code.
 - [Pushing to GitHub](git-push-replit.md) — gitPush only sees `origin` (real remote is `subrepl-*`), and the GitHub connector grants API access, not push credentials.
+- [GitLab SHA-256 mirrors](gitlab-sha256-mirrors.md) — SHA-1 workspaces cannot fetch SHA-256 GitLab repos directly; fast-export/import preserves history metadata while changing hashes.
 - [Unlayered CSS beats Tailwind utilities](tailwind-layer-precedence.md) — a bare reset in index.html silently kills every padding/width utility app-wide; scope everything you add there.
 - [Dark-only theme](dark-only-theme.md) — `.dark` is never applied, so `dark:` variants never fire and the light-mode class renders on the dark page; pick colors for dark outright.
 - [Pending seats grant nothing](pending-seat-access.md) — a self-signed-up staff member resolves to the weakest role with no company; approval must be one conditional update.
