@@ -67,11 +67,8 @@ jobs:
           }
           rm -rf build/release-candidate build/ios-payload
           mkdir -p build/release-candidate build/ios-payload
-          curl --fail --location \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "Accept: application/octet-stream" \
-            "$IOS_BUILD_URL" \
-            --output build/release-candidate/owner-mobile-ios.ipa
+          ../../scripts/download-private-release-asset.sh \
+            iOS "$IOS_BUILD_URL" build/release-candidate/owner-mobile-ios.ipa
           unzip -q build/release-candidate/owner-mobile-ios.ipa \
             -d build/ios-payload
           IOS_APP="$(find build/ios-payload/Payload -maxdepth 1 -name '*.app' -print -quit)"
@@ -140,11 +137,8 @@ jobs:
           }
           rm -rf build/release-candidate
           mkdir -p build/release-candidate
-          curl --fail --location \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "Accept: application/octet-stream" \
-            "$ANDROID_BUILD_URL" \
-            --output build/release-candidate/owner-mobile-android.apk
+          ../../scripts/download-private-release-asset.sh \
+            Android "$ANDROID_BUILD_URL" build/release-candidate/owner-mobile-android.apk
           adb -s "$ANDROID_DEVICE_ID" install -r \
             build/release-candidate/owner-mobile-android.apk
           CANDIDATE_SHA="$(git rev-parse HEAD)"

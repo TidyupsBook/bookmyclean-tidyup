@@ -7,6 +7,7 @@ on:
       - .github/actionlint.yaml
       - .github/workflows/mobile-release-approval.yml
       - .github/workflows/physical-device-speech-smoke.yml
+      - scripts/download-private-release-asset.sh
       - scripts/mobile-release-workflow-contract.test.mjs
   release:
     types: [prereleased]
@@ -29,10 +30,30 @@ jobs:
       - name: Check release-gate wiring
         run: node --test scripts/mobile-release-workflow-contract.test.mjs
 
+  private-asset-downloads:
+    name: Check private prerelease asset downloads
+    if: github.event_name == 'release'
+    needs: validate-workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Download representative iOS and Android assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IOS_BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-ios.ipa
+          ANDROID_BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-android.apk
+        run: |
+          scripts/download-private-release-asset.sh \
+            iOS "$IOS_BUILD_URL" "$RUNNER_TEMP/owner-mobile-ios.ipa"
+          scripts/download-private-release-asset.sh \
+            Android "$ANDROID_BUILD_URL" "$RUNNER_TEMP/owner-mobile-android.apk"
+
   physical-device-speech:
     name: Physical-device speech checks
     if: github.event_name == 'release'
-    needs: validate-workflows
+    needs: [validate-workflows, private-asset-downloads]
     uses: ./.github/workflows/physical-device-speech-smoke.yml
     with:
       candidate_ref: ${{ github.event.release.tag_name }}
@@ -42,7 +63,7 @@ jobs:
   release:
     name: Approve mobile release
     if: always() && github.event_name == 'release'
-    needs: [validate-workflows, physical-device-speech]
+    needs: [validate-workflows, private-asset-downloads, physical-device-speech]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -50,11 +71,13 @@ jobs:
       - name: Require successful workflow and device results
         env:
           VALIDATION_RESULT: ${{ needs.validate-workflows.result }}
+          ASSET_DOWNLOAD_RESULT: ${{ needs.private-asset-downloads.result }}
           DEVICE_WORKFLOW_RESULT: ${{ needs.physical-device-speech.result }}
           IOS_RESULT: ${{ needs.physical-device-speech.outputs.ios_result }}
           ANDROID_RESULT: ${{ needs.physical-device-speech.outputs.android_result }}
         run: |
           test "$VALIDATION_RESULT" = success
+          test "$ASSET_DOWNLOAD_RESULT" = success
           test "$DEVICE_WORKFLOW_RESULT" = success
           test "$IOS_RESULT" = success
           test "$ANDROID_RESULT" = success
