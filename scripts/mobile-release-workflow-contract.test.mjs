@@ -18,15 +18,42 @@ const downloader = readFileSync(
   "utf8",
 );
 
-test("candidate ref and both build links reach the device workflow", () => {
+test("candidate metadata and both build links reach the device workflow", () => {
   assert.match(
     approval,
     /uses: \.\/\.github\/workflows\/physical-device-speech-smoke\.yml/,
   );
-  for (const input of ["candidate_ref", "ios_build_url", "android_build_url"]) {
+  for (const input of [
+    "candidate_ref",
+    "expected_candidate_sha",
+    "ios_build_url",
+    "android_build_url",
+  ]) {
     assert.match(approval, new RegExp(`\\n\\s{6}${input}:`));
     assert.match(device, new RegExp(`\\n\\s{6}${input}:`));
     assert.match(device, new RegExp(`inputs\\.${input}`));
+  }
+  assert.match(
+    approval,
+    /candidate_sha: \$\{\{ steps\.candidate_metadata\.outputs\.candidate_sha \}\}/,
+  );
+  assert.match(
+    approval,
+    /expected_candidate_sha: \$\{\{ needs\.private-asset-downloads\.outputs\.candidate_sha \}\}/,
+  );
+});
+
+test("both device jobs verify the pinned candidate SHA before installing", () => {
+  assert.match(
+    approval,
+    /id: candidate_metadata[\s\S]*?candidate_sha=\$\(git rev-parse HEAD\)/,
+  );
+
+  for (const platform of ["iOS", "Android"]) {
+    const verification = new RegExp(
+      `- name: Verify ${platform} candidate commit[\\s\\S]*?EXPECTED_CANDIDATE_SHA: \\$\\{\\{ inputs\\.expected_candidate_sha \\}\\}[\\s\\S]*?test -n "\\$EXPECTED_CANDIDATE_SHA" && test "\\$\\(git rev-parse HEAD\\)" = "\\$EXPECTED_CANDIDATE_SHA"[\\s\\S]*?- name: Download and install ${platform} candidate`,
+    );
+    assert.match(device, verification);
   }
 });
 

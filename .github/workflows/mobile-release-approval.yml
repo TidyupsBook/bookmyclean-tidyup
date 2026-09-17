@@ -35,10 +35,15 @@ jobs:
     if: github.event_name == 'release'
     needs: validate-workflows
     runs-on: ubuntu-latest
+    outputs:
+      candidate_sha: ${{ steps.candidate_metadata.outputs.candidate_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
+      - name: Record immutable candidate metadata
+        id: candidate_metadata
+        run: echo "candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Download representative iOS and Android assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,6 +62,7 @@ jobs:
     uses: ./.github/workflows/physical-device-speech-smoke.yml
     with:
       candidate_ref: ${{ github.event.release.tag_name }}
+      expected_candidate_sha: ${{ needs.private-asset-downloads.outputs.candidate_sha }}
       ios_build_url: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-ios.ipa
       android_build_url: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-android.apk
 
