@@ -1,14 +1,26 @@
 name: Physical-device speech smoke
+run-name: Speech smoke for ${{ inputs.candidate_tag }}
 
 on:
   workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Immutable GitHub prerelease tag containing both candidate builds
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      candidate_tag:
+        description: Immutable GitHub prerelease tag containing both candidate builds
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   ios:
-    name: iOS physical device
+    name: iOS physical device (${{ inputs.candidate_tag }})
     runs-on: [self-hosted, macOS, ios-physical-device]
     timeout-minutes: 20
     defaults:
@@ -16,6 +28,44 @@ jobs:
         working-directory: artifacts/owner-mobile
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_tag }}
+
+      - name: Download and install iOS candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          IOS_DEVICE_ID: ${{ vars.IOS_DEVICE_ID }}
+        run: |
+          test -n "$IOS_DEVICE_ID" || {
+            echo "::error::IOS_DEVICE_ID repository variable is required"
+            exit 1
+          }
+          rm -rf build/release-candidate build/ios-payload
+          mkdir -p build/release-candidate build/ios-payload
+          gh release download "$CANDIDATE_TAG" \
+            --pattern owner-mobile-ios.ipa \
+            --dir build/release-candidate
+          unzip -q build/release-candidate/owner-mobile-ios.ipa \
+            -d build/ios-payload
+          IOS_APP="$(find build/ios-payload/Payload -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$IOS_APP" || {
+            echo "::error::The iOS candidate asset contains no installable app"
+            exit 1
+          }
+          xcrun devicectl device install app \
+            --device "$IOS_DEVICE_ID" \
+            "$IOS_APP"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          BUILD_SHA256="$(shasum -a 256 build/release-candidate/owner-mobile-ios.ipa | cut -d ' ' -f 1)"
+          {
+            echo "## iOS release-candidate speech check"
+            echo
+            echo "- Candidate release: [$CANDIDATE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$CANDIDATE_TAG)"
+            echo "- Candidate commit: \`$CANDIDATE_SHA\`"
+            echo "- Installed asset: \`owner-mobile-ios.ipa\`"
+            echo "- SHA-256: \`$BUILD_SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run installed-build speech smoke
         id: speech_smoke
@@ -39,7 +89,7 @@ jobs:
         run: exit 1
 
   android:
-    name: Android physical device
+    name: Android physical device (${{ inputs.candidate_tag }})
     runs-on: [self-hosted, android-physical-device]
     timeout-minutes: 20
     defaults:
@@ -47,6 +97,36 @@ jobs:
         working-directory: artifacts/owner-mobile
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_tag }}
+
+      - name: Download and install Android candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          ANDROID_DEVICE_ID: ${{ vars.ANDROID_DEVICE_ID }}
+        run: |
+          test -n "$ANDROID_DEVICE_ID" || {
+            echo "::error::ANDROID_DEVICE_ID repository variable is required"
+            exit 1
+          }
+          rm -rf build/release-candidate
+          mkdir -p build/release-candidate
+          gh release download "$CANDIDATE_TAG" \
+            --pattern owner-mobile-android.apk \
+            --dir build/release-candidate
+          adb -s "$ANDROID_DEVICE_ID" install -r \
+            build/release-candidate/owner-mobile-android.apk
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          BUILD_SHA256="$(sha256sum build/release-candidate/owner-mobile-android.apk | cut -d ' ' -f 1)"
+          {
+            echo "## Android release-candidate speech check"
+            echo
+            echo "- Candidate release: [$CANDIDATE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$CANDIDATE_TAG)"
+            echo "- Candidate commit: \`$CANDIDATE_SHA\`"
+            echo "- Installed asset: \`owner-mobile-android.apk\`"
+            echo "- SHA-256: \`$BUILD_SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run installed-build speech smoke
         id: speech_smoke

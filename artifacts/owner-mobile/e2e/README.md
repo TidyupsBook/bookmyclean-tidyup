@@ -35,6 +35,31 @@ Both scripts put Maestro's complete per-flow output in
 `build/maestro-results/<platform>`. The physical-device GitHub Actions workflow
 uploads that directory when a smoke fails.
 
+## Release approval
+
+Create a GitHub prerelease whose tag points at the immutable candidate commit
+and attach these exact assets:
+
+- `owner-mobile-ios.ipa`
+- `owner-mobile-android.apk`
+
+Publishing the prerelease starts the **Mobile release** workflow automatically.
+The iOS and Android physical-device jobs check out the prerelease tag, download
+their platform asset from that prerelease, install it on the configured device,
+and run the speech smoke. Each job links the prerelease and records the installed
+asset's SHA-256 digest and resolved candidate commit SHA in its run summary.
+
+The iOS runner needs an `IOS_DEVICE_ID` repository variable and the Android
+runner needs an `ANDROID_DEVICE_ID` repository variable. Missing variables,
+missing assets, installation failures, unavailable runners, timeouts, and smoke
+failures all prevent the approval job from running. The candidate remains a
+prerelease, which is the blocked status. Only after both device jobs pass does
+the approval job promote that same GitHub prerelease to a full release.
+
+The **Physical-device speech smoke** workflow remains manually dispatchable for
+diagnostics outside a release. Its prerelease tag is still required, and it
+downloads and installs the tagged assets in the same way as the release gate.
+
 The flow expects an owner session already signed in and opens the New booking
 screen. With the call audio on speaker, say the following sentence,
 pausing briefly at each `|`:
