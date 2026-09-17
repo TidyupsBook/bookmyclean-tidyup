@@ -1,26 +1,49 @@
 name: Physical-device speech smoke
-run-name: Speech smoke for ${{ inputs.candidate_tag }}
+run-name: Speech smoke for ${{ inputs.candidate_ref }}
 
 on:
   workflow_dispatch:
     inputs:
-      candidate_tag:
-        description: Immutable GitHub prerelease tag containing both candidate builds
+      candidate_ref:
+        description: Immutable Git ref used to build the candidates
+        required: true
+        type: string
+      ios_build_url:
+        description: URL of the iOS candidate
+        required: true
+        type: string
+      android_build_url:
+        description: URL of the Android candidate
         required: true
         type: string
   workflow_call:
     inputs:
-      candidate_tag:
-        description: Immutable GitHub prerelease tag containing both candidate builds
+      candidate_ref:
+        description: Immutable Git ref used to build the candidates
         required: true
         type: string
+      ios_build_url:
+        description: URL of the iOS candidate
+        required: true
+        type: string
+      android_build_url:
+        description: URL of the Android candidate
+        required: true
+        type: string
+    outputs:
+      ios_result:
+        description: Result of the iOS physical-device job
+        value: ${{ jobs.results.outputs.ios_result }}
+      android_result:
+        description: Result of the Android physical-device job
+        value: ${{ jobs.results.outputs.android_result }}
 
 permissions:
   contents: read
 
 jobs:
   ios:
-    name: iOS physical device (${{ inputs.candidate_tag }})
+    name: iOS physical device (${{ inputs.candidate_ref }})
     runs-on: [self-hosted, macOS, ios-physical-device]
     timeout-minutes: 20
     defaults:
@@ -29,12 +52,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.candidate_tag }}
+          ref: ${{ inputs.candidate_ref }}
 
       - name: Download and install iOS candidate
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          IOS_BUILD_URL: ${{ inputs.ios_build_url }}
           IOS_DEVICE_ID: ${{ vars.IOS_DEVICE_ID }}
         run: |
           test -n "$IOS_DEVICE_ID" || {
@@ -43,9 +67,11 @@ jobs:
           }
           rm -rf build/release-candidate build/ios-payload
           mkdir -p build/release-candidate build/ios-payload
-          gh release download "$CANDIDATE_TAG" \
-            --pattern owner-mobile-ios.ipa \
-            --dir build/release-candidate
+          curl --fail --location \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/octet-stream" \
+            "$IOS_BUILD_URL" \
+            --output build/release-candidate/owner-mobile-ios.ipa
           unzip -q build/release-candidate/owner-mobile-ios.ipa \
             -d build/ios-payload
           IOS_APP="$(find build/ios-payload/Payload -maxdepth 1 -name '*.app' -print -quit)"
@@ -61,7 +87,8 @@ jobs:
           {
             echo "## iOS release-candidate speech check"
             echo
-            echo "- Candidate release: [$CANDIDATE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$CANDIDATE_TAG)"
+            echo "- Candidate ref: \`$CANDIDATE_REF\`"
+            echo "- Candidate build: $IOS_BUILD_URL"
             echo "- Candidate commit: \`$CANDIDATE_SHA\`"
             echo "- Installed asset: \`owner-mobile-ios.ipa\`"
             echo "- SHA-256: \`$BUILD_SHA256\`"
@@ -89,7 +116,7 @@ jobs:
         run: exit 1
 
   android:
-    name: Android physical device (${{ inputs.candidate_tag }})
+    name: Android physical device (${{ inputs.candidate_ref }})
     runs-on: [self-hosted, android-physical-device]
     timeout-minutes: 20
     defaults:
@@ -98,12 +125,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.candidate_tag }}
+          ref: ${{ inputs.candidate_ref }}
 
       - name: Download and install Android candidate
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          ANDROID_BUILD_URL: ${{ inputs.android_build_url }}
           ANDROID_DEVICE_ID: ${{ vars.ANDROID_DEVICE_ID }}
         run: |
           test -n "$ANDROID_DEVICE_ID" || {
@@ -112,9 +140,11 @@ jobs:
           }
           rm -rf build/release-candidate
           mkdir -p build/release-candidate
-          gh release download "$CANDIDATE_TAG" \
-            --pattern owner-mobile-android.apk \
-            --dir build/release-candidate
+          curl --fail --location \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/octet-stream" \
+            "$ANDROID_BUILD_URL" \
+            --output build/release-candidate/owner-mobile-android.apk
           adb -s "$ANDROID_DEVICE_ID" install -r \
             build/release-candidate/owner-mobile-android.apk
           CANDIDATE_SHA="$(git rev-parse HEAD)"
@@ -122,7 +152,8 @@ jobs:
           {
             echo "## Android release-candidate speech check"
             echo
-            echo "- Candidate release: [$CANDIDATE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$CANDIDATE_TAG)"
+            echo "- Candidate ref: \`$CANDIDATE_REF\`"
+            echo "- Candidate build: $ANDROID_BUILD_URL"
             echo "- Candidate commit: \`$CANDIDATE_SHA\`"
             echo "- Installed asset: \`owner-mobile-android.apk\`"
             echo "- SHA-256: \`$BUILD_SHA256\`"
@@ -148,3 +179,20 @@ jobs:
       - name: Fail job when speech smoke failed
         if: always() && steps.speech_smoke.outcome == 'failure'
         run: exit 1
+
+  results:
+    name: Record physical-device results
+    if: always()
+    needs: [ios, android]
+    runs-on: ubuntu-latest
+    outputs:
+      ios_result: ${{ needs.ios.result }}
+      android_result: ${{ needs.android.result }}
+    steps:
+      - name: Record results
+        env:
+          IOS_RESULT: ${{ needs.ios.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+        run: |
+          echo "iOS result: $IOS_RESULT"
+          echo "Android result: $ANDROID_RESULT"

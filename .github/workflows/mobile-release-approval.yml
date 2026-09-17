@@ -1,0 +1,79 @@
+name: Mobile release approval
+run-name: Verify and release ${{ github.event.release.tag_name }}
+
+on:
+  pull_request:
+    paths:
+      - .github/actionlint.yaml
+      - .github/workflows/mobile-release-approval.yml
+      - .github/workflows/physical-device-speech-smoke.yml
+      - scripts/mobile-release-workflow-contract.test.mjs
+  release:
+    types: [prereleased]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-workflows:
+    name: Validate mobile workflow syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: >-
+            .github/workflows/mobile-release-approval.yml
+            .github/workflows/physical-device-speech-smoke.yml
+      - name: Check release-gate wiring
+        run: node --test scripts/mobile-release-workflow-contract.test.mjs
+
+  physical-device-speech:
+    name: Physical-device speech checks
+    if: github.event_name == 'release'
+    needs: validate-workflows
+    uses: ./.github/workflows/physical-device-speech-smoke.yml
+    with:
+      candidate_ref: ${{ github.event.release.tag_name }}
+      ios_build_url: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-ios.ipa
+      android_build_url: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/owner-mobile-android.apk
+
+  release:
+    name: Approve mobile release
+    if: always() && github.event_name == 'release'
+    needs: [validate-workflows, physical-device-speech]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Require successful workflow and device results
+        env:
+          VALIDATION_RESULT: ${{ needs.validate-workflows.result }}
+          DEVICE_WORKFLOW_RESULT: ${{ needs.physical-device-speech.result }}
+          IOS_RESULT: ${{ needs.physical-device-speech.outputs.ios_result }}
+          ANDROID_RESULT: ${{ needs.physical-device-speech.outputs.android_result }}
+        run: |
+          test "$VALIDATION_RESULT" = success
+          test "$DEVICE_WORKFLOW_RESULT" = success
+          test "$IOS_RESULT" = success
+          test "$ANDROID_RESULT" = success
+
+      - name: Promote verified candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          CANDIDATE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh api \
+            --method PATCH \
+            "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F prerelease=false \
+            -F draft=false
+          {
+            echo "## Mobile release approved"
+            echo
+            echo "Both physical-device speech checks passed."
+            echo
+            echo "Released candidate: [$CANDIDATE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$CANDIDATE_TAG)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -5,6 +5,7 @@
   "scripts": {
     "preinstall": "node scripts/verify-package-manager.mjs",
     "build": "corepack pnpm run typecheck && corepack pnpm -r --if-present run build",
+    "test:mobile-release-workflows": "node --test scripts/mobile-release-workflow-contract.test.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "corepack pnpm run typecheck:libs && corepack pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
