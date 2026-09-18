@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - .github/actionlint.yaml
+      - .github/actions/verify-mobile-candidate/action.yml
       - .github/workflows/mobile-release-approval.yml
       - .github/workflows/physical-device-speech-smoke.yml
       - scripts/download-private-release-asset.sh
@@ -16,6 +17,16 @@ permissions:
   contents: read
 
 jobs:
+  moved-tag-sha-fixture:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/physical-device-speech-smoke.yml
+    with:
+      candidate_ref: ${{ github.sha }}
+      expected_candidate_sha: ${{ github.sha }}
+      ios_build_url: https://ci.invalid/not-downloaded.ipa
+      android_build_url: https://ci.invalid/not-downloaded.apk
+      sha_mismatch_fixture: true
+
   validate-workflows:
     name: Validate mobile workflow syntax
     runs-on: ubuntu-latest

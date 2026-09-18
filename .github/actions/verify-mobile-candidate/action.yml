@@ -1,0 +1,15 @@
+name: Verify mobile candidate commit
+description: Reject a candidate ref when checkout HEAD differs from its pinned SHA
+
+inputs:
+  expected_candidate_sha:
+    description: Commit SHA pinned when the release candidate was created
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+      run: test -n "$EXPECTED_CANDIDATE_SHA" && test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_SHA"
