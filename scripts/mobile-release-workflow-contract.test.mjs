@@ -17,6 +17,13 @@ const downloader = readFileSync(
   new URL("./download-private-release-asset.sh", import.meta.url),
   "utf8",
 );
+const candidateVerifier = readFileSync(
+  new URL(
+    "../.github/actions/verify-mobile-candidate/action.yml",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("candidate metadata and both build links reach the device workflow", () => {
   assert.match(
@@ -51,10 +58,32 @@ test("both device jobs verify the pinned candidate SHA before installing", () =>
 
   for (const platform of ["iOS", "Android"]) {
     const verification = new RegExp(
-      `- name: Verify ${platform} candidate commit[\\s\\S]*?EXPECTED_CANDIDATE_SHA: \\$\\{\\{ inputs\\.expected_candidate_sha \\}\\}[\\s\\S]*?test -n "\\$EXPECTED_CANDIDATE_SHA" && test "\\$\\(git rev-parse HEAD\\)" = "\\$EXPECTED_CANDIDATE_SHA"[\\s\\S]*?- name: Download and install ${platform} candidate`,
+      `- name: Verify ${platform} candidate commit[\\s\\S]*?uses: \\.\\/\\.github\\/actions\\/verify-mobile-candidate[\\s\\S]*?expected_candidate_sha: \\$\\{\\{ inputs\\.expected_candidate_sha \\}\\}[\\s\\S]*?- name: Download and install ${platform} candidate`,
     );
     assert.match(device, verification);
   }
+  assert.match(
+    candidateVerifier,
+    /test -n "\$EXPECTED_CANDIDATE_SHA" && test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_CANDIDATE_SHA"/,
+  );
+});
+
+test("pull-request CI proves both platform gates reject a moved tag before installation", () => {
+  assert.match(
+    approval,
+    /\n\s{2}moved-tag-sha-fixture:[\s\S]*?uses: \.\/\.github\/workflows\/physical-device-speech-smoke\.yml[\s\S]*?candidate_ref: \$\{\{ github\.sha \}\}[\s\S]*?expected_candidate_sha: \$\{\{ github\.sha \}\}[\s\S]*?sha_mismatch_fixture: true/,
+  );
+  assert.match(device, /matrix:\n\s+platform: \[iOS, Android\]/);
+  assert.match(
+    device,
+    /Move the candidate tag away from its pinned SHA[\s\S]*?git tag "\$CANDIDATE_TAG" "\$EXPECTED_CANDIDATE_SHA"[\s\S]*?git commit --allow-empty[\s\S]*?git tag --force "\$CANDIDATE_TAG" HEAD/,
+  );
+  assert.match(
+    device,
+    /Verify \$\{\{ matrix\.platform \}\} candidate commit[\s\S]*?continue-on-error: true[\s\S]*?uses: \.\/\.github\/actions\/verify-mobile-candidate[\s\S]*?Download and install \$\{\{ matrix\.platform \}\} candidate[\s\S]*?if: steps\.verify\.outcome == 'success'[\s\S]*?Confirm \$\{\{ matrix\.platform \}\} rejected before installation[\s\S]*?test "\$VERIFY_OUTCOME" = failure[\s\S]*?test "\$INSTALL_OUTCOME" = skipped/,
+  );
+
+  assert.match(device, /\n\s{4}if: \$\{\{ !inputs\.sha_mismatch_fixture \}\}/);
 });
 
 test("approval always runs and rejects failed, cancelled, or missing device results", () => {
@@ -134,6 +163,10 @@ test("CI syntax validation covers both mobile workflows", () => {
     /run: node --test scripts\/mobile-release-workflow-contract\.test\.mjs/,
   );
   assert.match(approval, /\.github\/workflows\/mobile-release-approval\.yml/);
+  assert.match(
+    approval,
+    /\.github\/actions\/verify-mobile-candidate\/action\.yml/,
+  );
   assert.match(
     approval,
     /\.github\/workflows\/physical-device-speech-smoke\.yml/,

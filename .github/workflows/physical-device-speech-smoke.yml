@@ -38,6 +38,11 @@ on:
         description: URL of the Android candidate
         required: true
         type: string
+      sha_mismatch_fixture:
+        description: CI-only proof that both candidate SHA gates reject before installation
+        required: false
+        default: false
+        type: boolean
     outputs:
       ios_result:
         description: Result of the iOS physical-device job
@@ -50,8 +55,54 @@ permissions:
   contents: read
 
 jobs:
+  sha-mismatch-fixture:
+    name: Prove ${{ matrix.platform }} rejects a moved candidate tag
+    if: inputs.sha_mismatch_fixture
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [iOS, Android]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_ref }}
+
+      - name: Move the candidate tag away from its pinned SHA
+        env:
+          CANDIDATE_TAG: mobile-release-ci-fixture
+          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$CANDIDATE_TAG" "$EXPECTED_CANDIDATE_SHA"
+          git commit --allow-empty --message "Move CI-only mobile release tag"
+          git tag --force "$CANDIDATE_TAG" HEAD
+          test "$(git rev-parse "$CANDIDATE_TAG")" != "$EXPECTED_CANDIDATE_SHA"
+
+      - name: Verify ${{ matrix.platform }} candidate commit
+        id: verify
+        continue-on-error: true
+        uses: ./.github/actions/verify-mobile-candidate
+        with:
+          expected_candidate_sha: ${{ inputs.expected_candidate_sha }}
+
+      - name: Download and install ${{ matrix.platform }} candidate
+        id: install
+        if: steps.verify.outcome == 'success'
+        run: exit 97
+
+      - name: Confirm ${{ matrix.platform }} rejected before installation
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          test "$VERIFY_OUTCOME" = failure
+          test "$INSTALL_OUTCOME" = skipped
+
   ios:
     name: iOS physical device (${{ inputs.candidate_ref }})
+    if: ${{ !inputs.sha_mismatch_fixture }}
     runs-on: [self-hosted, macOS, ios-physical-device]
     timeout-minutes: 20
     defaults:
@@ -63,9 +114,9 @@ jobs:
           ref: ${{ inputs.candidate_ref }}
 
       - name: Verify iOS candidate commit
-        env:
-          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
-        run: test -n "$EXPECTED_CANDIDATE_SHA" && test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_SHA"
+        uses: ./.github/actions/verify-mobile-candidate
+        with:
+          expected_candidate_sha: ${{ inputs.expected_candidate_sha }}
 
       - name: Download and install iOS candidate
         env:
@@ -127,6 +178,7 @@ jobs:
 
   android:
     name: Android physical device (${{ inputs.candidate_ref }})
+    if: ${{ !inputs.sha_mismatch_fixture }}
     runs-on: [self-hosted, android-physical-device]
     timeout-minutes: 20
     defaults:
@@ -138,9 +190,9 @@ jobs:
           ref: ${{ inputs.candidate_ref }}
 
       - name: Verify Android candidate commit
-        env:
-          EXPECTED_CANDIDATE_SHA: ${{ inputs.expected_candidate_sha }}
-        run: test -n "$EXPECTED_CANDIDATE_SHA" && test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE_SHA"
+        uses: ./.github/actions/verify-mobile-candidate
+        with:
+          expected_candidate_sha: ${{ inputs.expected_candidate_sha }}
 
       - name: Download and install Android candidate
         env:
@@ -194,7 +246,7 @@ jobs:
 
   results:
     name: Record physical-device results
-    if: always()
+    if: always() && !inputs.sha_mismatch_fixture
     needs: [ios, android]
     runs-on: ubuntu-latest
     outputs:
